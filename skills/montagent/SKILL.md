@@ -125,13 +125,11 @@ This is the capability map. Read it before you design, so the brief does not lea
 
 A piece can mix these: load each skill whose row it touches.
 
-A piece can mix these: load each skill whose row it touches.
-
 ### What it can't do yet
 
 Each item names the issue whose close retires it. Tell the user when the brief depends on one.
 
-- Parenting, groups and cameras. Bake the hierarchy to per-element keyframes (`montagent-character`). <!-- workaround: #499 · replaced by: parenting or a group transform -->
+- Parenting and groups. Bake the hierarchy to per-element keyframes (`montagent-character`). <!-- workaround: #499 · replaced by: parenting or a group transform -->
 - Changing an element's image over time. Use one element per image, each shown for its own span (`montagent-character`). <!-- workaround: #518 · replaced by: an image that changes over time -->
 - Reading a track's tempo or beats. Find the beat grid with the script in `montagent-craft`. <!-- workaround: #547 · replaced by: tempo and downbeat from probe -->
 
@@ -146,3 +144,5 @@ Montagent refuses these on purpose, so do not wait for them. Each line gives wha
 - Keyframe expressions, or links between values. Write literal keyframes. ([ADR-0145](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0145-capcut-and-premiere-are-where-precedent-is-looked-for-first-and-a-capability-with-none-enters-by-the-entry-test.md))
 - A native SVG or Lottie source. Pre-render it once with `montagent-prerender`: an SVG as one PNG, a Lottie as footage. ([ADR-0171](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0171-svg-and-lottie-do-not-enter-as-sources-and-each-is-pre-rendered-through-the-skill.md))
 - An open shader or script file. Pre-render the look with `montagent-prerender` and bring it in as footage ([ADR-0156](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0156-four-named-effects-join-the-effects-list-and-a-code-drawn-piece-enters-as-pre-rendered-footage.md)). ([ADR-0017](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0017-closed-schema-no-escape-hatch.md))
+- A 3D camera, z-depth sorting, 3D layer intersections, inter-layer 3D cast shadows, or arbitrary 4-point corner pin. Turn flat elements in perspective with `swivel`, `tilt` and `perspective` ([ADR-0167](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0167-an-element-may-be-projected-never-placed-swivel-tilt-and-perspective-join-the-transform.md)), or pre-render 3D scenes with `montagent-prerender` ([ADR-0233](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0233-3d-models-and-multichannel-passes-are-refused-as-native-sources-and-3d-scenes-pre-render-via-headless-recipes.md)).
+- Native 3D model sources (`.glb`, `.gltf`, `.obj`, `.fbx`, `.blend`) or multichannel 3D passes. Pre-render 3D scenes to transparent footage or PNGs with `montagent-prerender`. ([ADR-0233](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0233-3d-models-and-multichannel-passes-are-refused-as-native-sources-and-3d-scenes-pre-render-via-headless-recipes.md))
