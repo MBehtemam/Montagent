@@ -1991,15 +1991,27 @@ fn video_block(heading: &str, video: &Value, first: &[String], options: Options)
     )));
     // ADR-0143 §6: what wrote the bytes, on every render and preview.
     if let Some(encoder) = video["encoder"].as_str() {
-        out.push_str(&row(format!(
-            "encoder     {encoder}, preset {}, CRF {}, {} threads, ffmpeg {}",
-            video["preset"].as_str().unwrap_or("?"),
-            video["crf"].as_u64().unwrap_or_default(),
-            video["threads"].as_u64().unwrap_or_default(),
-            video["ffmpeg_version"]
-                .as_str()
-                .unwrap_or("of unknown version"),
-        )));
+        let threads = video["threads"].as_u64().unwrap_or_default();
+        let ffmpeg = video["ffmpeg_version"]
+            .as_str()
+            .unwrap_or("of unknown version");
+        let line = match encoder {
+            "prores_ks" => {
+                let profile = video["video_profile"].as_str().unwrap_or("standard");
+                let pix_fmt = video["pixel_format"].as_str().unwrap_or("yuv422p10le");
+                format!("encoder     prores_ks, profile {profile}, {pix_fmt}, {threads} threads, ffmpeg {ffmpeg}")
+            }
+            "dnxhd" => {
+                let profile = video["video_profile"].as_str().unwrap_or("dnxhr_hq");
+                format!("encoder     dnxhd, profile {profile}, {threads} threads, ffmpeg {ffmpeg}")
+            }
+            _ => {
+                let preset = video["preset"].as_str().unwrap_or("medium");
+                let crf = video["crf"].as_u64().unwrap_or(20);
+                format!("encoder     {encoder}, preset {preset}, CRF {crf}, {threads} threads, ffmpeg {ffmpeg}")
+            }
+        };
+        out.push_str(&row(line));
     }
 
     // #653: K·C painted frames is the least the reorder window can be, and where the byte

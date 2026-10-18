@@ -71,12 +71,14 @@ pub const THREADS: NonZeroU32 = match NonZeroU32::new(5) {
 
 /// The video encoder's settings: what the encode is asked for, and what the answer says
 /// was used (ADR-0077, ADR-0143).
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Settings {
     pub encoder: &'static str,
-    pub preset: &'static str,
-    pub crf: u8,
+    pub preset: Option<&'static str>,
+    pub crf: Option<u8>,
     pub threads: NonZeroU32,
+    pub profile: Option<String>,
+    pub pix_fmt: Option<String>,
 }
 
 impl Settings {
@@ -84,25 +86,29 @@ impl Settings {
     /// CLI or MCP (ADR-0143 §5).
     pub const PRODUCTION: Settings = Settings {
         encoder: crate::floor::VIDEO_ENCODER,
-        preset: "medium",
-        crf: 20,
+        preset: Some("medium"),
+        crf: Some(20),
         threads: THREADS,
+        profile: None,
+        pix_fmt: None,
     };
 
     /// The output-side video arguments these settings become, in the order `ffmpeg` is
     /// given them. `-threads` follows `-c:v`, so it is the encoder's thread count and not
     /// the raw input's.
     pub fn args(&self) -> Vec<String> {
-        vec![
+        let mut args = vec![
             "-c:v".to_string(),
             self.encoder.to_string(),
-            "-preset".to_string(),
-            self.preset.to_string(),
-            "-crf".to_string(),
-            self.crf.to_string(),
-            "-threads".to_string(),
-            self.threads.to_string(),
-        ]
+        ];
+        if let Some(preset) = self.preset {
+            args.extend(["-preset".to_string(), preset.to_string()]);
+        }
+        if let Some(crf) = self.crf {
+            args.extend(["-crf".to_string(), crf.to_string()]);
+        }
+        args.extend(["-threads".to_string(), self.threads.to_string()]);
+        args
     }
 }
 
@@ -560,6 +566,63 @@ impl Encoder {
 
         let bytes_per_pixel = if spec.alpha { 4 } else { 3 };
 
+        let video_codec = spec.video_codec.as_deref().unwrap_or("h264");
+        let settings = match video_codec {
+            "prores" => {
+                let profile = spec.video_profile.as_deref().unwrap_or("standard");
+                let pix_fmt = if spec.alpha {
+                    "yuva444p10le"
+                } else if profile == "4444" || profile == "4444xq" {
+                    "yuv444p10le"
+                } else {
+                    "yuv422p10le"
+                };
+                Settings {
+                    encoder: "prores_ks",
+                    preset: None,
+                    crf: None,
+                    threads: spec.settings.threads,
+                    profile: Some(profile.to_string()),
+                    pix_fmt: Some(pix_fmt.to_string()),
+                }
+            }
+            "dnxhr" => {
+                let profile = spec.video_profile.as_deref().unwrap_or("dnxhr_hq");
+                let lower = profile.to_ascii_lowercase();
+                let normalized_profile = match lower.as_str() {
+                    "dnxhr_lb" | "lb" => "dnxhr_lb",
+                    "dnxhr_sq" | "sq" => "dnxhr_sq",
+                    "dnxhr_hq" | "hq" => "dnxhr_hq",
+                    "dnxhr_hqx" | "hqx" => "dnxhr_hqx",
+                    "dnxhr_444" | "444" => "dnxhr_444",
+                    _ => profile,
+                };
+                let out_pix_fmt = match normalized_profile {
+                    "dnxhr_444" => "yuv444p10le",
+                    "dnxhr_hqx" => "yuv422p10le",
+                    _ => "yuv422p",
+                };
+                Settings {
+                    encoder: "dnxhd",
+                    preset: None,
+                    crf: None,
+                    threads: spec.settings.threads,
+                    profile: Some(normalized_profile.to_string()),
+                    pix_fmt: Some(out_pix_fmt.to_string()),
+                }
+            }
+            _ => {
+                let mut s = spec.settings.clone();
+                if s.profile.is_none() {
+                    s.profile = spec.video_profile.clone();
+                }
+                if s.pix_fmt.is_none() {
+                    s.pix_fmt = Some(if spec.alpha { "yuva420p" } else { "yuv420p" }.to_string());
+                }
+                s
+            }
+        };
+
         Ok(Encoder {
             child,
             stdin,
@@ -569,7 +632,7 @@ impl Encoder {
             frame_bytes: spec.width as usize * spec.height as usize * bytes_per_pixel,
             frames: 0,
             encoded,
-            settings: spec.settings,
+            settings,
         })
     }
 
@@ -651,7 +714,7 @@ impl Encoder {
             frames: self.frames,
             bytes,
             encoded: self.encoded,
-            settings: self.settings,
+            settings: self.settings.clone(),
         })
     }
 

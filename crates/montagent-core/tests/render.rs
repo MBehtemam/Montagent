@@ -369,6 +369,66 @@ fn the_answer_discloses_the_encoder_settings_the_file_was_written_with() {
 }
 
 #[test]
+fn the_answer_discloses_prores_encoder_settings_when_codec_is_prores() {
+    if !has_ffprobe() {
+        return;
+    }
+    let dir = tempdir(line!());
+    let body = r##"{
+            "frame": {"width": 1280, "height": 720},
+            "fps": 25,
+            "duration": 200,
+            "output": {
+                "path": "out/prores.mov",
+                "container": "mov",
+                "video": {
+                    "codec": "prores",
+                    "profile": "standard"
+                }
+            },
+            "tracks": [
+                {
+                    "name": "main",
+                    "layer": 0,
+                    "elements": [
+                        {
+                            "id": "box",
+                            "type": "rect",
+                            "start": 0,
+                            "end": 200,
+                            "x": 0,
+                            "y": 0,
+                            "width": 100,
+                            "height": 100,
+                            "fill": "#FF0000"
+                        }
+                    ]
+                }
+            ]
+        }"##;
+    let path = write_project(&dir, "p.montagent.json", body);
+
+    let (answer, _) = run(&path, &full());
+    assert_eq!(answer.report().exit_code(), ExitCode::Ok);
+    let json = answer.to_json();
+    let video = &json["render"];
+    let threads = montagent_render::encode::THREADS.get();
+    assert_eq!(video["encoder"], "prores_ks");
+    assert_eq!(video["video_profile"], "standard");
+    assert_eq!(video["pixel_format"], "yuv422p10le");
+    assert_eq!(video["threads"], threads);
+
+    let text =
+        montagent_core::wire::render_video(&answer, montagent_core::Wire::Text { verbose: false });
+    assert!(
+        text.contains(&format!(
+            "encoder     prores_ks, profile standard, yuv422p10le, {threads} threads"
+        )),
+        "{text}"
+    );
+}
+
+#[test]
 fn an_interrupted_render_leaves_no_partial_file_at_the_declared_path() {
     if !has_ffprobe() {
         return;
