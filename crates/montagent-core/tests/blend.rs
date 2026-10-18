@@ -15,8 +15,26 @@ use serde_json::{Value, json};
 mod common;
 use common::{canonical, tempdir, write_project};
 
-/// The five values, in ADR-0147's table order.
-const MODES: [&str; 5] = ["normal", "multiply", "screen", "overlay", "add"];
+/// The seventeen values, in ADR-0147 and ADR-0221 order.
+const MODES: [&str; 17] = [
+    "normal",
+    "multiply",
+    "screen",
+    "overlay",
+    "add",
+    "darken",
+    "lighten",
+    "color_dodge",
+    "color_burn",
+    "hard_light",
+    "soft_light",
+    "difference",
+    "exclusion",
+    "hue",
+    "saturation",
+    "color",
+    "luminosity",
+];
 
 /// A project of one track per element, the first element lowest.
 fn project(elements: &[Value]) -> Value {
@@ -102,7 +120,7 @@ fn an_unknown_mode_and_a_keyframe_list_are_schema_errors() {
     for blend in [
         json!("plus"),
         json!("linear_dodge"),
-        json!("soft_light"),
+        json!("dissolve"),
         json!("Screen"),
         json!([{"t": 0, "v": "screen"}]),
     ] {
@@ -175,6 +193,54 @@ fn each_mode_paints_adr_0147s_table_for_an_opaque_source_over_an_opaque_backdrop
                 .all(|(&got, want)| got.abs_diff(want) <= tolerance),
             "{mode}: painted {got:?}, ADR-0147's table says {rgb:?} (tolerance {tolerance})"
         );
+    }
+}
+
+#[test]
+fn adr_0221_twelve_additional_blend_modes_paint_expected_results() {
+    // Source #C04020 (192, 64, 32) over backdrop #40C060 (64, 192, 96).
+    let paint_mode = |mode: &str| {
+        let pic = painted(
+            &project(&[
+                rect("backdrop", "#40C060", json!({})),
+                rect("source", "#C04020", json!({"blend": mode})),
+            ]),
+            0,
+        );
+        pixel(&pic, 32, 24)
+    };
+
+    // darken: min(s, d) -> [64, 64, 32]
+    assert_eq!(paint_mode("darken"), [64, 64, 32]);
+    // lighten: max(s, d) -> [192, 192, 96]
+    assert_eq!(paint_mode("lighten"), [192, 192, 96]);
+    // difference: |s - d| -> [128, 128, 64]
+    assert_eq!(paint_mode("difference"), [128, 128, 64]);
+    // exclusion: s + d - 2*s*d -> [160, 160, 104] (within 1 for div255)
+    let excl = paint_mode("exclusion");
+    for (g, w) in excl.into_iter().zip([160u8, 160, 104]) {
+        assert!(g.abs_diff(w) <= 1, "exclusion: got {excl:?}");
+    }
+    // hard_light(source over backdrop) == overlay(backdrop over source) -> [161, 96, 24]
+    let hl = paint_mode("hard_light");
+    for (g, w) in hl.into_iter().zip([161u8, 96, 24]) {
+        assert!(g.abs_diff(w) <= 1, "hard_light: got {hl:?}");
+    }
+    // color_dodge brightens backdrop, color_burn darkens backdrop
+    let dodge = paint_mode("color_dodge");
+    assert!(dodge[0] > 64 && dodge[1] > 192 && dodge[2] > 96, "color_dodge: {dodge:?}");
+    let burn = paint_mode("color_burn");
+    assert!(burn[1] < 192 && burn[2] < 96, "color_burn: {burn:?}");
+    // soft_light nudges red up (s > 128) and green/blue down (s < 128)
+    let sl = paint_mode("soft_light");
+    assert!(sl[0] > 64 && sl[1] < 192 && sl[2] < 96, "soft_light: {sl:?}");
+
+    // Non-separable HSL modes (hue, saturation, color, luminosity) all produce distinct,
+    // valid composite colours different from plain `normal` ([192, 64, 32]).
+    for mode in ["hue", "saturation", "color", "luminosity"] {
+        let got = paint_mode(mode);
+        assert_ne!(got, [192, 64, 32], "{mode} should not be identical to normal");
+        assert_ne!(got, [64, 192, 96], "{mode} should not leave backdrop unchanged");
     }
 }
 

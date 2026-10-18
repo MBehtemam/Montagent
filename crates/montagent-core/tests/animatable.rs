@@ -495,6 +495,9 @@ fn every_numeric_and_colour_effect_parameter_is_in_the_list() {
             ("directional_blur", vec!["angle", "length"]),
             ("cdl", vec![]),
             ("lut3d", vec![]),
+            ("vibrance", vec!["amount"]),
+            ("hue_rotate", vec!["angle"]),
+            ("invert", vec!["amount"]),
         ]
     );
     let (_, chroma) = animatable::effect_members()
