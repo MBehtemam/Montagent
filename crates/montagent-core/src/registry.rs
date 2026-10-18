@@ -3855,6 +3855,20 @@ shorten the gloss text.",
         census: None,
         sets: &[Document],
     },
+    // ---- Frame blending on video (ADR-0232, #1106). ----------------------------------------
+    CheckSpec {
+        code: "E-INVALID-FRAME-BLEND",
+        classes: &[Error],
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0232",
+        template: "{element}: `frame_blend` is `{value}`, which is not a published frame blend \
+mode (ADR-0232). `video` admits `\"none\"` (nearest-prior-frame hold) or `\"mix\"` (linear \
+cross-dissolve between adjacent source frames).",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
 ];
 
 impl CheckSpec {

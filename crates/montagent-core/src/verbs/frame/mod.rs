@@ -2170,7 +2170,13 @@ impl<'a> Painter<'a> {
         // rather than repeating it. Unreachable from `render`, whose mix pre-flight refuses
         // the same document first (ADR-0093 ruling 6, condition 1); reachable from `frame`,
         // which draws what it is given.
-        if let Some(held) = self.held.as_ref().filter(|_| self.sampling) {
+        let frame_blend = element
+            .get("frame_blend")
+            .and_then(|v| serde_json::from_value::<crate::model::FrameBlend>(v.clone()).ok())
+            .unwrap_or_default();
+        if frame_blend == crate::model::FrameBlend::None
+            && let Some(held) = self.held.as_ref().filter(|_| self.sampling)
+        {
             return Ok(held.clone());
         }
         let offset = playhead.offset.ok_or_else(|| {
@@ -2227,15 +2233,22 @@ impl<'a> Painter<'a> {
                 }),
             }),
         };
-        let decoded = self
-            .supplier
-            .supply(&request)
-            .map_err(|failure| undecodable(failure.detail()))?;
+        let decoded = match frame_blend {
+            crate::model::FrameBlend::None => self
+                .supplier
+                .supply(&request)
+                .map_err(|failure| undecodable(failure.detail()))?,
+            crate::model::FrameBlend::Mix => {
+                let s_ms = resolve_mix_source_ms(element, self.t, self.sampling, offset);
+                decode_mixed(&request, element, playhead, s_ms)
+                    .map_err(|failure| undecodable(failure.detail()))?
+            }
+        };
         let raster =
             Raster::from_rgba(&decoded.rgba, decoded.width, decoded.height).ok_or_else(|| {
                 undecodable("its decoded frame was not the size asked for".to_string())
             })?;
-        if self.sampling {
+        if self.sampling && frame_blend == crate::model::FrameBlend::None {
             self.held = Some(raster.clone());
         }
         Ok(raster)
@@ -2600,14 +2613,102 @@ fn video_of(probe: &crate::media::probe::Probe) -> supply::Video {
         rate.filter(|rate| rate.num > 0 && rate.den > 0)
             .map(|rate| (1000 * rate.den + rate.num - 1) / rate.num)
     };
+    let fps = quad
+        .r_frame_rate
+        .or(quad.avg_frame_rate)
+        .filter(|rate| rate.num > 0 && rate.den > 0)
+        .map(|rate| (rate.num, rate.den));
     supply::Video {
         decoder: probe.decoder(),
+        start_ms: quad.start_time_ms.unwrap_or(0),
         end_ms: length.map(|length| quad.start_time_ms.unwrap_or(0) + length),
         frame_ms: period(quad.r_frame_rate).max(period(quad.avg_frame_rate)),
+        fps,
         pixels: probe
             .dimensions
             .map(|dimensions| (dimensions.decoded.width, dimensions.decoded.height)),
     }
+}
+
+/// Resolves the source time $S(t)$ in milliseconds for `frame_blend: "mix"` (ADR-0232).
+fn resolve_mix_source_ms(
+    element: &Value,
+    t: (i128, i128),
+    sampling: bool,
+    offset: i64,
+) -> f64 {
+    if !sampling {
+        return offset as f64;
+    }
+    if crate::remap::is_remapped(element) {
+        if let Some(Ok(animatable::Resolved::Number(value))) =
+            animatable::read(element, crate::remap::FIELD, t.0, t.1)
+        {
+            return value;
+        }
+        return offset as f64;
+    }
+    let Some(start) = element.get("start").and_then(|v| v.as_i64()) else {
+        return offset as f64;
+    };
+    let source_start = element
+        .get("source_start")
+        .and_then(|v| v.as_i64())
+        .unwrap_or(0) as f64;
+    let (s_num, s_den) = speed_of(element);
+    let speed = (s_num as f64) / (s_den as f64);
+    let t_ms = (t.0 as f64) / (t.1 as f64);
+    let elapsed = (t_ms - (start as f64)).max(0.0);
+    source_start + elapsed * speed
+}
+
+/// Decodes and linearly blends two adjacent source video frames under `frame_blend: "mix"` (ADR-0232).
+fn decode_mixed(
+    request: &supply::Request<'_>,
+    element: &Value,
+    playhead: Playhead,
+    s_ms: f64,
+) -> Result<montagent_render::decode::DecodedFrame, supply::Failure> {
+    if playhead.origin.is_none() && !crate::remap::is_remapped(element) {
+        return request.frame_at();
+    }
+    let Some((r_num, r_den)) = request.video.fps else {
+        return request.frame_at();
+    };
+    let start_ms = request.video.start_ms as f64;
+    if s_ms < start_ms {
+        return request.frame_at();
+    }
+    let k = (((s_ms - start_ms) * (r_num as f64)) / (1000.0 * (r_den as f64)) + 1e-9).floor() as i64;
+    let t_a = start_ms + (k as f64) * 1000.0 * (r_den as f64) / (r_num as f64);
+    let t_b = start_ms + ((k + 1) as f64) * 1000.0 * (r_den as f64) / (r_num as f64);
+    if t_b <= t_a {
+        return request.frame_at();
+    }
+    let w = ((s_ms - t_a) / (t_b - t_a)).clamp(0.0, 1.0);
+    let b_at_or_past_end = request
+        .video
+        .end_ms
+        .is_some_and(|end_ms| t_b >= (end_ms as f64) - 1e-6);
+    if w <= 1e-6 || w >= 1.0 - 1e-6 || b_at_or_past_end {
+        return request.frame_at();
+    }
+    let offset_a = ((t_a - 1e-9).ceil() as i64).max(request.video.start_ms);
+    let offset_b = ((t_b - 1e-9).ceil() as i64).max(offset_a);
+    if offset_a == offset_b {
+        return request.frame_at();
+    }
+    let mut frame_a = request.frame_at_offset(offset_a)?;
+    if let Ok(frame_b) = request.frame_at_offset(offset_b)
+        && frame_a.rgba.len() == frame_b.rgba.len()
+    {
+        let inv_w = 1.0 - w;
+        for (a, &b) in frame_a.rgba.iter_mut().zip(frame_b.rgba.iter()) {
+            let mixed = (*a as f64) * inv_w + (b as f64) * w;
+            *a = mixed.round().clamp(0.0, 255.0) as u8;
+        }
+    }
+    Ok(frame_a)
 }
 
 fn paints_of(

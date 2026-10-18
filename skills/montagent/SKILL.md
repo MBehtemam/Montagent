@@ -102,6 +102,7 @@ This is the capability map. Read it before you design, so the brief does not lea
 
 - Per-clip speed, and a check on clips that run across a loop's join: `speed`, `loop`.
 - Speed ramps, reverse and freeze frames on a video, as a curve of source times: `source_time`.
+- Linear cross-dissolve between consecutive source frames on slow-motion or speed-ramped video: `frame_blend` (`"none"`, `"mix"`).
 
 **Audio**
 
@@ -147,3 +148,4 @@ Montagent refuses these on purpose, so do not wait for them. Each line gives wha
 - A native 4-color gradient effect or Coons-patch mesh gradient. Layer two to four `radial` or `two_point_conical` gradient `rect` elements with `screen` or `add` blend over a dark base (`montagent-motion`), or pre-render a complex animated mesh with `montagent-prerender`. ([ADR-0222](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0222-sweep-and-two-point-conical-gradients-join-paint-and-4-color-gradient-stays-a-skill-recipe.md))
 - A 3D camera, z-depth sorting, 3D layer intersections, inter-layer 3D cast shadows, or arbitrary 4-point corner pin. Turn flat elements in perspective with `swivel`, `tilt` and `perspective` ([ADR-0167](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0167-an-element-may-be-projected-never-placed-swivel-tilt-and-perspective-join-the-transform.md)), or pre-render 3D scenes with `montagent-prerender` ([ADR-0233](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0233-3d-models-and-multichannel-passes-are-refused-as-native-sources-and-3d-scenes-pre-render-via-headless-recipes.md)).
 - Native 3D model sources (`.glb`, `.gltf`, `.obj`, `.fbx`, `.blend`) or multichannel 3D passes. Pre-render 3D scenes to transparent footage or PNGs with `montagent-prerender`. ([ADR-0233](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0233-3d-models-and-multichannel-passes-are-refused-as-native-sources-and-3d-scenes-pre-render-via-headless-recipes.md))
+- Optical-flow frame interpolation (`"pixel_motion"`, `"optical_flow"`), a video echo or frame-trail effect, or a posterize-time effect. Use `frame_blend: "mix"` for deterministic frame cross-dissolve or pre-render optical-flow slow motion with `montagent-prerender`; layer time-shifted copies of the element for frame echo; use stepped `source_time` keyframes for posterize-time frame-rate reduction (`montagent-footage`). ([ADR-0232](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0232-frame-blending-enters-video-and-optical-flow-echo-and-posterize-time-stay-outside-the-engine.md))
