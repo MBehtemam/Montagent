@@ -80,14 +80,14 @@ This is the capability map. Read it before you design, so the brief does not lea
 - Crossfade between clips, and a cut between clips: `transition`, `step`. Write `"audio": "constant_power"` on every new transition between clips that sound, so the sound crossfades too; absent keeps the hard audio cut.
 - Wipe, slide and push between clips, travelling in a direction, with an ease: `kind`, `direction`, `ease`.
 - Chroma key: `chroma`.
-- Blend an element into what is beneath it, as screen, add, multiply or overlay: `blend`.
+- Blend an element into what is beneath it, as screen, add, multiply, overlay, darken, lighten, color_dodge, color_burn, hard_light, soft_light, difference, exclusion, hue, saturation, color or luminosity: `blend`.
 - Keep everything outside a mask shape instead of inside it: `mask`, `invert`.
 - Soften a mask's edge, and animate the softness: `mask`, `feather`.
 - Mask an element through any closed outline drawn point by point, and animate the outline: `mask`, `shape`, `points`.
 
 **Effects**
 
-- Blur, shadow, mask, tint, saturation, brightness, contrast, ASC CDL color grading and 3D LUT cube grading: `blur`, `shadow`, `mask`, `tint`, `saturation`, `brightness`, `contrast`, `cdl`, `lut3d`.
+- Blur, shadow, mask, tint, saturation, brightness, contrast, vibrance, hue rotation, channel inversion, ASC CDL color grading and 3D LUT cube grading: `blur`, `shadow`, `mask`, `tint`, `saturation`, `brightness`, `contrast`, `vibrance`, `hue_rotate`, `invert`, `cdl`, `lut3d`.
 - Film grain that re-rolls every frame from a literal seed, on an element or as a grey `rect` texture blended `overlay`: `grain`, `seed`, `size`, `mono`.
 - Posterize an element's colours into a few flat steps: `posterize`, `levels`.
 - A bloom from an element's bright parts: `glow`, `threshold`, `radius`, `intensity`.
