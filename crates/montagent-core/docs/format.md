@@ -181,6 +181,14 @@ the scaffold writes `background`, `duration` and `output` exactly when you asked
   be a target.
 - **`group` is render-inert.** It says two elements belong to one authorial unit and
   nothing more — no timing, no stacking, no drawing consequence.
+- **`markers` are timeline annotations, and render-inert for picture and sound** (ADR-0230).
+  Both the project root and visual, audio, and `nest` elements accept an optional `markers`
+  list of `{at, duration?, label?, kind?}`, where `kind` is one of `"comment"` (the default),
+  `"chapter"`, `"beat"` or `"cue"`. Project-level markers are in absolute timeline
+  milliseconds (`0 <= at <= duration`), move with global `shift` operations, and export
+  `"chapter"` markers to container chapter metadata on `render`. Element-level markers are
+  relative to the element's `start`, remain untouched by `shift`, and never export as
+  chapters.
 
 ## Geometry
 

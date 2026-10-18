@@ -145,6 +145,7 @@ fn canonical_key_order_is_the_schemas_property_order() {
             "opacity",
             "blend",
             "motion_blur",
+            "markers",
             "effects",
             "elements"
         ]

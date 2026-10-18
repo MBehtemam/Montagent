@@ -36,6 +36,13 @@
       },
       "description": "Project-level master visual effects executed at the device boundary (ADR-0205)."
     },
+    "markers": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Marker"
+      },
+      "description": "Project-level timeline markers and chapter annotations (ADR-0230)."
+    },
     "fonts": {
       "type": "object",
       "additionalProperties": {
@@ -2006,6 +2013,61 @@
       ],
       "description": "One `{\"t\",\"t_from\",\"v\",\"ease\"}` record — `t_from` optional (ADR-0086)."
     },
+    "Marker": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "at": {
+          "type": "integer",
+          "format": "int64",
+          "description": "Timestamp in integer milliseconds (`>= 0`, ADR-0230).",
+          "minimum": 0
+        },
+        "duration": {
+          "type": "integer",
+          "format": "int64",
+          "description": "Optional non-negative span in integer milliseconds (`>= 0`). When omitted or `0`,\nthe marker is a point marker (ADR-0230).",
+          "minimum": 0
+        },
+        "label": {
+          "type": "string",
+          "description": "Optional human- or agent-readable description (ADR-0230)."
+        },
+        "kind": {
+          "description": "Optional semantic classification; omitted means `\"comment\"` (ADR-0230).",
+          "$ref": "#/$defs/MarkerKind"
+        }
+      },
+      "required": [
+        "at"
+      ],
+      "description": "A non-rendering timeline or element annotation (ADR-0230).\n\nProject-level markers (`Project::markers`) use project timeline milliseconds (`0` to\nproject duration) and move with `shift` ripple edits; element-level markers use\nmilliseconds relative to the element's `start` (`0` = element start) and remain anchored\nto the element across `shift` operations."
+    },
+    "MarkerKind": {
+      "oneOf": [
+        {
+          "type": "string",
+          "const": "comment",
+          "description": "Free-form note, review feedback, or agent scratchpad annotation (default when omitted)."
+        },
+        {
+          "type": "string",
+          "const": "chapter",
+          "description": "Structural section boundary exported to container chapter metadata on project-level\nmarkers during `render` (ADR-0230)."
+        },
+        {
+          "type": "string",
+          "const": "beat",
+          "description": "Musical beat, rhythm hit, or cut sync point."
+        },
+        {
+          "type": "string",
+          "const": "cue",
+          "description": "Action cue, dialog cue, or sound-effect trigger point."
+        }
+      ],
+      "description": "Semantic classification for a timeline or element marker (ADR-0230).\n\nWhen `kind` is omitted on a [`Marker`], it defaults semantically to [`MarkerKind::Comment`]."
+    },
     "FontFile": {
       "type": "object",
       "additionalProperties": false,
@@ -2194,6 +2256,13 @@
             "motion_blur": {
               "$ref": "#/$defs/MotionBlur"
             },
+            "markers": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/Marker"
+              },
+              "description": "Element-local timeline markers, relative to `start` (ADR-0230)."
+            },
             "effects": {
               "type": "array",
               "items": {
@@ -2330,6 +2399,13 @@
             "volume": {
               "description": "A video element is one element with intrinsic audio, so its embedded audio reuses\nthis same field and there is no `mute` — `volume: 0` already says silent, including\nat one instant via a keyframe (ADR-0055).",
               "$ref": "#/$defs/AnimatableVolume"
+            },
+            "markers": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/Marker"
+              },
+              "description": "Element-local timeline markers, relative to `start` (ADR-0230)."
             },
             "effects": {
               "type": "array",
@@ -2496,6 +2572,13 @@
             "motion_blur": {
               "$ref": "#/$defs/MotionBlur"
             },
+            "markers": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/Marker"
+              },
+              "description": "Element-local timeline markers, relative to `start` (ADR-0230)."
+            },
             "effects": {
               "type": "array",
               "items": {
@@ -2630,6 +2713,13 @@
             "motion_blur": {
               "$ref": "#/$defs/MotionBlur"
             },
+            "markers": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/Marker"
+              },
+              "description": "Element-local timeline markers, relative to `start` (ADR-0230)."
+            },
             "effects": {
               "type": "array",
               "items": {
@@ -2752,6 +2842,13 @@
             },
             "motion_blur": {
               "$ref": "#/$defs/MotionBlur"
+            },
+            "markers": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/Marker"
+              },
+              "description": "Element-local timeline markers, relative to `start` (ADR-0230)."
             },
             "effects": {
               "type": "array",
@@ -2895,6 +2992,13 @@
             "motion_blur": {
               "$ref": "#/$defs/MotionBlur"
             },
+            "markers": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/Marker"
+              },
+              "description": "Element-local timeline markers, relative to `start` (ADR-0230)."
+            },
             "effects": {
               "type": "array",
               "items": {
@@ -2988,6 +3092,13 @@
             },
             "volume": {
               "$ref": "#/$defs/AnimatableVolume"
+            },
+            "markers": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/Marker"
+              },
+              "description": "Element-local timeline markers, relative to `start` (ADR-0230)."
             },
             "audio_effects": {
               "type": "array",
@@ -3223,6 +3334,13 @@
             },
             "motion_blur": {
               "$ref": "#/$defs/MotionBlur"
+            },
+            "markers": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/Marker"
+              },
+              "description": "Element-local timeline markers, relative to `start` (ADR-0230)."
             },
             "effects": {
               "type": "array",

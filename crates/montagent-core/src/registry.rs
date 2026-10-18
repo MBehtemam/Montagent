@@ -3855,6 +3855,19 @@ shorten the gloss text.",
         census: None,
         sets: &[Document],
     },
+    // ---- Project and element markers (ADR-0230). -------------------------------------------
+    CheckSpec {
+        code: "E-MARKER-PAST-DURATION",
+        classes: &[Error],
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0230",
+        template: "`markers[{index}]` is at {at} ms, past `duration` ({duration} ms). Move or \
+remove the marker, or extend `duration`.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
 ];
 
 impl CheckSpec {

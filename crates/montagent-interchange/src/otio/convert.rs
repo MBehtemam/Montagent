@@ -159,6 +159,7 @@ pub fn otio_to_project(otio_json: &str) -> Result<Project, OtioError> {
                             speed,
                             overrun: None,
                             volume: None,
+                            markers: None,
                             audio_effects: None,
                         })
                     } else {
@@ -186,6 +187,7 @@ pub fn otio_to_project(otio_json: &str) -> Result<Project, OtioError> {
                             speed,
                             overrun: None,
                             volume: None,
+                            markers: None,
                             effects: None,
                             audio_effects: None,
                         })
@@ -242,6 +244,7 @@ pub fn otio_to_project(otio_json: &str) -> Result<Project, OtioError> {
         output: None,
         master: None,
         effects: None,
+        markers: None,
         fonts: None,
         font_vendor: None,
         tracks,

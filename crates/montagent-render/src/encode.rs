@@ -151,6 +151,43 @@ impl std::fmt::Display for Rate {
     }
 }
 
+/// A container chapter marker (ADR-0230), in milliseconds (`TIMEBASE=1/1000`).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Chapter {
+    pub start_ms: i64,
+    pub end_ms: i64,
+    pub title: String,
+}
+
+/// Format chapter metadata as an FFmpeg `FFMETADATA1` document (ADR-0230).
+pub fn format_ffmetadata(chapters: &[Chapter]) -> String {
+    let mut out = String::from(";FFMETADATA1\n");
+    for ch in chapters {
+        out.push_str("[CHAPTER]\nTIMEBASE=1/1000\n");
+        out.push_str(&format!("START={}\n", ch.start_ms));
+        out.push_str(&format!("END={}\n", ch.end_ms));
+        out.push_str(&format!("title={}\n", escape_ffmetadata(&ch.title)));
+    }
+    out
+}
+
+fn escape_ffmetadata(s: &str) -> String {
+    let mut escaped = String::with_capacity(s.len());
+    for c in s.chars() {
+        match c {
+            '=' | ';' | '#' | '\\' => {
+                escaped.push('\\');
+                escaped.push(c);
+            }
+            '\n' => {
+                escaped.push_str("\\\n");
+            }
+            _ => escaped.push(c),
+        }
+    }
+    escaped
+}
+
 /// What one encode is asked to produce.
 #[derive(Debug, Clone)]
 pub struct Spec {
@@ -182,6 +219,8 @@ pub struct Spec {
     pub audio_bitrate: Option<String>,
     /// Whether alpha transparency is preserved in the video stream (ADR-0203).
     pub alpha: bool,
+    /// Container chapter markers to multiplex via FFmpeg `FFMETADATA1` (ADR-0230).
+    pub chapters: Vec<Chapter>,
 }
 
 impl Spec {
@@ -202,6 +241,7 @@ impl Spec {
             audio_sample_rate: None,
             audio_bitrate: None,
             alpha: false,
+            chapters: Vec::new(),
         }
     }
 
@@ -212,6 +252,19 @@ impl Spec {
         output_temp: &Path,
         encoded: Option<Encoded>,
         script: Option<&Path>,
+    ) -> Vec<String> {
+        self.ffmpeg_args_with_metadata(target_path, output_temp, encoded, script, None)
+    }
+
+    /// Assemble the output-side and input-side arguments for FFmpeg, including an optional
+    /// `FFMETADATA1` chapter metadata input file (ADR-0230).
+    pub fn ffmpeg_args_with_metadata(
+        &self,
+        target_path: &Path,
+        output_temp: &Path,
+        encoded: Option<Encoded>,
+        script: Option<&Path>,
+        metadata: Option<&Path>,
     ) -> Vec<String> {
         let mut args = vec![
             "-hide_banner".to_string(),
@@ -238,6 +291,16 @@ impl Spec {
                 args.push(input.display().to_string());
             }
         }
+        let metadata_input_index = metadata.map(|meta| {
+            let idx = 1 + self.audio.as_ref().map_or(0, |a| a.inputs.len());
+            args.extend([
+                "-f".to_string(),
+                "ffmetadata".to_string(),
+                "-i".to_string(),
+                meta.display().to_string(),
+            ]);
+            idx
+        });
         if let Some(script) = script {
             args.push(crate::floor::FILTER_COMPLEX_FILE.to_string());
             args.push(script.display().to_string());
@@ -360,6 +423,15 @@ impl Spec {
             args.push("-an".to_string());
         }
 
+        if let Some(idx) = metadata_input_index {
+            args.extend([
+                "-map_metadata".to_string(),
+                idx.to_string(),
+                "-map_chapters".to_string(),
+                idx.to_string(),
+            ]);
+        }
+
         if let Some(stamp) = &self.stamp {
             args.extend(["-metadata".to_string(), format!("comment={stamp}")]);
         }
@@ -371,6 +443,7 @@ impl Spec {
                 .map(|s| match s.to_ascii_lowercase().as_str() {
                     "mov" => "mov".to_string(),
                     "mxf" => "mxf".to_string(),
+                    "mkv" => "mkv".to_string(),
                     _ => "mp4".to_string(),
                 })
                 .unwrap_or_else(|| "mp4".to_string())
@@ -387,6 +460,9 @@ impl Spec {
             }
             "mxf" => {
                 args.extend(["-f".to_string(), "mxf".to_string()]);
+            }
+            "mkv" => {
+                args.extend(["-f".to_string(), "matroska".to_string()]);
             }
             _ => {
                 args.extend([
@@ -498,6 +574,7 @@ pub struct Encoder {
     /// thing that decides whether it is published.
     deliverable: Option<Deliverable>,
     script: Option<PathBuf>,
+    metadata: Option<PathBuf>,
     frame_bytes: usize,
     frames: u64,
     encoded: Option<Encoded>,
@@ -541,8 +618,28 @@ impl Encoder {
             None => None,
         };
 
+        let metadata = if spec.chapters.is_empty() {
+            None
+        } else {
+            let path = deliverable.sibling("ffmetadata");
+            let content = format_ffmetadata(&spec.chapters);
+            if let Err(e) = std::fs::write(&path, content) {
+                if let Some(script) = &script {
+                    let _ = std::fs::remove_file(script);
+                }
+                return Err(format!("{} could not be written: {e}", path.display()));
+            }
+            Some(path)
+        };
+
         let mut command = Command::new(ffmpeg);
-        command.args(spec.ffmpeg_args(output, deliverable.temp(), encoded, script.as_deref()));
+        command.args(spec.ffmpeg_args_with_metadata(
+            output,
+            deliverable.temp(),
+            encoded,
+            script.as_deref(),
+            metadata.as_deref(),
+        ));
         command
             .stdin(Stdio::piped())
             .stdout(Stdio::null())
@@ -554,6 +651,9 @@ impl Encoder {
                 deliverable.abandon();
                 if let Some(script) = &script {
                     let _ = std::fs::remove_file(script);
+                }
+                if let Some(metadata) = &metadata {
+                    let _ = std::fs::remove_file(metadata);
                 }
                 return Err(format!("{} could not be run: {e}", ffmpeg.display()));
             }
@@ -578,6 +678,7 @@ impl Encoder {
             stderr,
             deliverable: Some(deliverable),
             script,
+            metadata,
             frame_bytes: spec.width as usize * spec.height as usize * bytes_per_pixel,
             frames: 0,
             encoded,
@@ -637,6 +738,9 @@ impl Encoder {
         if let Some(script) = self.script.take() {
             let _ = std::fs::remove_file(script);
         }
+        if let Some(metadata) = self.metadata.take() {
+            let _ = std::fs::remove_file(metadata);
+        }
         match status {
             Ok(status) if status.success() => {}
             Ok(status) => {
@@ -695,6 +799,9 @@ impl Drop for Encoder {
         let _ = self.child.wait();
         if let Some(script) = self.script.take() {
             let _ = std::fs::remove_file(script);
+        }
+        if let Some(metadata) = self.metadata.take() {
+            let _ = std::fs::remove_file(metadata);
         }
         // The temp file is `Deliverable`'s to remove, and its own `Drop` does so next.
     }
@@ -1397,4 +1504,63 @@ mod tests {
             assert_eq!(field("color_range"), Some("tv"), "{filename}: {stdout}");
         }
     }
+
+    #[test]
+    fn ffmetadata_formatting_and_ffmpeg_chapter_mapping_arguments() {
+        let chapters = vec![
+            Chapter {
+                start_ms: 0,
+                end_ms: 1000,
+                title: "Intro = Part 1; #1".to_string(),
+            },
+            Chapter {
+                start_ms: 1000,
+                end_ms: 2500,
+                title: "Outro".to_string(),
+            },
+        ];
+        let meta = format_ffmetadata(&chapters);
+        assert_eq!(
+            meta,
+            ";FFMETADATA1\n\
+             [CHAPTER]\n\
+             TIMEBASE=1/1000\n\
+             START=0\n\
+             END=1000\n\
+             title=Intro \\= Part 1\\; \\#1\n\
+             [CHAPTER]\n\
+             TIMEBASE=1/1000\n\
+             START=1000\n\
+             END=2500\n\
+             title=Outro\n"
+        );
+
+        let spec = Spec {
+            chapters,
+            ..Spec::new(1920, 1080, 25.into(), Rgba::BLACK)
+        };
+        let args = spec.ffmpeg_args_with_metadata(
+            Path::new("out.mp4"),
+            Path::new(".out.mp4.tmp"),
+            None,
+            None,
+            Some(Path::new(".out.mp4.tmp.ffmetadata")),
+        );
+        let find = |flag: &str| -> Option<&str> {
+            args.iter()
+                .position(|a| a == flag)
+                .map(|i| args[i + 1].as_str())
+        };
+        assert_eq!(find("-map_metadata"), Some("1"));
+        assert_eq!(find("-map_chapters"), Some("1"));
+        assert!(args.windows(4).any(|w| {
+            w == [
+                "-f",
+                "ffmetadata",
+                "-i",
+                ".out.mp4.tmp.ffmetadata",
+            ]
+        }));
+    }
 }
+

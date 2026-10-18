@@ -342,6 +342,16 @@ pub fn shift(path: &FilePath, ask: &Ask) -> Answer {
                 report,
             };
         }
+
+        if ask.scope.is_none()
+            && let Some(markers) = &mut project.markers
+        {
+            for marker in markers {
+                if marker.at >= ask.at {
+                    marker.at += ask.delta;
+                }
+            }
+        }
     } else {
         // ---- Negative shift: excising timeline in [at, at + |delta|) (ADR-0200). ----
         let cut_start = ask.at;
@@ -712,6 +722,21 @@ pub fn shift(path: &FilePath, ask: &Ask) -> Answer {
                 receipt,
                 report,
             };
+        }
+
+        if ask.scope.is_none()
+            && let Some(markers) = &mut project.markers
+        {
+            if ask.delete {
+                markers.retain(|m| !(cut_start <= m.at && m.at < cut_end));
+            }
+            for marker in markers {
+                if marker.at >= cut_end {
+                    marker.at -= span;
+                } else if marker.at >= cut_start {
+                    marker.at = cut_start;
+                }
+            }
         }
 
         // 7. Collision check: ensure downstream shift didn't cause track overlap or layer tie.

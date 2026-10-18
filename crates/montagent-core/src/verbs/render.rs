@@ -1338,6 +1338,7 @@ pub(crate) fn encode_span(
             audio_sample_rate: span.audio_config.as_ref().and_then(|a| a.sample_rate),
             audio_bitrate: span.audio_config.as_ref().and_then(|a| a.bitrate.clone()),
             alpha: span.alpha,
+            chapters: extract_chapters(span.document, span.to),
         },
     ) {
         Ok(encoder) => encoder,
@@ -1461,6 +1462,45 @@ pub(crate) fn encode_span(
         profile,
     })
 }
+
+/// Extract project-level chapter markers (`kind: "chapter"`) sorted by `at`, computing
+/// `START` and `END` in milliseconds (`TIMEBASE=1/1000`) per ADR-0230.
+pub(crate) fn extract_chapters(
+    document: &Loose,
+    to: i64,
+) -> Vec<montagent_render::encode::Chapter> {
+    let Some(markers) = document.value().get("markers").and_then(Value::as_array) else {
+        return Vec::new();
+    };
+    let mut chapter_markers: Vec<crate::model::Marker> = markers
+        .iter()
+        .filter_map(|v| serde_json::from_value::<crate::model::Marker>(v.clone()).ok())
+        .filter(|m| m.kind == Some(crate::model::MarkerKind::Chapter))
+        .collect();
+    if chapter_markers.is_empty() {
+        return Vec::new();
+    }
+    chapter_markers.sort_by_key(|m| m.at);
+    let mut chapters = Vec::with_capacity(chapter_markers.len());
+    for (i, marker) in chapter_markers.iter().enumerate() {
+        let start_ms = marker.at;
+        let end_ms = match marker.duration {
+            Some(d) if d > 0 => start_ms + d,
+            _ => chapter_markers
+                .get(i + 1)
+                .map(|next| next.at.max(start_ms))
+                .unwrap_or_else(|| to.max(start_ms)),
+        };
+        let title = marker.label.clone().unwrap_or_default();
+        chapters.push(montagent_render::encode::Chapter {
+            start_ms,
+            end_ms,
+            title,
+        });
+    }
+    chapters
+}
+
 
 /// The encoder's half of [`encode_span`]'s loop: take each frame of the span from `next`, in
 /// timeline order, and push it — the progress, the cancel and the clock all counted here, on
