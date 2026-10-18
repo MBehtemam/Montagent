@@ -14,12 +14,12 @@ use serde_json::Value;
 use crate::model::Origin;
 use crate::verbs::query::geometry::{number_at, origin_fraction};
 
-/// The five unit lists, in the order ADR-0151 names them.
+/// The six unit lists, in the order ADR-0151 and ADR-0224 name them.
 ///
 /// Nested inside a text element, so not members of [`crate::animatable`]'s element-level
 /// list; a test below holds this to the animatable properties the schema types on `Units`
 /// and `UnitOverride`, so it cannot drift from the format.
-pub(crate) const LISTS: [&str; 5] = ["x", "y", "rotation", "scale", "opacity"];
+pub(crate) const LISTS: [&str; 6] = ["x", "y", "rotation", "scale", "opacity", "blur"];
 
 #[cfg(test)]
 mod tests {
@@ -72,6 +72,7 @@ pub(crate) struct Pose {
     pub(crate) rotation: f64,
     pub(crate) scale: [f64; 2],
     pub(crate) opacity: f64,
+    pub(crate) blur: f64,
 }
 
 impl Pose {
@@ -82,6 +83,7 @@ impl Pose {
             && self.rotation == 0.0
             && self.scale == [1.0, 1.0]
             && self.opacity >= 1.0
+            && self.blur <= 0.0
     }
 
     /// `T(pivot + offset) · R(rotation) · S(scale) · T(−pivot)`, as `[sx, kx, tx, ky, sy, ty]`
@@ -130,8 +132,8 @@ pub(crate) fn by_name(by: By) -> &'static str {
 }
 
 impl Plan {
-    /// The element's stagger, or `None` where it has no `units` block with a readable `by`
-    /// and a positive `every` — the schema check's to report.
+    /// The element's stagger, or `None` where it has no `units` block with a readable `by`,
+    /// a positive `every`, and a recognised `order` — the schema check's to report.
     pub(crate) fn of(element: &Value) -> Option<Plan> {
         let block = element.get("units")?.clone();
         let by = match block.get("by")?.as_str()? {
@@ -141,7 +143,13 @@ impl Plan {
             _ => return None,
         };
         let every = block.get("every")?.as_i64().filter(|every| *every > 0)?;
-        let reverse = block.get("order").and_then(Value::as_str) == Some("reverse");
+        let order = block
+            .get("order")
+            .and_then(Value::as_str)
+            .unwrap_or("forward");
+        if !matches!(order, "forward" | "reverse" | "center_out" | "edges_in") {
+            return None;
+        }
         let origin: Origin = block
             .get("origin")
             .and_then(|o| serde_json::from_value(o.clone()).ok())
@@ -156,6 +164,7 @@ impl Plan {
         }
         let segmentation = segment(&text, by);
         let count = segmentation.count;
+        let last_unit = count.saturating_sub(1);
         let run_of = |at: usize| run_ranges.iter().position(|r| r.contains(&at)).unwrap_or(0);
         let units: Vec<Unit> = (0..count)
             .map(|index| {
@@ -168,13 +177,18 @@ impl Plan {
                     .next_back()
                     .map_or(first.clone(), |g| g.range.clone());
                 let span = first.start..last.end;
-                let position = if reverse { count - 1 - index } else { index } as i64;
+                let step = match order {
+                    "reverse" => last_unit - index,
+                    "edges_in" => index.min(last_unit - index),
+                    "center_out" => (last_unit / 2) - index.min(last_unit - index),
+                    _ => index,
+                } as i64;
                 Unit {
                     index,
                     text: text[span.clone()].to_string(),
                     run: run_of(span.start),
                     span,
-                    delay: position * every,
+                    delay: step * every,
                     override_run: None,
                 }
             })
@@ -292,12 +306,15 @@ impl Plan {
         let scale = number_at::<[f64; 2]>(o, "scale", t, [1.0, 1.0]);
         let (o, t) = at("opacity");
         let opacity = number_at::<f64>(o, "opacity", t, 1.0);
+        let (o, t) = at("blur");
+        let blur = number_at::<f64>(o, "blur", t, 0.0).clamp(0.0, 500.0);
         Pose {
             x,
             y,
             rotation,
             scale,
             opacity,
+            blur,
         }
     }
 
@@ -376,6 +393,7 @@ pub(crate) fn reach(element: &Value) -> Option<Reach> {
         }
     };
     let mut out = Reach::default();
+    let mut max_blur: Option<(f64, String)> = None;
     for (name, list) in &lists {
         for (axis, low, high) in [("x", 0, 1), ("y", 2, 3)] {
             let Some(written) = list.get(axis) else {
@@ -396,9 +414,25 @@ pub(crate) fn reach(element: &Value) -> Option<Reach> {
                 }
             }
         }
+        if let Some(written) = list.get("blur") {
+            for v in values(written) {
+                if v > 0.0 && max_blur.as_ref().is_none_or(|(seen, _)| v > *seen) {
+                    max_blur = Some((v, format!("{name}.blur")));
+                }
+            }
+        }
         for property in ["scale", "rotation"] {
             if list.get(property).is_some() && !out.unchecked.contains(&property) {
                 out.unchecked.push(property);
+            }
+        }
+    }
+    if let Some((blur, source)) = max_blur {
+        let skirt = (3.0 * (blur / 2.0)).ceil();
+        for edge in [&mut out.left, &mut out.right, &mut out.top, &mut out.bottom] {
+            match edge {
+                Some((amount, _)) => *amount += skirt,
+                None => *edge = Some((skirt, source.clone())),
             }
         }
     }
@@ -510,8 +544,8 @@ pub struct Stagger {
     pub window: Option<[i64; 2]>,
 }
 
-/// One unit, as `query --at` reports it (ADR-0151 §5). Every unit is listed, whatever its
-/// state, so "settled", "not started" and "missing" never look alike.
+/// One unit, as `query --at` reports it (ADR-0151 §5, ADR-0224 §3). Every unit is listed,
+/// whatever its state, so "settled", "not started" and "missing" never look alike.
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct UnitRow {
     pub index: usize,
@@ -531,6 +565,7 @@ pub struct UnitRow {
     pub scale: [f64; 2],
     pub rotation: f64,
     pub opacity: f64,
+    pub blur: f64,
 }
 
 /// `query --at`'s summary and rows for one element, or `None` where it has no stagger.
@@ -571,6 +606,7 @@ pub(crate) fn report(
                 scale: pose.scale,
                 rotation: pose.rotation,
                 opacity: pose.opacity,
+                blur: pose.blur,
             }
         })
         .collect();

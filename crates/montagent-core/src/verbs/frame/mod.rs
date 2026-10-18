@@ -2752,6 +2752,7 @@ pub(crate) fn unit_draws(
                 body: index,
                 matrix: pose.matrix(pivot).map(|v| v as f32),
                 opacity: pose.opacity.clamp(0.0, 1.0) as f32,
+                blur: pose.blur.max(0.0) as f32,
             })
         })
         .collect();
