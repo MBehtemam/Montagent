@@ -386,3 +386,73 @@ To play a keyframe sequence $[t_0, t_m]$ backward over the same span (or back-to
 2. Mirror each reversed segment's easing curve: `linear` and `step` stay unchanged, `ease-in` swaps with `ease-out`, `ease-in-out` stays `ease-in-out`, and a cubic bezier `[x1, y1, x2, y2]` becomes `[1 - x2, 1 - y2, 1 - x1, 1 - y1]`. <!-- guard-ok: x1 y1 x2 y2 -->
 3. To append a reversed pass automatically after an entrance or pulse, run `scripts/keyframes.py` with `"op": "loop"` and `"mode": "pingpong"` over two cycle lengths. <!-- guard-ok: op pingpong -->
 
+### Tapered strokes, boolean cutouts and path modifiers
+
+Montagent strokes have a single uniform `stroke_width`, `path` elements carry one contour, and procedural path operators do not run at render time (ADR-0226). Bake variable-width tapered strokes, boolean unions/intersections, offset outlines, pucker/bloat, radial twist, zig-zag ridges and seeded wiggles at write time with `python3 scripts/paths.py <project> <spec>` (run it with `--help` for the spec and Python functions): <!-- guard-ok: scripts -->
+
+- **Tapered and wave strokes (`taper`):** converts an open or closed curve into a closed, filled `path` outline (`"closed": true` with `fill` and no `stroke`) whose thickness ramps over `start_length` and `end_length` from `start_width` to `width_px` to `end_width`, shaped by `start_ease` and `end_ease`, with optional sinusoidal width modulation (`wave_amount`, `wave_length`, `wave_phase`) and `cap` (`butt`, `round`, `square`). <!-- guard-ok: taper start_length end_length start_width width_px end_width start_ease end_ease wave_amount wave_length wave_phase cap -->
+- **Boolean paths (`boolean`) and cutouts:** combines two or more polygons with `union`, `subtract`, `intersect` or `exclude`. For a shape with an interior hole (a ring, badge cutout or keyhole), either pass `"holes_as_mask": true` to `paths.py` or write the outer shape with an inner inverted `mask` (`"invert": true`) in `effects` so the hole punches cleanly through the fill: <!-- guard-ok: boolean union subtract intersect exclude holes_as_mask -->
+
+```json
+{
+  "frame": {"width": 1920, "height": 1080}, "fps": 30, "background": "#101418", "duration": 2000, "output": "out/cutout.mp4",
+  "tracks": [
+    {"name": "badge", "layer": 10, "elements": [
+      {"id": "donut-badge", "type": "path", "start": 0, "end": 2000, "x": 960, "y": 540, "origin": "center", "width": 320, "height": 320, "closed": true, "fill": "#FF5A36", "points": [{"at": [40, 40]}, {"at": [280, 40]}, {"at": [280, 280]}, {"at": [40, 280]}], "effects": [{"name": "mask", "shape": "path", "points": [{"at": [110, 110]}, {"at": [210, 110]}, {"at": [210, 210]}, {"at": [110, 210]}], "invert": true}]}
+    ]}
+  ]
+}
+```
+
+- **Procedural path modifiers (`offset`, `pucker_bloat`, `twist`, `zig_zag`, `wiggle`):** `offset` expands or contracts a contour by `distance` pixels with `miter`, `bevel` or `round` joins (`line_join`, `miter_limit`); `pucker_bloat` pulls vertices toward or away from `center` while pushing cubic handles (`in`, `out`) in the opposite radial direction; `twist` rotates vertices and handles around `center` by `angle` degrees decaying quadratically to `radius`; `zig_zag` subdivides segments into `ridges` alternating peaks of `size` pixels (corner vertices or `"smooth": true` spline handles); and `wiggle` displaces vertices from a deterministic `seed` (`octaves`, `amplitude`, `frequency`), outputting either a static vertex list or frame-aligned `points` keyframes when `"animate": true`. <!-- guard-ok: pucker_bloat twist zig_zag wiggle distance line_join miter_limit ridges smooth octaves amplitude frequency animate -->
+- **Look:** `frame` the baked element at rest to verify integer coordinates sit cleanly inside `width × height` with no self-intersection; for animated `wiggle` paths, `preview` across the span. <!-- guard-ok: wiggle -->
+
+### Simultaneous and sequential trim across sibling paths
+
+Each `path` element trims its own single contour from 0 to 1. To draw a multi-stroke icon, signature or diagram on screen, write one `path` element per contour on sibling tracks:
+
+- **Simultaneous trim:** give every sibling `path` the exact same `trim_end` (or `trim_start`) keyframe times and easing curve so all contours draw on together.
+- **Sequential trim (`trim_sequential`):** run `python3 scripts/paths.py <project> <spec>` with `"op": "trim_sequential"` (or call `paths.trim_sequential(paths, start=..., end=..., ease=...)`). It measures each contour's arc length and partitions `[trim_start_ms, trim_end_ms]` proportionally so the pen moves at a steady speed from one contour to the next: <!-- guard-ok: trim_sequential op trim_start_ms trim_end_ms -->
+
+```json
+{
+  "frame": {"width": 1920, "height": 1080}, "fps": 30, "background": "#101418", "duration": 2000, "output": "out/check-seq.mp4",
+  "tracks": [
+    {"name": "stem-1", "layer": 10, "elements": [
+      {"id": "check-short", "type": "path", "start": 0, "end": 2000, "x": 960, "y": 540, "origin": "center", "width": 400, "height": 300, "closed": false, "stroke": "#38BDF8", "stroke_width": 14, "stroke_cap": "round", "trim_start": 0, "trim_end": [{"t": 200, "v": 0}, {"t": 500, "v": 1, "ease": "linear"}], "points": [{"at": [80, 160]}, {"at": [160, 240]}]}
+    ]},
+    {"name": "stem-2", "layer": 11, "elements": [
+      {"id": "check-long", "type": "path", "start": 0, "end": 2000, "x": 960, "y": 540, "origin": "center", "width": 400, "height": 300, "closed": false, "stroke": "#38BDF8", "stroke_width": 14, "stroke_cap": "round", "trim_start": 0, "trim_end": [{"t": 500, "v": 0}, {"t": 1100, "v": 1, "ease": [0.65, 0, 0.35, 1]}], "points": [{"at": [160, 240]}, {"at": [320, 80]}]}
+    ]}
+  ]
+}
+```
+
+- **Look:** `frame` at the handoff instant between contours (`t = 500` here) to confirm the first contour is complete before the second starts; then `preview` the whole draw.
+
+### Multi-point colour wash (4-Color Gradient), conic sweeps and off-axis highlights
+
+An atmospheric multi-colour wash (After Effects's 4-Color Gradient) is two to four full-frame `rect` elements over a dark `background`, each filled with a `radial` or `two_point_conical` gradient that fades from its spot colour to `#00000000` and blended `screen` (or `add`). Key each layer's `center` (and `focal`) slowly across the span so the colour pools drift without banding or hard seams.
+
+```json
+{
+  "frame": {"width": 1920, "height": 1080}, "fps": 30, "background": "#0B0D14", "duration": 3000, "output": "out/wash.mp4",
+  "tracks": [
+    {"name": "lobe-1", "layer": 1, "elements": [
+      {"id": "lobe-warm", "type": "rect", "start": 0, "end": 3000, "x": 0, "y": 0, "origin": "top-left", "width": 1920, "height": 1080, "blend": "screen", "fill": {"gradient": "radial", "center": [{"t": 0, "v": [0.22, 0.28]}, {"t": 2966, "v": [0.32, 0.36], "ease": "ease-in-out"}], "radius": 0.75, "stops": [{"offset": 0, "color": "#FF5A36BF"}, {"offset": 1, "color": "#FF5A3600"}]}}
+    ]},
+    {"name": "lobe-2", "layer": 2, "elements": [
+      {"id": "lobe-cool", "type": "rect", "start": 0, "end": 3000, "x": 0, "y": 0, "origin": "top-left", "width": 1920, "height": 1080, "blend": "screen", "fill": {"gradient": "two_point_conical", "center": [0.76, 0.68], "radius": 0.8, "focal": [{"t": 0, "v": [0.64, 0.56]}, {"t": 2966, "v": [0.7, 0.62], "ease": "ease-in-out"}], "stops": [{"offset": 0, "color": "#2E86FFBF"}, {"offset": 1, "color": "#2E86FF00"}]}}
+    ]},
+    {"name": "lobe-3", "layer": 3, "elements": [
+      {"id": "lobe-violet", "type": "rect", "start": 0, "end": 3000, "x": 0, "y": 0, "origin": "top-left", "width": 1920, "height": 1080, "blend": "screen", "fill": {"gradient": "radial", "center": [0.78, 0.22], "radius": 0.65, "stops": [{"offset": 0, "color": "#8A3FFC99"}, {"offset": 1, "color": "#8A3FFC00"}]}}
+    ]}
+  ]
+}
+```
+
+- **Fade to the same hue at alpha zero:** write the outer stop as the spot colour with `00` alpha (`#FF5A3600`, not `#00000000`), and keep peak alpha around `99`–`CC` so overlapping `screen` lobes do not clip to white.
+- **Off-axis specular highlights (`two_point_conical`):** place `focal` between `center` and the light source (`0` offset sits at `focal`, `1` on the outer circle of `radius` around `center`) to shade spheres, badges and glossy cards, or to stretch one wash lobe toward a corner.
+- **Conic sweeps (`sweep`):** `{"gradient": "sweep", "center": [0.5, 0.5], "angle": 0, "stops": [...]}` starts at 12 o'clock and sweeps 360° clockwise. Match the first and last stop colours for a seamless colour wheel or sheen, or keep them distinct for a radar sweep or directional wipe and key `angle`.
+- **Look:** `frame` at the start and end of the drift, and check that foreground copy stays legible over the brightest overlap of the lobes.
+

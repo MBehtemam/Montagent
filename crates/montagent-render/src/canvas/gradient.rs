@@ -1,11 +1,11 @@
-//! A gradient paint as the rasterizer draws it (ADR-0149 §2, §7).
+//! A gradient paint as the rasterizer draws it (ADR-0149 §2, §7; ADR-0222 §1.1).
 //!
 //! One Skia gradient shader per paint per frame, built from values the core has already
-//! resolved and fixed: `linear` or `radial`, clamp tile mode, premultiplied interpolation,
-//! with dithering left off. The geometry is measured against the element's **declared box**,
-//! which the core hands over as [`Gradient::frame`] in the drawing's own unscaled
-//! coordinates — `[0, 0, W, H]` for a shape, the declared text box placed in the typographic
-//! block for text.
+//! resolved and fixed: `linear`, `radial`, `sweep`, or `two_point_conical`, clamp tile mode,
+//! premultiplied interpolation, with dithering left off. The geometry is measured against the
+//! element's **declared box**, which the core hands over as [`Gradient::frame`] in the
+//! drawing's own unscaled coordinates — `[0, 0, W, H]` for a shape, the declared text box
+//! placed in the typographic block for text.
 
 use std::sync::Arc;
 
@@ -48,6 +48,23 @@ pub enum GradientKind {
     /// `center` in box fractions; `radius` a fraction of the distance from the centre to
     /// the farthest corner, in box fractions.
     Radial { center: [f64; 2], radius: f64 },
+    /// `center` in box fractions; `angle` in degrees, CSS `conic-gradient` convention:
+    /// `0` starts at 12 o'clock (top) and sweeps `360°` clockwise.
+    Sweep { center: [f64; 2], angle: f64 },
+    /// `center` and `focal` in box fractions; `radius` a fraction of the distance from
+    /// `center` to the farthest corner, in box fractions.
+    TwoPointConical {
+        center: [f64; 2],
+        radius: f64,
+        focal: [f64; 2],
+    },
+}
+
+fn farthest_corner(cx: f64, cy: f64) -> f64 {
+    [(0.0, 0.0), (1.0, 0.0), (0.0, 1.0), (1.0, 1.0)]
+        .iter()
+        .map(|(x, y): &(f64, f64)| (x - cx).hypot(y - cy))
+        .fold(0.0, f64::max)
 }
 
 impl Ink {
@@ -129,10 +146,7 @@ impl Gradient {
                 center: [fx, fy],
                 radius,
             } => {
-                let farthest = [(0.0, 0.0), (1.0, 0.0), (0.0, 1.0), (1.0, 1.0)]
-                    .iter()
-                    .map(|(cx, cy): &(f64, f64)| (cx - fx).hypot(cy - fy))
-                    .fold(0.0, f64::max);
+                let farthest = farthest_corner(fx, fy);
                 // A circle in box fractions, drawn through a matrix that scales by W and H.
                 let local =
                     Matrix::translate((x as f32, y as f32)) * Matrix::scale((w as f32, h as f32));
@@ -141,6 +155,59 @@ impl Gradient {
                     &spec,
                     &local,
                 )
+            }
+            GradientKind::Sweep {
+                center: [cx, cy],
+                angle,
+            } => {
+                // Skia's sweep_gradient starts 0° along +x (3 o'clock) and sweeps clockwise
+                // in y-down coordinates. Rotating by (angle - 90°) around (cx, cy) in unit-box
+                // coordinates before scaling by (W, H) places angle = 0 at 12 o'clock (ADR-0222 §1.1).
+                let local = Matrix::translate((x as f32, y as f32))
+                    * Matrix::scale((w as f32, h as f32))
+                    * Matrix::rotate_deg_pivot(
+                        (angle - 90.0) as f32,
+                        Point::new(cx as f32, cy as f32),
+                    );
+                shaders::sweep_gradient(
+                    Point::new(cx as f32, cy as f32),
+                    (0.0, 360.0),
+                    &spec,
+                    &local,
+                )
+            }
+            GradientKind::TwoPointConical {
+                center: [cx, cy],
+                radius,
+                focal: [fx, fy],
+            } => {
+                let r = radius * farthest_corner(cx, cy);
+                if !r.is_finite() || r <= 0.0 {
+                    return None;
+                }
+                let local =
+                    Matrix::translate((x as f32, y as f32)) * Matrix::scale((w as f32, h as f32));
+                let d = (fx - cx).hypot(fy - cy);
+                if d == 0.0 {
+                    shaders::radial_gradient(
+                        (Point::new(cx as f32, cy as f32), r as f32),
+                        &spec,
+                        &local,
+                    )
+                } else {
+                    let (fx_eff, fy_eff) = if d >= 0.999 * r {
+                        let scale = (0.999 * r) / d;
+                        (cx + (fx - cx) * scale, cy + (fy - cy) * scale)
+                    } else {
+                        (fx, fy)
+                    };
+                    shaders::two_point_conical_gradient(
+                        (Point::new(fx_eff as f32, fy_eff as f32), 0.0),
+                        (Point::new(cx as f32, cy as f32), r as f32),
+                        &spec,
+                        &local,
+                    )
+                }
             }
         }
     }

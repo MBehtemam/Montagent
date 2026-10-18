@@ -1,0 +1,8 @@
+{
+  "frame": {"width": 1080, "height": 1080},
+  "fps": 30,
+  "background": "#0E1318",
+  "duration": 4000,
+  "output": "out/paths.mp4",
+  "tracks": []
+}
