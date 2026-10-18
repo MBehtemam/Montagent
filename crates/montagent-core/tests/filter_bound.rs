@@ -277,6 +277,24 @@ fn cases() -> Vec<(&'static str, Value, f64, f64)> {
         ("blur-directional-shadow-rotated-anisotropic", with(t(), json!({"y": 540, "rotation": 20, "scale": [1.6, 0.7], "effects": [blur(4.0), directional(135.0, 60.5), shadow(10.0, -6.0, 16.0)]})), 960.4, 13.7),
         ("all-named-mask-blur", with(shape("rect", 300.0, 200.0), json!({"y": 540, "rotation": 12, "fill": radial(), "effects": [posterize(6), named_glow(0.4, 20.0, 2.0), directional(-20.0, 33.0), {"name": "mask", "shape": "ellipse", "feather": 12}, blur(6.0)]})), 960.4, 13.7),
         ("keyed-named-effects", with(shape("rect", 300.0, 200.0), json!({"y": 540, "rotation": -15, "fill": linear(200.0), "effects": [posterize(4), named_glow(0.5, 10.0, 1.0), directional(0.0, 10.0), blur(5.0)]})), 960.4, 13.7),
+        // ADR-0225 (#1100): mosaic, radial_blur, find_edges, emboss, sharpen, twirl, bulge,
+        // optics_compensation, and offset run in their own bounded element-space layers and pass
+        // the bound to subsequent blur/shadow layers.
+        ("adr0225-stylize-then-shadow", with(shape("rect", 300.0, 200.0), json!({"y": 540, "rotation": 18, "fill": radial(), "effects": [
+            {"name": "mosaic", "blocks": [12, 8]},
+            {"name": "find_edges", "invert": false},
+            {"name": "emboss", "angle": 135, "height": 2, "contrast": 1.2},
+            {"name": "sharpen", "amount": 1.5},
+            shadow(10.0, -6.0, 16.0)
+        ]})), 960.4, 13.7),
+        ("adr0225-distort-radial-then-blur", with(shape("rect", 300.0, 200.0), json!({"y": 540, "rotation": -22, "scale": [1.4, 0.8], "fill": linear(45.0), "effects": [
+            {"name": "twirl", "center": [0.5, 0.5], "radius": 0.6, "angle": 90},
+            {"name": "bulge", "center": [0.4, 0.6], "radius": 0.5, "height": 0.5},
+            {"name": "optics_compensation", "fov": 50, "reverse": false},
+            {"name": "offset", "shift_x": 15, "shift_y": -10, "wrap": true},
+            {"name": "radial_blur", "kind": "spin", "center": [0.5, 0.5], "amount": 25},
+            blur(8.0)
+        ]})), 960.4, 13.7),
         // ADR-0231's layer styles (#1105): `outline` expands `content` by its dilated reach,
         // and `color_overlay` and `inner_shadow` stay within the silhouette and pass `content` on.
         ("text-outline-shadow-rotated", with(t(), json!({"y": 540, "rotation": 18, "effects": [outline(12.0, "#FFFFFF", 0.9), shadow(8.0, 10.0, 16.0)]})), 960.4, 13.7),

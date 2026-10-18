@@ -513,6 +513,15 @@ fn every_numeric_and_colour_effect_parameter_is_in_the_list() {
             ("inner_shadow", vec!["dx", "dy", "radius", "color", "opacity"]),
             ("matte", vec!["choke", "feather", "contrast"]),
             ("luma_key", vec!["threshold", "tolerance", "softness"]),
+            ("mosaic", vec!["blocks"]),
+            ("radial_blur", vec!["center", "amount"]),
+            ("find_edges", vec![]),
+            ("emboss", vec!["angle", "height", "contrast"]),
+            ("sharpen", vec!["amount"]),
+            ("twirl", vec!["center", "radius", "angle"]),
+            ("bulge", vec!["center", "radius", "height"]),
+            ("optics_compensation", vec!["fov"]),
+            ("offset", vec!["shift_x", "shift_y"]),
         ]
     );
     let (_, chroma) = animatable::effect_members()

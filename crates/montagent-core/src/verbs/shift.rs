@@ -1302,6 +1302,11 @@ fn split_list(
         }
         Kind::Integer => split_typed::<i64>(list, at, delta, |raw| bounded(raw).map(round_i64)),
         Kind::Number => split_typed::<f64>(list, at, delta, |raw| bounded(raw).map(round6)),
+        Kind::Pair if property.name == "blocks" => {
+            split_typed::<[i64; 2]>(list, at, delta, |raw: [f64; 2]| {
+                Ok([round_i64(bounded(raw[0])?), round_i64(bounded(raw[1])?)])
+            })
+        }
         Kind::Pair => split_typed::<Scale>(list, at, delta, |raw| Ok(round_scale(raw))),
         // A stop list splits stop by stop, and is refused where the resolved list is not a
         // legal literal: an offset out of 0..1 or crossed, or a colour out of range. Tested
@@ -1677,8 +1682,13 @@ fn excise_list(
         Kind::Number => excise_typed::<f64>(list, cut_start, span, &mut dropped, |raw| {
             bounded(raw).map(round6)
         }),
+        Kind::Pair if property.name == "blocks" => {
+            excise_typed::<[i64; 2]>(list, cut_start, span, &mut dropped, |raw: [f64; 2]| {
+                Ok([round_i64(bounded(raw[0])?), round_i64(bounded(raw[1])?)])
+            })
+        }
         Kind::Pair => excise_typed::<Scale>(list, cut_start, span, &mut dropped, |raw| {
-            Ok(round_scale(raw))
+            Ok(round_scale([bounded(raw[0])?, bounded(raw[1])?]))
         }),
         Kind::Stops => {
             excise_typed::<Stops>(list, cut_start, span, &mut dropped, |blend: StopsBlend| {

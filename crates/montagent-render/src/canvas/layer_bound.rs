@@ -332,7 +332,10 @@ mod tests {
         let canvas = surface.canvas();
         canvas.translate((200.0, 100.0));
         canvas.scale(scale);
-        let filters: Vec<_> = effects.iter().map(|e| e.filter()).collect();
+        let filters: Vec<_> = effects
+            .iter()
+            .map(|e| e.filter(crate::canvas::Extent { width: 100.0, height: 40.0 }))
+            .collect();
         hints(canvas, effects, &filters, &|canvas| {
             canvas.draw_rect(Rect::from_xywh(0.0, 0.0, 100.0, 40.0), &Paint::default());
         })

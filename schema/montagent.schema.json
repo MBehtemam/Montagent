@@ -921,6 +921,205 @@
             "name"
           ],
           "description": "Rec.709 luminance keyer: extracts alpha transparency from pixel luminance (ADR-0227)."
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "blocks": {
+              "$ref": "#/$defs/AnimatableMosaicBlocks"
+            },
+            "name": {
+              "type": "string",
+              "const": "mosaic"
+            }
+          },
+          "required": [
+            "name",
+            "blocks"
+          ],
+          "description": "Pixelation into a `[cols, rows]` grid of uniform-colour cells (ADR-0225)."
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "$ref": "#/$defs/RadialBlurKind"
+            },
+            "center": {
+              "$ref": "#/$defs/AnimatableEffectCenter"
+            },
+            "amount": {
+              "$ref": "#/$defs/AnimatableRadialBlurAmount"
+            },
+            "name": {
+              "type": "string",
+              "const": "radial_blur"
+            }
+          },
+          "required": [
+            "name",
+            "kind",
+            "amount"
+          ],
+          "description": "Zoom or spin radial blur around a normalised `center` (ADR-0225)."
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "invert": {
+              "type": "boolean"
+            },
+            "name": {
+              "type": "string",
+              "const": "find_edges"
+            }
+          },
+          "required": [
+            "name"
+          ],
+          "description": "3×3 Sobel gradient magnitude edge detector (ADR-0225)."
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "angle": {
+              "$ref": "#/$defs/Animatabledouble"
+            },
+            "height": {
+              "$ref": "#/$defs/AnimatableEmbossHeight"
+            },
+            "contrast": {
+              "$ref": "#/$defs/AnimatableEmbossContrast"
+            },
+            "name": {
+              "type": "string",
+              "const": "emboss"
+            }
+          },
+          "required": [
+            "name",
+            "angle",
+            "height"
+          ],
+          "description": "Directional relief emboss blended onto the source at `contrast` (ADR-0225)."
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "amount": {
+              "$ref": "#/$defs/AnimatableSharpenAmount"
+            },
+            "name": {
+              "type": "string",
+              "const": "sharpen"
+            }
+          },
+          "required": [
+            "name",
+            "amount"
+          ],
+          "description": "Unsharp-mask sharpen against a 3×3 Gaussian neighbourhood (ADR-0225)."
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "center": {
+              "$ref": "#/$defs/AnimatableEffectCenter"
+            },
+            "radius": {
+              "$ref": "#/$defs/AnimatableDistortionRadius"
+            },
+            "angle": {
+              "$ref": "#/$defs/Animatabledouble"
+            },
+            "name": {
+              "type": "string",
+              "const": "twirl"
+            }
+          },
+          "required": [
+            "name",
+            "radius",
+            "angle"
+          ],
+          "description": "Quadratic falloff vortex twist inside `radius` around `center` (ADR-0225)."
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "center": {
+              "$ref": "#/$defs/AnimatableEffectCenter"
+            },
+            "radius": {
+              "$ref": "#/$defs/AnimatableDistortionRadius"
+            },
+            "height": {
+              "$ref": "#/$defs/AnimatableBulgeHeight"
+            },
+            "name": {
+              "type": "string",
+              "const": "bulge"
+            }
+          },
+          "required": [
+            "name",
+            "radius",
+            "height"
+          ],
+          "description": "Smooth radial magnify or pinch inside `radius` around `center` (ADR-0225)."
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "fov": {
+              "$ref": "#/$defs/AnimatableOpticsFov"
+            },
+            "reverse": {
+              "type": "boolean"
+            },
+            "name": {
+              "type": "string",
+              "const": "optics_compensation"
+            }
+          },
+          "required": [
+            "name",
+            "fov"
+          ],
+          "description": "Brown-Conrady radial lens distortion or compensation (ADR-0225)."
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "shift_x": {
+              "$ref": "#/$defs/Animatabledouble"
+            },
+            "shift_y": {
+              "$ref": "#/$defs/Animatabledouble"
+            },
+            "wrap": {
+              "type": "boolean"
+            },
+            "name": {
+              "type": "string",
+              "const": "offset"
+            }
+          },
+          "required": [
+            "name",
+            "shift_x",
+            "shift_y"
+          ],
+          "description": "Pixel shift in `x` and `y` with periodic wrap or edge clamp (ADR-0225)."
         }
       ],
       "description": "One member of the closed vocabulary, discriminated by `name`.\n\nTwo effects of the same name are ordinary rather than forbidden (ADR-0040) — the\ncontainer is a list precisely so a second shadow has somewhere to go."
@@ -2366,6 +2565,735 @@
         },
         "v": {
           "$ref": "#/$defs/MatteContrast"
+        },
+        "ease": {
+          "description": "The shape of the interpolation **arriving at** this record from the previous one.\n\nADR-0038: required on every record except the first, where it is a schema error.\nPresence is a pure function of position in the list, so there is never an absent\nvalue to default, normalise, or keep in sync with SPLIT's equality check. The\n`Option` here carries that positional rule, not a default.",
+          "$ref": "#/$defs/Ease"
+        }
+      },
+      "required": [
+        "t",
+        "v",
+        "ease"
+      ],
+      "description": "One `{\"t\",\"t_from\",\"v\",\"ease\"}` record — `t_from` optional (ADR-0086)."
+    },
+    "AnimatableMosaicBlocks": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/MosaicBlocks",
+          "description": "Constant for the element's whole life."
+        },
+        {
+          "type": "array",
+          "prefixItems": [
+            {
+              "$ref": "#/$defs/FirstKeyframeMosaicBlocks"
+            }
+          ],
+          "items": {
+            "$ref": "#/$defs/KeyframeMosaicBlocks"
+          },
+          "description": "Keyframed. Clamps at both ends (ADR-0012): before the first record the value is the\nfirst value, after the last it is the last, so *\"and then it holds\"* costs no syntax.\nRecords must be written with strictly increasing `t` (ADR-0082) — array order is\nclock order.",
+          "minItems": 1
+        }
+      ],
+      "description": "A property that is either one value or a list of keyframe records.\n\nThe polymorphism is the format's, not a convenience: ADR-0055 restates it for `volume`\nas *\"the same scalar-or-keyframe-array polymorphism every other animatable property\nalready has.\"* It is deliberately **not** the same as the `scale` union ADR-0012\nrejected — that was two shapes for one *value* (`1.08` versus `[1.08, 1.08]`), which\nputs a shape test in every consumer; this is a value versus its animation over time,\nwhich no amount of normalising can collapse."
+    },
+    "MosaicBlocks": {
+      "type": "array",
+      "items": {
+        "type": "integer",
+        "minimum": 1
+      },
+      "minItems": 2,
+      "maxItems": 2,
+      "description": "Horizontal and vertical block counts `[cols, rows]`, each an integer at least `1`, in a static value and in every keyframe record. `[width, height]` is the identity (ADR-0225)."
+    },
+    "FirstKeyframeMosaicBlocks": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "t": {
+          "type": "integer",
+          "format": "int64",
+          "description": "Milliseconds on the project's one absolute clock. Legal outside the element's own\nrange — that is how a trimmed move is spelled, and seven of the fixture's photo\nelements carry one."
+        },
+        "t_from": {
+          "description": "What this record's own `t` was derived from, where the author recorded it\n(ADR-0086).\n\n**Immediately after `t`**, which is the whole of ADR-0086's key-order\nspecification: ADR-0041 derives canonical order from schema order, and schema order\nis this struct's declaration order, so adjacency to the annotated value costs\nnothing to state twice and cannot drift.\n\nOptional, and its absence means *no claim* — never a claim of independence\n(ADR-0086's sixth condition of admission). Required was measured and rejected: on\nthe committed fixture it would put an escape value on 121 instants to check 14.",
+          "$ref": "#/$defs/FirstDerivation"
+        },
+        "v": {
+          "$ref": "#/$defs/MosaicBlocks"
+        }
+      },
+      "required": [
+        "t",
+        "v"
+      ],
+      "description": "The first record of a keyframe list, which carries no `ease`: `ease` describes the segment *arriving at* a record, and nothing arrives at the first one. Writing one here is a schema error naming the convention, never an ignored field (ADR-0012, ADR-0038). Its `t_from`, where it carries one, is narrowed for the same reason (ADR-0086)."
+    },
+    "KeyframeMosaicBlocks": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "t": {
+          "type": "integer",
+          "format": "int64",
+          "description": "Milliseconds on the project's one absolute clock. Legal outside the element's own\nrange — that is how a trimmed move is spelled, and seven of the fixture's photo\nelements carry one."
+        },
+        "t_from": {
+          "description": "What this record's own `t` was derived from, where the author recorded it\n(ADR-0086).\n\n**Immediately after `t`**, which is the whole of ADR-0086's key-order\nspecification: ADR-0041 derives canonical order from schema order, and schema order\nis this struct's declaration order, so adjacency to the annotated value costs\nnothing to state twice and cannot drift.\n\nOptional, and its absence means *no claim* — never a claim of independence\n(ADR-0086's sixth condition of admission). Required was measured and rejected: on\nthe committed fixture it would put an escape value on 121 instants to check 14.",
+          "$ref": "#/$defs/Derivation"
+        },
+        "v": {
+          "$ref": "#/$defs/MosaicBlocks"
+        },
+        "ease": {
+          "description": "The shape of the interpolation **arriving at** this record from the previous one.\n\nADR-0038: required on every record except the first, where it is a schema error.\nPresence is a pure function of position in the list, so there is never an absent\nvalue to default, normalise, or keep in sync with SPLIT's equality check. The\n`Option` here carries that positional rule, not a default.",
+          "$ref": "#/$defs/Ease"
+        }
+      },
+      "required": [
+        "t",
+        "v",
+        "ease"
+      ],
+      "description": "One `{\"t\",\"t_from\",\"v\",\"ease\"}` record — `t_from` optional (ADR-0086)."
+    },
+    "RadialBlurKind": {
+      "type": "string",
+      "enum": [
+        "zoom",
+        "spin"
+      ],
+      "description": "`radial_blur`'s mode: `\"zoom\"` (radial smear away from `center`) or `\"spin\"` (angular smear\naround `center`) (ADR-0225)."
+    },
+    "AnimatableEffectCenter": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/EffectCenter",
+          "description": "Constant for the element's whole life."
+        },
+        {
+          "type": "array",
+          "prefixItems": [
+            {
+              "$ref": "#/$defs/FirstKeyframeEffectCenter"
+            }
+          ],
+          "items": {
+            "$ref": "#/$defs/KeyframeEffectCenter"
+          },
+          "description": "Keyframed. Clamps at both ends (ADR-0012): before the first record the value is the\nfirst value, after the last it is the last, so *\"and then it holds\"* costs no syntax.\nRecords must be written with strictly increasing `t` (ADR-0082) — array order is\nclock order.",
+          "minItems": 1
+        }
+      ],
+      "description": "A property that is either one value or a list of keyframe records.\n\nThe polymorphism is the format's, not a convenience: ADR-0055 restates it for `volume`\nas *\"the same scalar-or-keyframe-array polymorphism every other animatable property\nalready has.\"* It is deliberately **not** the same as the `scale` union ADR-0012\nrejected — that was two shapes for one *value* (`1.08` versus `[1.08, 1.08]`), which\nputs a shape test in every consumer; this is a value versus its animation over time,\nwhich no amount of normalising can collapse."
+    },
+    "EffectCenter": {
+      "type": "array",
+      "items": {
+        "type": "number",
+        "format": "double",
+        "minimum": 0.0,
+        "maximum": 1.0
+      },
+      "minItems": 2,
+      "maxItems": 2,
+      "description": "Normalised `[cx, cy]` coordinates in `[0.0, 1.0]²` within the element box, in a static value and in every keyframe record. Defaults to `[0.5, 0.5]` when omitted (ADR-0225)."
+    },
+    "FirstKeyframeEffectCenter": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "t": {
+          "type": "integer",
+          "format": "int64",
+          "description": "Milliseconds on the project's one absolute clock. Legal outside the element's own\nrange — that is how a trimmed move is spelled, and seven of the fixture's photo\nelements carry one."
+        },
+        "t_from": {
+          "description": "What this record's own `t` was derived from, where the author recorded it\n(ADR-0086).\n\n**Immediately after `t`**, which is the whole of ADR-0086's key-order\nspecification: ADR-0041 derives canonical order from schema order, and schema order\nis this struct's declaration order, so adjacency to the annotated value costs\nnothing to state twice and cannot drift.\n\nOptional, and its absence means *no claim* — never a claim of independence\n(ADR-0086's sixth condition of admission). Required was measured and rejected: on\nthe committed fixture it would put an escape value on 121 instants to check 14.",
+          "$ref": "#/$defs/FirstDerivation"
+        },
+        "v": {
+          "$ref": "#/$defs/EffectCenter"
+        }
+      },
+      "required": [
+        "t",
+        "v"
+      ],
+      "description": "The first record of a keyframe list, which carries no `ease`: `ease` describes the segment *arriving at* a record, and nothing arrives at the first one. Writing one here is a schema error naming the convention, never an ignored field (ADR-0012, ADR-0038). Its `t_from`, where it carries one, is narrowed for the same reason (ADR-0086)."
+    },
+    "KeyframeEffectCenter": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "t": {
+          "type": "integer",
+          "format": "int64",
+          "description": "Milliseconds on the project's one absolute clock. Legal outside the element's own\nrange — that is how a trimmed move is spelled, and seven of the fixture's photo\nelements carry one."
+        },
+        "t_from": {
+          "description": "What this record's own `t` was derived from, where the author recorded it\n(ADR-0086).\n\n**Immediately after `t`**, which is the whole of ADR-0086's key-order\nspecification: ADR-0041 derives canonical order from schema order, and schema order\nis this struct's declaration order, so adjacency to the annotated value costs\nnothing to state twice and cannot drift.\n\nOptional, and its absence means *no claim* — never a claim of independence\n(ADR-0086's sixth condition of admission). Required was measured and rejected: on\nthe committed fixture it would put an escape value on 121 instants to check 14.",
+          "$ref": "#/$defs/Derivation"
+        },
+        "v": {
+          "$ref": "#/$defs/EffectCenter"
+        },
+        "ease": {
+          "description": "The shape of the interpolation **arriving at** this record from the previous one.\n\nADR-0038: required on every record except the first, where it is a schema error.\nPresence is a pure function of position in the list, so there is never an absent\nvalue to default, normalise, or keep in sync with SPLIT's equality check. The\n`Option` here carries that positional rule, not a default.",
+          "$ref": "#/$defs/Ease"
+        }
+      },
+      "required": [
+        "t",
+        "v",
+        "ease"
+      ],
+      "description": "One `{\"t\",\"t_from\",\"v\",\"ease\"}` record — `t_from` optional (ADR-0086)."
+    },
+    "AnimatableRadialBlurAmount": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/RadialBlurAmount",
+          "description": "Constant for the element's whole life."
+        },
+        {
+          "type": "array",
+          "prefixItems": [
+            {
+              "$ref": "#/$defs/FirstKeyframeRadialBlurAmount"
+            }
+          ],
+          "items": {
+            "$ref": "#/$defs/KeyframeRadialBlurAmount"
+          },
+          "description": "Keyframed. Clamps at both ends (ADR-0012): before the first record the value is the\nfirst value, after the last it is the last, so *\"and then it holds\"* costs no syntax.\nRecords must be written with strictly increasing `t` (ADR-0082) — array order is\nclock order.",
+          "minItems": 1
+        }
+      ],
+      "description": "A property that is either one value or a list of keyframe records.\n\nThe polymorphism is the format's, not a convenience: ADR-0055 restates it for `volume`\nas *\"the same scalar-or-keyframe-array polymorphism every other animatable property\nalready has.\"* It is deliberately **not** the same as the `scale` union ADR-0012\nrejected — that was two shapes for one *value* (`1.08` versus `[1.08, 1.08]`), which\nputs a shape test in every consumer; this is a value versus its animation over time,\nwhich no amount of normalising can collapse."
+    },
+    "RadialBlurAmount": {
+      "type": "number",
+      "description": "Radial blur strength from `0` (the identity) to `100` in a static value and in every keyframe record (ADR-0225).",
+      "minimum": 0.0,
+      "maximum": 100.0
+    },
+    "FirstKeyframeRadialBlurAmount": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "t": {
+          "type": "integer",
+          "format": "int64",
+          "description": "Milliseconds on the project's one absolute clock. Legal outside the element's own\nrange — that is how a trimmed move is spelled, and seven of the fixture's photo\nelements carry one."
+        },
+        "t_from": {
+          "description": "What this record's own `t` was derived from, where the author recorded it\n(ADR-0086).\n\n**Immediately after `t`**, which is the whole of ADR-0086's key-order\nspecification: ADR-0041 derives canonical order from schema order, and schema order\nis this struct's declaration order, so adjacency to the annotated value costs\nnothing to state twice and cannot drift.\n\nOptional, and its absence means *no claim* — never a claim of independence\n(ADR-0086's sixth condition of admission). Required was measured and rejected: on\nthe committed fixture it would put an escape value on 121 instants to check 14.",
+          "$ref": "#/$defs/FirstDerivation"
+        },
+        "v": {
+          "$ref": "#/$defs/RadialBlurAmount"
+        }
+      },
+      "required": [
+        "t",
+        "v"
+      ],
+      "description": "The first record of a keyframe list, which carries no `ease`: `ease` describes the segment *arriving at* a record, and nothing arrives at the first one. Writing one here is a schema error naming the convention, never an ignored field (ADR-0012, ADR-0038). Its `t_from`, where it carries one, is narrowed for the same reason (ADR-0086)."
+    },
+    "KeyframeRadialBlurAmount": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "t": {
+          "type": "integer",
+          "format": "int64",
+          "description": "Milliseconds on the project's one absolute clock. Legal outside the element's own\nrange — that is how a trimmed move is spelled, and seven of the fixture's photo\nelements carry one."
+        },
+        "t_from": {
+          "description": "What this record's own `t` was derived from, where the author recorded it\n(ADR-0086).\n\n**Immediately after `t`**, which is the whole of ADR-0086's key-order\nspecification: ADR-0041 derives canonical order from schema order, and schema order\nis this struct's declaration order, so adjacency to the annotated value costs\nnothing to state twice and cannot drift.\n\nOptional, and its absence means *no claim* — never a claim of independence\n(ADR-0086's sixth condition of admission). Required was measured and rejected: on\nthe committed fixture it would put an escape value on 121 instants to check 14.",
+          "$ref": "#/$defs/Derivation"
+        },
+        "v": {
+          "$ref": "#/$defs/RadialBlurAmount"
+        },
+        "ease": {
+          "description": "The shape of the interpolation **arriving at** this record from the previous one.\n\nADR-0038: required on every record except the first, where it is a schema error.\nPresence is a pure function of position in the list, so there is never an absent\nvalue to default, normalise, or keep in sync with SPLIT's equality check. The\n`Option` here carries that positional rule, not a default.",
+          "$ref": "#/$defs/Ease"
+        }
+      },
+      "required": [
+        "t",
+        "v",
+        "ease"
+      ],
+      "description": "One `{\"t\",\"t_from\",\"v\",\"ease\"}` record — `t_from` optional (ADR-0086)."
+    },
+    "AnimatableEmbossHeight": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/EmbossHeight",
+          "description": "Constant for the element's whole life."
+        },
+        {
+          "type": "array",
+          "prefixItems": [
+            {
+              "$ref": "#/$defs/FirstKeyframeEmbossHeight"
+            }
+          ],
+          "items": {
+            "$ref": "#/$defs/KeyframeEmbossHeight"
+          },
+          "description": "Keyframed. Clamps at both ends (ADR-0012): before the first record the value is the\nfirst value, after the last it is the last, so *\"and then it holds\"* costs no syntax.\nRecords must be written with strictly increasing `t` (ADR-0082) — array order is\nclock order.",
+          "minItems": 1
+        }
+      ],
+      "description": "A property that is either one value or a list of keyframe records.\n\nThe polymorphism is the format's, not a convenience: ADR-0055 restates it for `volume`\nas *\"the same scalar-or-keyframe-array polymorphism every other animatable property\nalready has.\"* It is deliberately **not** the same as the `scale` union ADR-0012\nrejected — that was two shapes for one *value* (`1.08` versus `[1.08, 1.08]`), which\nputs a shape test in every consumer; this is a value versus its animation over time,\nwhich no amount of normalising can collapse."
+    },
+    "EmbossHeight": {
+      "type": "number",
+      "description": "Emboss sample offset in element pixels from `0` (the identity) to `10` in a static value and in every keyframe record (ADR-0225).",
+      "minimum": 0.0,
+      "maximum": 10.0
+    },
+    "FirstKeyframeEmbossHeight": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "t": {
+          "type": "integer",
+          "format": "int64",
+          "description": "Milliseconds on the project's one absolute clock. Legal outside the element's own\nrange — that is how a trimmed move is spelled, and seven of the fixture's photo\nelements carry one."
+        },
+        "t_from": {
+          "description": "What this record's own `t` was derived from, where the author recorded it\n(ADR-0086).\n\n**Immediately after `t`**, which is the whole of ADR-0086's key-order\nspecification: ADR-0041 derives canonical order from schema order, and schema order\nis this struct's declaration order, so adjacency to the annotated value costs\nnothing to state twice and cannot drift.\n\nOptional, and its absence means *no claim* — never a claim of independence\n(ADR-0086's sixth condition of admission). Required was measured and rejected: on\nthe committed fixture it would put an escape value on 121 instants to check 14.",
+          "$ref": "#/$defs/FirstDerivation"
+        },
+        "v": {
+          "$ref": "#/$defs/EmbossHeight"
+        }
+      },
+      "required": [
+        "t",
+        "v"
+      ],
+      "description": "The first record of a keyframe list, which carries no `ease`: `ease` describes the segment *arriving at* a record, and nothing arrives at the first one. Writing one here is a schema error naming the convention, never an ignored field (ADR-0012, ADR-0038). Its `t_from`, where it carries one, is narrowed for the same reason (ADR-0086)."
+    },
+    "KeyframeEmbossHeight": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "t": {
+          "type": "integer",
+          "format": "int64",
+          "description": "Milliseconds on the project's one absolute clock. Legal outside the element's own\nrange — that is how a trimmed move is spelled, and seven of the fixture's photo\nelements carry one."
+        },
+        "t_from": {
+          "description": "What this record's own `t` was derived from, where the author recorded it\n(ADR-0086).\n\n**Immediately after `t`**, which is the whole of ADR-0086's key-order\nspecification: ADR-0041 derives canonical order from schema order, and schema order\nis this struct's declaration order, so adjacency to the annotated value costs\nnothing to state twice and cannot drift.\n\nOptional, and its absence means *no claim* — never a claim of independence\n(ADR-0086's sixth condition of admission). Required was measured and rejected: on\nthe committed fixture it would put an escape value on 121 instants to check 14.",
+          "$ref": "#/$defs/Derivation"
+        },
+        "v": {
+          "$ref": "#/$defs/EmbossHeight"
+        },
+        "ease": {
+          "description": "The shape of the interpolation **arriving at** this record from the previous one.\n\nADR-0038: required on every record except the first, where it is a schema error.\nPresence is a pure function of position in the list, so there is never an absent\nvalue to default, normalise, or keep in sync with SPLIT's equality check. The\n`Option` here carries that positional rule, not a default.",
+          "$ref": "#/$defs/Ease"
+        }
+      },
+      "required": [
+        "t",
+        "v",
+        "ease"
+      ],
+      "description": "One `{\"t\",\"t_from\",\"v\",\"ease\"}` record — `t_from` optional (ADR-0086)."
+    },
+    "AnimatableEmbossContrast": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/EmbossContrast",
+          "description": "Constant for the element's whole life."
+        },
+        {
+          "type": "array",
+          "prefixItems": [
+            {
+              "$ref": "#/$defs/FirstKeyframeEmbossContrast"
+            }
+          ],
+          "items": {
+            "$ref": "#/$defs/KeyframeEmbossContrast"
+          },
+          "description": "Keyframed. Clamps at both ends (ADR-0012): before the first record the value is the\nfirst value, after the last it is the last, so *\"and then it holds\"* costs no syntax.\nRecords must be written with strictly increasing `t` (ADR-0082) — array order is\nclock order.",
+          "minItems": 1
+        }
+      ],
+      "description": "A property that is either one value or a list of keyframe records.\n\nThe polymorphism is the format's, not a convenience: ADR-0055 restates it for `volume`\nas *\"the same scalar-or-keyframe-array polymorphism every other animatable property\nalready has.\"* It is deliberately **not** the same as the `scale` union ADR-0012\nrejected — that was two shapes for one *value* (`1.08` versus `[1.08, 1.08]`), which\nputs a shape test in every consumer; this is a value versus its animation over time,\nwhich no amount of normalising can collapse."
+    },
+    "EmbossContrast": {
+      "type": "number",
+      "description": "Emboss relief blend factor from `0` (the identity) to `5` in a static value and in every keyframe record. Defaults to `1.0` when omitted (ADR-0225).",
+      "minimum": 0.0,
+      "maximum": 5.0
+    },
+    "FirstKeyframeEmbossContrast": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "t": {
+          "type": "integer",
+          "format": "int64",
+          "description": "Milliseconds on the project's one absolute clock. Legal outside the element's own\nrange — that is how a trimmed move is spelled, and seven of the fixture's photo\nelements carry one."
+        },
+        "t_from": {
+          "description": "What this record's own `t` was derived from, where the author recorded it\n(ADR-0086).\n\n**Immediately after `t`**, which is the whole of ADR-0086's key-order\nspecification: ADR-0041 derives canonical order from schema order, and schema order\nis this struct's declaration order, so adjacency to the annotated value costs\nnothing to state twice and cannot drift.\n\nOptional, and its absence means *no claim* — never a claim of independence\n(ADR-0086's sixth condition of admission). Required was measured and rejected: on\nthe committed fixture it would put an escape value on 121 instants to check 14.",
+          "$ref": "#/$defs/FirstDerivation"
+        },
+        "v": {
+          "$ref": "#/$defs/EmbossContrast"
+        }
+      },
+      "required": [
+        "t",
+        "v"
+      ],
+      "description": "The first record of a keyframe list, which carries no `ease`: `ease` describes the segment *arriving at* a record, and nothing arrives at the first one. Writing one here is a schema error naming the convention, never an ignored field (ADR-0012, ADR-0038). Its `t_from`, where it carries one, is narrowed for the same reason (ADR-0086)."
+    },
+    "KeyframeEmbossContrast": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "t": {
+          "type": "integer",
+          "format": "int64",
+          "description": "Milliseconds on the project's one absolute clock. Legal outside the element's own\nrange — that is how a trimmed move is spelled, and seven of the fixture's photo\nelements carry one."
+        },
+        "t_from": {
+          "description": "What this record's own `t` was derived from, where the author recorded it\n(ADR-0086).\n\n**Immediately after `t`**, which is the whole of ADR-0086's key-order\nspecification: ADR-0041 derives canonical order from schema order, and schema order\nis this struct's declaration order, so adjacency to the annotated value costs\nnothing to state twice and cannot drift.\n\nOptional, and its absence means *no claim* — never a claim of independence\n(ADR-0086's sixth condition of admission). Required was measured and rejected: on\nthe committed fixture it would put an escape value on 121 instants to check 14.",
+          "$ref": "#/$defs/Derivation"
+        },
+        "v": {
+          "$ref": "#/$defs/EmbossContrast"
+        },
+        "ease": {
+          "description": "The shape of the interpolation **arriving at** this record from the previous one.\n\nADR-0038: required on every record except the first, where it is a schema error.\nPresence is a pure function of position in the list, so there is never an absent\nvalue to default, normalise, or keep in sync with SPLIT's equality check. The\n`Option` here carries that positional rule, not a default.",
+          "$ref": "#/$defs/Ease"
+        }
+      },
+      "required": [
+        "t",
+        "v",
+        "ease"
+      ],
+      "description": "One `{\"t\",\"t_from\",\"v\",\"ease\"}` record — `t_from` optional (ADR-0086)."
+    },
+    "AnimatableSharpenAmount": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/SharpenAmount",
+          "description": "Constant for the element's whole life."
+        },
+        {
+          "type": "array",
+          "prefixItems": [
+            {
+              "$ref": "#/$defs/FirstKeyframeSharpenAmount"
+            }
+          ],
+          "items": {
+            "$ref": "#/$defs/KeyframeSharpenAmount"
+          },
+          "description": "Keyframed. Clamps at both ends (ADR-0012): before the first record the value is the\nfirst value, after the last it is the last, so *\"and then it holds\"* costs no syntax.\nRecords must be written with strictly increasing `t` (ADR-0082) — array order is\nclock order.",
+          "minItems": 1
+        }
+      ],
+      "description": "A property that is either one value or a list of keyframe records.\n\nThe polymorphism is the format's, not a convenience: ADR-0055 restates it for `volume`\nas *\"the same scalar-or-keyframe-array polymorphism every other animatable property\nalready has.\"* It is deliberately **not** the same as the `scale` union ADR-0012\nrejected — that was two shapes for one *value* (`1.08` versus `[1.08, 1.08]`), which\nputs a shape test in every consumer; this is a value versus its animation over time,\nwhich no amount of normalising can collapse."
+    },
+    "SharpenAmount": {
+      "type": "number",
+      "description": "Unsharp-mask strength from `0` (the identity) to `5` in a static value and in every keyframe record (ADR-0225).",
+      "minimum": 0.0,
+      "maximum": 5.0
+    },
+    "FirstKeyframeSharpenAmount": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "t": {
+          "type": "integer",
+          "format": "int64",
+          "description": "Milliseconds on the project's one absolute clock. Legal outside the element's own\nrange — that is how a trimmed move is spelled, and seven of the fixture's photo\nelements carry one."
+        },
+        "t_from": {
+          "description": "What this record's own `t` was derived from, where the author recorded it\n(ADR-0086).\n\n**Immediately after `t`**, which is the whole of ADR-0086's key-order\nspecification: ADR-0041 derives canonical order from schema order, and schema order\nis this struct's declaration order, so adjacency to the annotated value costs\nnothing to state twice and cannot drift.\n\nOptional, and its absence means *no claim* — never a claim of independence\n(ADR-0086's sixth condition of admission). Required was measured and rejected: on\nthe committed fixture it would put an escape value on 121 instants to check 14.",
+          "$ref": "#/$defs/FirstDerivation"
+        },
+        "v": {
+          "$ref": "#/$defs/SharpenAmount"
+        }
+      },
+      "required": [
+        "t",
+        "v"
+      ],
+      "description": "The first record of a keyframe list, which carries no `ease`: `ease` describes the segment *arriving at* a record, and nothing arrives at the first one. Writing one here is a schema error naming the convention, never an ignored field (ADR-0012, ADR-0038). Its `t_from`, where it carries one, is narrowed for the same reason (ADR-0086)."
+    },
+    "KeyframeSharpenAmount": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "t": {
+          "type": "integer",
+          "format": "int64",
+          "description": "Milliseconds on the project's one absolute clock. Legal outside the element's own\nrange — that is how a trimmed move is spelled, and seven of the fixture's photo\nelements carry one."
+        },
+        "t_from": {
+          "description": "What this record's own `t` was derived from, where the author recorded it\n(ADR-0086).\n\n**Immediately after `t`**, which is the whole of ADR-0086's key-order\nspecification: ADR-0041 derives canonical order from schema order, and schema order\nis this struct's declaration order, so adjacency to the annotated value costs\nnothing to state twice and cannot drift.\n\nOptional, and its absence means *no claim* — never a claim of independence\n(ADR-0086's sixth condition of admission). Required was measured and rejected: on\nthe committed fixture it would put an escape value on 121 instants to check 14.",
+          "$ref": "#/$defs/Derivation"
+        },
+        "v": {
+          "$ref": "#/$defs/SharpenAmount"
+        },
+        "ease": {
+          "description": "The shape of the interpolation **arriving at** this record from the previous one.\n\nADR-0038: required on every record except the first, where it is a schema error.\nPresence is a pure function of position in the list, so there is never an absent\nvalue to default, normalise, or keep in sync with SPLIT's equality check. The\n`Option` here carries that positional rule, not a default.",
+          "$ref": "#/$defs/Ease"
+        }
+      },
+      "required": [
+        "t",
+        "v",
+        "ease"
+      ],
+      "description": "One `{\"t\",\"t_from\",\"v\",\"ease\"}` record — `t_from` optional (ADR-0086)."
+    },
+    "AnimatableDistortionRadius": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/DistortionRadius",
+          "description": "Constant for the element's whole life."
+        },
+        {
+          "type": "array",
+          "prefixItems": [
+            {
+              "$ref": "#/$defs/FirstKeyframeDistortionRadius"
+            }
+          ],
+          "items": {
+            "$ref": "#/$defs/KeyframeDistortionRadius"
+          },
+          "description": "Keyframed. Clamps at both ends (ADR-0012): before the first record the value is the\nfirst value, after the last it is the last, so *\"and then it holds\"* costs no syntax.\nRecords must be written with strictly increasing `t` (ADR-0082) — array order is\nclock order.",
+          "minItems": 1
+        }
+      ],
+      "description": "A property that is either one value or a list of keyframe records.\n\nThe polymorphism is the format's, not a convenience: ADR-0055 restates it for `volume`\nas *\"the same scalar-or-keyframe-array polymorphism every other animatable property\nalready has.\"* It is deliberately **not** the same as the `scale` union ADR-0012\nrejected — that was two shapes for one *value* (`1.08` versus `[1.08, 1.08]`), which\nputs a shape test in every consumer; this is a value versus its animation over time,\nwhich no amount of normalising can collapse."
+    },
+    "DistortionRadius": {
+      "type": "number",
+      "format": "double",
+      "exclusiveMinimum": 0.0,
+      "description": "Distortion radius in element pixels, strictly greater than `0.0`, in a static value and in every keyframe record (ADR-0225)."
+    },
+    "FirstKeyframeDistortionRadius": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "t": {
+          "type": "integer",
+          "format": "int64",
+          "description": "Milliseconds on the project's one absolute clock. Legal outside the element's own\nrange — that is how a trimmed move is spelled, and seven of the fixture's photo\nelements carry one."
+        },
+        "t_from": {
+          "description": "What this record's own `t` was derived from, where the author recorded it\n(ADR-0086).\n\n**Immediately after `t`**, which is the whole of ADR-0086's key-order\nspecification: ADR-0041 derives canonical order from schema order, and schema order\nis this struct's declaration order, so adjacency to the annotated value costs\nnothing to state twice and cannot drift.\n\nOptional, and its absence means *no claim* — never a claim of independence\n(ADR-0086's sixth condition of admission). Required was measured and rejected: on\nthe committed fixture it would put an escape value on 121 instants to check 14.",
+          "$ref": "#/$defs/FirstDerivation"
+        },
+        "v": {
+          "$ref": "#/$defs/DistortionRadius"
+        }
+      },
+      "required": [
+        "t",
+        "v"
+      ],
+      "description": "The first record of a keyframe list, which carries no `ease`: `ease` describes the segment *arriving at* a record, and nothing arrives at the first one. Writing one here is a schema error naming the convention, never an ignored field (ADR-0012, ADR-0038). Its `t_from`, where it carries one, is narrowed for the same reason (ADR-0086)."
+    },
+    "KeyframeDistortionRadius": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "t": {
+          "type": "integer",
+          "format": "int64",
+          "description": "Milliseconds on the project's one absolute clock. Legal outside the element's own\nrange — that is how a trimmed move is spelled, and seven of the fixture's photo\nelements carry one."
+        },
+        "t_from": {
+          "description": "What this record's own `t` was derived from, where the author recorded it\n(ADR-0086).\n\n**Immediately after `t`**, which is the whole of ADR-0086's key-order\nspecification: ADR-0041 derives canonical order from schema order, and schema order\nis this struct's declaration order, so adjacency to the annotated value costs\nnothing to state twice and cannot drift.\n\nOptional, and its absence means *no claim* — never a claim of independence\n(ADR-0086's sixth condition of admission). Required was measured and rejected: on\nthe committed fixture it would put an escape value on 121 instants to check 14.",
+          "$ref": "#/$defs/Derivation"
+        },
+        "v": {
+          "$ref": "#/$defs/DistortionRadius"
+        },
+        "ease": {
+          "description": "The shape of the interpolation **arriving at** this record from the previous one.\n\nADR-0038: required on every record except the first, where it is a schema error.\nPresence is a pure function of position in the list, so there is never an absent\nvalue to default, normalise, or keep in sync with SPLIT's equality check. The\n`Option` here carries that positional rule, not a default.",
+          "$ref": "#/$defs/Ease"
+        }
+      },
+      "required": [
+        "t",
+        "v",
+        "ease"
+      ],
+      "description": "One `{\"t\",\"t_from\",\"v\",\"ease\"}` record — `t_from` optional (ADR-0086)."
+    },
+    "AnimatableBulgeHeight": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/BulgeHeight",
+          "description": "Constant for the element's whole life."
+        },
+        {
+          "type": "array",
+          "prefixItems": [
+            {
+              "$ref": "#/$defs/FirstKeyframeBulgeHeight"
+            }
+          ],
+          "items": {
+            "$ref": "#/$defs/KeyframeBulgeHeight"
+          },
+          "description": "Keyframed. Clamps at both ends (ADR-0012): before the first record the value is the\nfirst value, after the last it is the last, so *\"and then it holds\"* costs no syntax.\nRecords must be written with strictly increasing `t` (ADR-0082) — array order is\nclock order.",
+          "minItems": 1
+        }
+      ],
+      "description": "A property that is either one value or a list of keyframe records.\n\nThe polymorphism is the format's, not a convenience: ADR-0055 restates it for `volume`\nas *\"the same scalar-or-keyframe-array polymorphism every other animatable property\nalready has.\"* It is deliberately **not** the same as the `scale` union ADR-0012\nrejected — that was two shapes for one *value* (`1.08` versus `[1.08, 1.08]`), which\nputs a shape test in every consumer; this is a value versus its animation over time,\nwhich no amount of normalising can collapse."
+    },
+    "BulgeHeight": {
+      "type": "number",
+      "description": "Radial distortion strength from `-1` (pinch) through `0` (the identity) to `1` (magnify) in a static value and in every keyframe record (ADR-0225).",
+      "minimum": -1.0,
+      "maximum": 1.0
+    },
+    "FirstKeyframeBulgeHeight": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "t": {
+          "type": "integer",
+          "format": "int64",
+          "description": "Milliseconds on the project's one absolute clock. Legal outside the element's own\nrange — that is how a trimmed move is spelled, and seven of the fixture's photo\nelements carry one."
+        },
+        "t_from": {
+          "description": "What this record's own `t` was derived from, where the author recorded it\n(ADR-0086).\n\n**Immediately after `t`**, which is the whole of ADR-0086's key-order\nspecification: ADR-0041 derives canonical order from schema order, and schema order\nis this struct's declaration order, so adjacency to the annotated value costs\nnothing to state twice and cannot drift.\n\nOptional, and its absence means *no claim* — never a claim of independence\n(ADR-0086's sixth condition of admission). Required was measured and rejected: on\nthe committed fixture it would put an escape value on 121 instants to check 14.",
+          "$ref": "#/$defs/FirstDerivation"
+        },
+        "v": {
+          "$ref": "#/$defs/BulgeHeight"
+        }
+      },
+      "required": [
+        "t",
+        "v"
+      ],
+      "description": "The first record of a keyframe list, which carries no `ease`: `ease` describes the segment *arriving at* a record, and nothing arrives at the first one. Writing one here is a schema error naming the convention, never an ignored field (ADR-0012, ADR-0038). Its `t_from`, where it carries one, is narrowed for the same reason (ADR-0086)."
+    },
+    "KeyframeBulgeHeight": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "t": {
+          "type": "integer",
+          "format": "int64",
+          "description": "Milliseconds on the project's one absolute clock. Legal outside the element's own\nrange — that is how a trimmed move is spelled, and seven of the fixture's photo\nelements carry one."
+        },
+        "t_from": {
+          "description": "What this record's own `t` was derived from, where the author recorded it\n(ADR-0086).\n\n**Immediately after `t`**, which is the whole of ADR-0086's key-order\nspecification: ADR-0041 derives canonical order from schema order, and schema order\nis this struct's declaration order, so adjacency to the annotated value costs\nnothing to state twice and cannot drift.\n\nOptional, and its absence means *no claim* — never a claim of independence\n(ADR-0086's sixth condition of admission). Required was measured and rejected: on\nthe committed fixture it would put an escape value on 121 instants to check 14.",
+          "$ref": "#/$defs/Derivation"
+        },
+        "v": {
+          "$ref": "#/$defs/BulgeHeight"
+        },
+        "ease": {
+          "description": "The shape of the interpolation **arriving at** this record from the previous one.\n\nADR-0038: required on every record except the first, where it is a schema error.\nPresence is a pure function of position in the list, so there is never an absent\nvalue to default, normalise, or keep in sync with SPLIT's equality check. The\n`Option` here carries that positional rule, not a default.",
+          "$ref": "#/$defs/Ease"
+        }
+      },
+      "required": [
+        "t",
+        "v",
+        "ease"
+      ],
+      "description": "One `{\"t\",\"t_from\",\"v\",\"ease\"}` record — `t_from` optional (ADR-0086)."
+    },
+    "AnimatableOpticsFov": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/OpticsFov",
+          "description": "Constant for the element's whole life."
+        },
+        {
+          "type": "array",
+          "prefixItems": [
+            {
+              "$ref": "#/$defs/FirstKeyframeOpticsFov"
+            }
+          ],
+          "items": {
+            "$ref": "#/$defs/KeyframeOpticsFov"
+          },
+          "description": "Keyframed. Clamps at both ends (ADR-0012): before the first record the value is the\nfirst value, after the last it is the last, so *\"and then it holds\"* costs no syntax.\nRecords must be written with strictly increasing `t` (ADR-0082) — array order is\nclock order.",
+          "minItems": 1
+        }
+      ],
+      "description": "A property that is either one value or a list of keyframe records.\n\nThe polymorphism is the format's, not a convenience: ADR-0055 restates it for `volume`\nas *\"the same scalar-or-keyframe-array polymorphism every other animatable property\nalready has.\"* It is deliberately **not** the same as the `scale` union ADR-0012\nrejected — that was two shapes for one *value* (`1.08` versus `[1.08, 1.08]`), which\nputs a shape test in every consumer; this is a value versus its animation over time,\nwhich no amount of normalising can collapse."
+    },
+    "OpticsFov": {
+      "type": "number",
+      "description": "Field-of-view compensation angle in degrees from `0` (the identity) to `180` in a static value and in every keyframe record (ADR-0225).",
+      "minimum": 0.0,
+      "maximum": 180.0
+    },
+    "FirstKeyframeOpticsFov": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "t": {
+          "type": "integer",
+          "format": "int64",
+          "description": "Milliseconds on the project's one absolute clock. Legal outside the element's own\nrange — that is how a trimmed move is spelled, and seven of the fixture's photo\nelements carry one."
+        },
+        "t_from": {
+          "description": "What this record's own `t` was derived from, where the author recorded it\n(ADR-0086).\n\n**Immediately after `t`**, which is the whole of ADR-0086's key-order\nspecification: ADR-0041 derives canonical order from schema order, and schema order\nis this struct's declaration order, so adjacency to the annotated value costs\nnothing to state twice and cannot drift.\n\nOptional, and its absence means *no claim* — never a claim of independence\n(ADR-0086's sixth condition of admission). Required was measured and rejected: on\nthe committed fixture it would put an escape value on 121 instants to check 14.",
+          "$ref": "#/$defs/FirstDerivation"
+        },
+        "v": {
+          "$ref": "#/$defs/OpticsFov"
+        }
+      },
+      "required": [
+        "t",
+        "v"
+      ],
+      "description": "The first record of a keyframe list, which carries no `ease`: `ease` describes the segment *arriving at* a record, and nothing arrives at the first one. Writing one here is a schema error naming the convention, never an ignored field (ADR-0012, ADR-0038). Its `t_from`, where it carries one, is narrowed for the same reason (ADR-0086)."
+    },
+    "KeyframeOpticsFov": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "t": {
+          "type": "integer",
+          "format": "int64",
+          "description": "Milliseconds on the project's one absolute clock. Legal outside the element's own\nrange — that is how a trimmed move is spelled, and seven of the fixture's photo\nelements carry one."
+        },
+        "t_from": {
+          "description": "What this record's own `t` was derived from, where the author recorded it\n(ADR-0086).\n\n**Immediately after `t`**, which is the whole of ADR-0086's key-order\nspecification: ADR-0041 derives canonical order from schema order, and schema order\nis this struct's declaration order, so adjacency to the annotated value costs\nnothing to state twice and cannot drift.\n\nOptional, and its absence means *no claim* — never a claim of independence\n(ADR-0086's sixth condition of admission). Required was measured and rejected: on\nthe committed fixture it would put an escape value on 121 instants to check 14.",
+          "$ref": "#/$defs/Derivation"
+        },
+        "v": {
+          "$ref": "#/$defs/OpticsFov"
         },
         "ease": {
           "description": "The shape of the interpolation **arriving at** this record from the previous one.\n\nADR-0038: required on every record except the first, where it is a schema error.\nPresence is a pure function of position in the list, so there is never an absent\nvalue to default, normalise, or keep in sync with SPLIT's equality check. The\n`Option` here carries that positional rule, not a default.",

@@ -198,6 +198,23 @@ fn effect(name: &str) -> Value {
         "posterize" => json!({"name": "posterize", "levels": 8}),
         "glow" => json!({"name": "glow", "threshold": 0.5, "radius": 10, "intensity": 1}),
         "directional_blur" => json!({"name": "directional_blur", "angle": 30, "length": 12}),
+        "mosaic" => json!({"name": "mosaic", "blocks": [8, 8]}),
+        "radial_blur" => {
+            json!({"name": "radial_blur", "kind": "zoom", "center": [0.5, 0.5], "amount": 0.4})
+        }
+        "find_edges" => json!({"name": "find_edges", "invert": false}),
+        "emboss" => json!({"name": "emboss", "angle": 45, "height": 2, "contrast": 1}),
+        "sharpen" => json!({"name": "sharpen", "amount": 1}),
+        "twirl" => {
+            json!({"name": "twirl", "center": [0.5, 0.5], "radius": 100, "angle": 90})
+        }
+        "bulge" => {
+            json!({"name": "bulge", "center": [0.5, 0.5], "radius": 100, "height": 0.5})
+        }
+        "optics_compensation" => {
+            json!({"name": "optics_compensation", "fov": 60, "reverse": false})
+        }
+        "offset" => json!({"name": "offset", "shift_x": 10, "shift_y": 10, "wrap": true}),
         "hue_rotate" => json!({"name": "hue_rotate", "angle": 45}),
         "outline" => json!({"name": "outline", "width": 4, "color": "#FFFFFF", "opacity": 0.5}),
         "color_overlay" => json!({"name": "color_overlay", "color": "#FF0000", "opacity": 0.5}),
@@ -281,7 +298,11 @@ fn every_animatable_property_is_carried_by_every_tool() {
     );
     for (property, kind, key, member) in &every {
         let (kind, key, member) = (*kind, key.as_str(), *member);
-        let (a, b) = values(kind);
+        let (a, b) = match (kind, key) {
+            (Kind::Pair, "blocks") => (json!([4, 4]), json!([12, 12])),
+            (Kind::Pair, "center") => (json!([0.4, 0.4]), json!([0.8, 0.8])),
+            _ => values(kind),
+        };
         let keyed = keyed_subject(
             key,
             member,

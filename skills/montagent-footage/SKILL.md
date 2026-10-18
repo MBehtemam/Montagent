@@ -157,9 +157,9 @@ One bed under one voice per call; several beds are several calls, and several vo
 
 ### Ingest and normalize non-standard footage
 
-Montagent has no container interpretation flags or decoder knobs ([ADR-0002](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0002-inline-source-no-asset-table.md), [ADR-0143](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0143-the-output-file-is-an-mp4-and-the-encoder-has-no-knobs.md), [ADR-0234](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0234-layered-psd-ai-import-and-scene-edit-detection-are-skill-scripts-and-source-interpretation-stays-upstream.md)). When footage has non-square pixels, interlaced fields, or mis-flagged frame rates, normalize it upstream with `ffmpeg` before placing it:
+Montagent has no container interpretation flags or decoder knobs ([ADR-0002](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0002-inline-source-no-asset-table.md), [ADR-0143](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0143-the-output-file-is-an-mp4-and-the-encoder-has-no-knobs.md), [ADR-0234](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0234-layered-psd-ai-import-and-scene-edit-detection-are-skill-scripts-and-source-interpretation-stays-upstream.md)). When footage has non-square pixels, interlaced fields, or mis-flagged frame rates, normalize it upstream with `ffmpeg` before placing it: <!-- guard-ok: ffmpeg -->
 
-- **Interlaced video (50i, 59.94i):** Deinterlace to progressive frames using motion-adaptive `bwdif`:
+- **Interlaced video (50i, 59.94i):** Deinterlace to progressive frames using motion-adaptive `bwdif`: <!-- guard-ok: bwdif -->
   ```bash
   ffmpeg -i interlaced.mov -vf bwdif=mode=send_frame:parity=auto:deint=all -c:v libx264 -crf 17 -c:a aac progressive.mp4
   ```
@@ -180,7 +180,7 @@ No element accepts a `.psd` or `.ai` file natively ([ADR-0017](https://github.co
 2. **Preserve positioning:** Record each layer's offset `(x, y)` relative to the top-left canvas origin.
 3. **Map blend modes:** Map Photoshop blend modes to Montagent `blend` values (`multiply`, `screen`, `overlay`, `darken`, `lighten`, etc. per [ADR-0221](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0221-vibrance-hue-rotate-and-invert-enter-effects-and-twelve-skblendmode-variants-enter-blend.md)).
 4. **Place in a `nest`:**
-   ```json
+   ```json fragment
    {
      "id": "design_artboard", "type": "nest", "start": 0, "end": 5000,
      "x": 960, "y": 540, "origin": "center", "width": 1920, "height": 1080,
@@ -193,7 +193,7 @@ No element accepts a `.psd` or `.ai` file natively ([ADR-0017](https://github.co
 
 ### Scene-edit detection
 
-To split a long continuous take into cut `video` elements across shot boundaries, run `ffmpeg`'s scene-change detector and emit literal contiguous `video` elements ([ADR-0145](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0145-capcut-and-premiere-are-where-precedent-is-looked-for-first-and-a-capability-with-none-enters-by-the-entry-test.md), [ADR-0234](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0234-layered-psd-ai-import-and-scene-edit-detection-are-skill-scripts-and-source-interpretation-stays-upstream.md)):
+To split a long continuous take into cut `video` elements across shot boundaries, run `ffmpeg`'s scene-change detector and emit literal contiguous `video` elements ([ADR-0145](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0145-capcut-and-premiere-are-where-precedent-is-looked-for-first-and-a-capability-with-none-enters-by-the-entry-test.md), [ADR-0234](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0234-layered-psd-ai-import-and-scene-edit-detection-are-skill-scripts-and-source-interpretation-stays-upstream.md)): <!-- guard-ok: ffmpeg -->
 
 ```bash
 # Detect scene cuts (timestamps where scene score > 0.4)
@@ -207,7 +207,7 @@ Parse the timestamps and emit contiguous `video` elements on a track:
 
 ### Downstream HDR mastering
 
-Montagent renders in 8-bit display-referred sRGB and tags Rec.709 `1-1-1` ([ADR-0216](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0216-srgb-is-the-working-colour-space-and-video-boundaries-convert-and-tag-bt709.md)). In-engine HDR export is refused from `render` ([ADR-0236](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0236-in-engine-hdr-encoding-and-tone-mapping-are-refused-from-render-and-hdr-mastering-stays-downstream.md)). When HDR deliverables (Rec.2100 HLG or PQ) are required, render to a lossless Apple ProRes 4444 master (`format: "prores_4444"` under [ADR-0203](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0203-prores-and-dnxhr-mezzanines-join-output-format.md)) and master downstream via `ffmpeg`:
+Montagent renders in 8-bit display-referred sRGB and tags Rec.709 `1-1-1` ([ADR-0216](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0216-srgb-is-the-working-colour-space-and-video-boundaries-convert-and-tag-bt709.md)). In-engine HDR export is refused from `render` ([ADR-0236](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0236-in-engine-hdr-encoding-and-tone-mapping-are-refused-from-render-and-hdr-mastering-stays-downstream.md)). When HDR deliverables (Rec.2100 HLG or PQ) are required, render to a lossless Apple ProRes 4444 master (`format: "prores_4444"` under [ADR-0203](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0203-prores-and-dnxhr-mezzanines-join-output-format.md)) and master downstream via `ffmpeg`: <!-- guard-ok: ffmpeg -->
 
 ```bash
 # Conform ProRes 4444 master to 10-bit HLG (Rec.2100 HLG, BT.2020 primaries)
@@ -242,7 +242,7 @@ To pin an element (`text`, `image`, `rect`, `nest`) to a feature in a `video` el
 
 ### Camera Motion Stabilization
 
-In-engine mesh warping and warp stabilizers are refused ([ADR-0239](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0239-footage-analysis-and-cleanup-run-offline-and-emit-literal-keyframes-or-pre-rendered-alpha-footage.md)). Stabilize jittery handheld camera footage offline using FFmpeg's `vidstab` filter before placing as an ordinary `video` element:
+In-engine mesh warping and warp stabilizers are refused ([ADR-0239](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0239-footage-analysis-and-cleanup-run-offline-and-emit-literal-keyframes-or-pre-rendered-alpha-footage.md)). Stabilize jittery handheld camera footage offline using FFmpeg's `vidstab` filter before placing as an ordinary `video` element: <!-- guard-ok: vidstab -->
 
 ```bash
 # Pass 1: analyze camera motion vectors
@@ -264,7 +264,7 @@ To isolate a subject without green screen:
 
 ### Video Denoise and Object Inpainting
 
-Temporal denoise filters (`hqdn3d`, `nlmeans`) and video inpainting (Content-Aware Fill) require multi-frame temporal buffers and are refused from runtime `effects[]` ([ADR-0149](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0149-ten-painters-render-in-parallel-and-every-frame-is-a-pure-function-of-the-clock.md), [ADR-0239](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0239-footage-analysis-and-cleanup-run-offline-and-emit-literal-keyframes-or-pre-rendered-alpha-footage.md)). Apply them upstream during ingest:
+Temporal denoise filters (`hqdn3d`, `nlmeans`) and video inpainting (Content-Aware Fill) require multi-frame temporal buffers and are refused from runtime `effects[]` ([ADR-0149](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0149-ten-painters-render-in-parallel-and-every-frame-is-a-pure-function-of-the-clock.md), [ADR-0239](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0239-footage-analysis-and-cleanup-run-offline-and-emit-literal-keyframes-or-pre-rendered-alpha-footage.md)). Apply them upstream during ingest: <!-- guard-ok: hqdn3d nlmeans -->
 
 ```bash
 # High-quality temporal/spatial denoise before import

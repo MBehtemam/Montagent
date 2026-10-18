@@ -187,6 +187,7 @@ pub fn otio_to_project(otio_json: &str) -> Result<Project, OtioError> {
                             role: None,
                             speed,
                             overrun: None,
+                            frame_blend: None,
                             volume: None,
                             markers: None,
                             effects: None,

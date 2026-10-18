@@ -55,7 +55,7 @@ fn a_path_mask_written_feather_before_points_comes_out_in_canonical_order() {
 /// One member of every effect kind, and a mask of every shape, each carrying every field its
 /// branch admits. Values are spelled the way the writer spells them, so the only thing that
 /// can differ between a member as written here and the writer's output is key order.
-const EVERY_MEMBER: [&str; 26] = [
+const EVERY_MEMBER: [&str; 35] = [
     r#"{"name":"blur","radius":2.5}"#,
     r##"{"name":"shadow","dx":1.5,"dy":2.5,"radius":3.5,"color":"#000000","opacity":0.5}"##,
     r#"{"name":"mask","shape":"circle","x":1,"y":2,"width":30,"height":40,"invert":true,"feather":6}"#,
@@ -71,6 +71,15 @@ const EVERY_MEMBER: [&str; 26] = [
     r#"{"name":"posterize","levels":8}"#,
     r#"{"name":"glow","threshold":0.5,"radius":10.5,"intensity":1.5}"#,
     r#"{"name":"directional_blur","angle":30.5,"length":12.5}"#,
+    r#"{"name":"mosaic","blocks":[8,8]}"#,
+    r#"{"name":"radial_blur","kind":"zoom","center":[0.25,0.75],"amount":0.5}"#,
+    r#"{"name":"find_edges","invert":true}"#,
+    r#"{"name":"emboss","angle":45.5,"height":2.5,"contrast":1.5}"#,
+    r#"{"name":"sharpen","amount":1.5}"#,
+    r#"{"name":"twirl","center":[0.5,0.5],"radius":40.5,"angle":90.5}"#,
+    r#"{"name":"bulge","center":[0.5,0.5],"radius":40.5,"height":0.5}"#,
+    r#"{"name":"optics_compensation","fov":60.5,"reverse":true}"#,
+    r#"{"name":"offset","shift_x":10.5,"shift_y":-5.5,"wrap":true}"#,
     r#"{"name":"cdl","slope":[1.5,1.25,0.5],"offset":[0.25,-0.5,0.125],"power":[1.5,0.75,2.5],"saturation":0.5}"#,
     r#"{"name":"lut3d","source":"a.cube","intensity":0.5}"#,
     r#"{"name":"vibrance","amount":0.5}"#,

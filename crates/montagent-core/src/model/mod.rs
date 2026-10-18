@@ -45,7 +45,11 @@ use serde::de::Error as _;
 use serde::{Deserialize, Deserializer, Serialize};
 
 pub use audio_effects::{AudioEffect, EqualizerFilter};
-pub use effects::{Choke, Effect, Fraction, MaskShape, MatteContrast, MatteFeather, ScreenColour};
+pub use effects::{
+    BulgeHeight, Choke, DistortionRadius, Effect, EffectCenter, EmbossContrast, EmbossHeight,
+    Fraction, HueAngle, MaskShape, MatteContrast, MatteFeather, MosaicBlocks, OpticsFov,
+    RadialBlurAmount, RadialBlurKind, ScreenColour, SharpenAmount, VibranceAmount,
+};
 pub use keyframe::{Animatable, Derivation, Ease, EaseName, Keyframe, is_keyframe_list};
 pub use master::{CeilingDbtp, Master, TargetLufs};
 pub use output::{

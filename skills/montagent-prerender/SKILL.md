@@ -11,7 +11,7 @@ Montagent has no shader or script file ([ADR-0017](https://github.com/MBehtemam/
 
 ## When to reach for it
 
-Take the named route first. Read the `effects` list in `montagent://schema/index.json`: when a member makes the look (blur, shadow, tint, a `blend`, a keyed `mask`), use it. Pre-render only when no member, paint or blend composes the look: distortions, mosaic, lens flare, particles, a procedural pattern, or an external 3D model/scene.
+Take the named route first. Read the `effects` list in `montagent://schema/index.json`: when a member makes the look (blur, shadow, tint, mosaic, radial blur, sharpen, find edges, emboss, twirl, bulge, optics compensation, offset, a `blend`, a keyed `mask`), use it. Pre-render only when no member, paint or blend composes the look: lens flare, particles, a procedural pattern, or an external 3D model/scene.
 
 Reach for the SVG route when you are handed a vector drawing (a logo, an icon, an illustration) as an SVG file, or when a still is easiest to draw as SVG. No element accepts an SVG file ([ADR-0171](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0171-svg-and-lottie-do-not-enter-as-sources-and-each-is-pre-rendered-through-the-skill.md)). An SVG that animates (SMIL or CSS) is not this route: it rasterises as one still frame and the motion is lost. Key the placed image's own `scale`, `rotation` and `opacity` instead.
 
@@ -139,7 +139,7 @@ No element accepts a 3D model or multichannel 3D render pass natively ([ADR-0167
 2. **Spec.** Write a build spec with `"input": "png"`: `name`, `out`, the literal `width` and `height`, `fps`, `frames`, `render`, `files`, and `versions`. `render` runs the headless command exporting RGBA PNG frames.
 3. **Build.** `python3 scripts/prerender.py build <spec>`. It runs the headless renderer, encodes transparent footage (`.mov`), and checks decoded frame hashes. Animated sequences export as ProRes 4444 (`alpha: true`, ADR-0203) or PNG-in-MOV; single frames export as PNG.
 4. **Place.** Place into `project.json` as an ordinary `video` or `image` element, with standard 2D transforms, `swivel`, `tilt`, `effects[]`, and `blend`.
-5. **Check.** Run `validate`, `montagent probe` the footage to verify alpha, and `frame` to confirm compositing.
+5. **Check.** Run `validate`, `montagent probe` the footage to verify alpha, and `frame` to confirm compositing. <!-- guard-ok: versions frames files -->
 
 The sample spec for a headless Blender spin:
 

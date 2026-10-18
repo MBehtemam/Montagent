@@ -448,6 +448,7 @@ pub fn fcpxml_to_project(xml_text: &str) -> Result<Project, FcpxmlError> {
                 role: None,
                 speed: None,
                 overrun: None,
+                frame_blend: None,
                 volume: None,
                 markers: None,
                 effects: None,

@@ -339,3 +339,538 @@ pub(super) fn crop_directional(
     };
     (image_filters::crop(cropped, None, filter), cropped)
 }
+
+// ---------------------------------------------------------------------------
+// ADR-0225: edge-clamped stylize, blur, sharpen, edge, relief, and distortion shaders
+// ---------------------------------------------------------------------------
+
+/// `mosaic` (ADR-0225 §2): quantise element `[0, width] × [0, height]` into `blocks = [cols, rows]`
+/// uniform cells, sampling each cell's centre with edge-clamped coordinates.
+const MOSAIC: &str = r"
+uniform shader source;
+uniform float2 size;
+uniform float2 blocks;
+
+float2 clamp_edge(float2 p, float2 s) {
+    return clamp(p, float2(0.5), max(float2(0.5), s - float2(0.5)));
+}
+
+half4 main(float2 p) {
+    float2 cell = size / max(blocks, float2(1.0));
+    float2 sample_p = (floor(p / cell) + float2(0.5)) * cell;
+    return source.eval(clamp_edge(sample_p, size));
+}
+";
+
+/// `radial_blur` (ADR-0225 §2): `zoom` (`mode < 0.5`) or `spin` (`mode >= 0.5`) around
+/// `center_px = center * size`, with 16 evenly spaced samples along the radial ray or circular arc
+/// and edge-clamped (`TileMode::Clamp`) coordinates within `[0, width] × [0, height]`.
+const RADIAL_BLUR: &str = r"
+uniform shader source;
+uniform float2 size;
+uniform float2 center_px;
+uniform float amount;
+uniform float mode;
+
+float2 clamp_edge(float2 p, float2 s) {
+    return clamp(p, float2(0.5), max(float2(0.5), s - float2(0.5)));
+}
+
+half4 main(float2 p) {
+    const int N = 16;
+    float2 rel = p - center_px;
+    float4 sum = float4(0.0);
+    if (mode < 0.5) {
+        // Zoom: smear radially along the ray through center_px.
+        float spread = clamp(amount / 100.0, 0.0, 1.0);
+        for (int i = 0; i < N; i++) {
+            float t = 2.0 * (float(i) / float(N - 1)) - 1.0;
+            float2 q = center_px + rel * (1.0 + t * spread);
+            sum += float4(source.eval(clamp_edge(q, size)));
+        }
+    } else {
+        // Spin: smear angularly around center_px.
+        float max_rad = (amount / 100.0) * 1.57079632679;
+        for (int i = 0; i < N; i++) {
+            float t = (float(i) / float(N - 1)) - 0.5;
+            float a = t * max_rad;
+            float c = cos(a);
+            float s = sin(a);
+            float2 rot = float2(rel.x * c - rel.y * s, rel.x * s + rel.y * c);
+            sum += float4(source.eval(clamp_edge(center_px + rot, size)));
+        }
+    }
+    return half4(sum / float(N));
+}
+";
+
+/// `find_edges` (ADR-0225 §3): 3×3 Sobel gradient magnitude `sqrt(Gx² + Gy²)` per RGB channel
+/// with edge-clamped neighbourhood coordinates (`TileMode::Clamp`), optionally inverted (`1 - g`),
+/// preserving source alpha.
+const FIND_EDGES: &str = r"
+uniform shader source;
+uniform float2 size;
+uniform float invert_flag;
+
+float2 clamp_edge(float2 p, float2 s) {
+    return clamp(p, float2(0.5), max(float2(0.5), s - float2(0.5)));
+}
+
+float3 rgb_at(float2 p) {
+    half4 c = source.eval(clamp_edge(p, size));
+    float a = float(c.a);
+    return a > 0.0 ? clamp(float3(c.rgb) / a, 0.0, 1.0) : float3(0.0);
+}
+
+half4 main(float2 p) {
+    half4 centre = source.eval(clamp_edge(p, size));
+    float a = float(centre.a);
+    if (a <= 0.0) { return centre; }
+
+    float3 tl = rgb_at(p + float2(-1.0, -1.0));
+    float3 tc = rgb_at(p + float2( 0.0, -1.0));
+    float3 tr = rgb_at(p + float2( 1.0, -1.0));
+    float3 ml = rgb_at(p + float2(-1.0,  0.0));
+    float3 mr = rgb_at(p + float2( 1.0,  0.0));
+    float3 bl = rgb_at(p + float2(-1.0,  1.0));
+    float3 bc = rgb_at(p + float2( 0.0,  1.0));
+    float3 br = rgb_at(p + float2( 1.0,  1.0));
+
+    float3 gx = -tl - 2.0 * ml - bl + tr + 2.0 * mr + br;
+    float3 gy = -tl - 2.0 * tc - tr + bl + 2.0 * bc + br;
+    float3 mag = clamp(sqrt(gx * gx + gy * gy), 0.0, 1.0);
+    float3 out_rgb = invert_flag > 0.5 ? (float3(1.0) - mag) : mag;
+    return half4(half3(out_rgb * a), centre.a);
+}
+";
+
+/// `emboss` (ADR-0225 §3): directional relief along `angle` at sample offset `height` pixels,
+/// blended with source at `contrast` (identity at `height == 0` or `contrast == 0`), with
+/// edge-clamped coordinates (`TileMode::Clamp`).
+const EMBOSS: &str = r"
+uniform shader source;
+uniform float2 size;
+uniform float2 offset_px;
+uniform float contrast;
+
+float2 clamp_edge(float2 p, float2 s) {
+    return clamp(p, float2(0.5), max(float2(0.5), s - float2(0.5)));
+}
+
+float3 rgb_at(float2 p) {
+    half4 c = source.eval(clamp_edge(p, size));
+    float a = float(c.a);
+    return a > 0.0 ? clamp(float3(c.rgb) / a, 0.0, 1.0) : float3(0.0);
+}
+
+half4 main(float2 p) {
+    half4 centre = source.eval(clamp_edge(p, size));
+    float a = float(centre.a);
+    if (a <= 0.0) { return centre; }
+
+    float3 base = clamp(float3(centre.rgb) / a, 0.0, 1.0);
+    float3 pos = rgb_at(p + offset_px);
+    float3 neg = rgb_at(p - offset_px);
+    float3 diff = (pos - neg) * contrast;
+    float3 relief = clamp(float3(0.5) + diff, 0.0, 1.0);
+    float blend = clamp(contrast, 0.0, 1.0);
+    float3 out_rgb = clamp(mix(base, relief, blend) + diff * max(0.0, contrast - 1.0), 0.0, 1.0);
+    return half4(half3(out_rgb * a), centre.a);
+}
+";
+
+/// `sharpen` (ADR-0225 §4): unsharp mask `out = clamp(src + amount * (src - blurred), 0, 1)`
+/// against a 3×3 Gaussian-weighted neighbourhood `[1,2,1; 2,4,2; 1,2,1] / 16` with edge-clamped
+/// coordinates (`TileMode::Clamp`), preserving alpha.
+const SHARPEN: &str = r"
+uniform shader source;
+uniform float2 size;
+uniform float amount;
+
+float2 clamp_edge(float2 p, float2 s) {
+    return clamp(p, float2(0.5), max(float2(0.5), s - float2(0.5)));
+}
+
+float3 rgb_at(float2 p) {
+    half4 c = source.eval(clamp_edge(p, size));
+    float a = float(c.a);
+    return a > 0.0 ? clamp(float3(c.rgb) / a, 0.0, 1.0) : float3(0.0);
+}
+
+half4 main(float2 p) {
+    half4 centre = source.eval(clamp_edge(p, size));
+    float a = float(centre.a);
+    if (a <= 0.0) { return centre; }
+
+    float3 cc = clamp(float3(centre.rgb) / a, 0.0, 1.0);
+    float3 tl = rgb_at(p + float2(-1.0, -1.0));
+    float3 tc = rgb_at(p + float2( 0.0, -1.0));
+    float3 tr = rgb_at(p + float2( 1.0, -1.0));
+    float3 ml = rgb_at(p + float2(-1.0,  0.0));
+    float3 mr = rgb_at(p + float2( 1.0,  0.0));
+    float3 bl = rgb_at(p + float2(-1.0,  1.0));
+    float3 bc = rgb_at(p + float2( 0.0,  1.0));
+    float3 br = rgb_at(p + float2( 1.0,  1.0));
+
+    float3 blurred = (tl + 2.0 * tc + tr + 2.0 * ml + 4.0 * cc + 2.0 * mr + bl + 2.0 * bc + br) / 16.0;
+    float3 out_rgb = clamp(cc + amount * (cc - blurred), 0.0, 1.0);
+    return half4(half3(out_rgb * a), centre.a);
+}
+";
+
+/// `twirl` (ADR-0225 §5): quadratic falloff vortex twist inside `radius` around `center_px`:
+/// for `r < radius`, `u = 1 - r / radius`, `theta = radians(angle) * u * u`, rotating `p - center_px`
+/// by `-theta` for inverse mapping and clamping to element edges (`TileMode::Clamp`).
+const TWIRL: &str = r"
+uniform shader source;
+uniform float2 size;
+uniform float2 center_px;
+uniform float radius;
+uniform float angle_rad;
+
+float2 clamp_edge(float2 p, float2 s) {
+    return clamp(p, float2(0.5), max(float2(0.5), s - float2(0.5)));
+}
+
+half4 main(float2 p) {
+    float2 rel = p - center_px;
+    float r = length(rel);
+    if (r < radius && radius > 0.0) {
+        float u = 1.0 - r / radius;
+        float theta = -angle_rad * u * u;
+        float c = cos(theta);
+        float s = sin(theta);
+        rel = float2(rel.x * c - rel.y * s, rel.x * s + rel.y * c);
+    }
+    return source.eval(clamp_edge(center_px + rel, size));
+}
+";
+
+/// `bulge` (ADR-0225 §5): smooth radial magnify (`height > 0`) or pinch (`height < 0`) inside
+/// `radius` around `center_px`, using smooth quadratic falloff `(1 - u²)²` and clamping to
+/// element edges (`TileMode::Clamp`).
+const BULGE: &str = r"
+uniform shader source;
+uniform float2 size;
+uniform float2 center_px;
+uniform float radius;
+uniform float height;
+
+float2 clamp_edge(float2 p, float2 s) {
+    return clamp(p, float2(0.5), max(float2(0.5), s - float2(0.5)));
+}
+
+half4 main(float2 p) {
+    float2 rel = p - center_px;
+    float r = length(rel);
+    if (r < radius && radius > 0.0) {
+        float u = r / radius;
+        float falloff = (1.0 - u * u) * (1.0 - u * u);
+        float scale = height >= 0.0
+            ? 1.0 / (1.0 + 2.0 * height * falloff)
+            : 1.0 - 2.0 * height * falloff;
+        rel *= scale;
+    }
+    return source.eval(clamp_edge(center_px + rel, size));
+}
+";
+
+/// `optics_compensation` (ADR-0225 §5): symmetric Brown-Conrady radial lens distortion /
+/// compensation around the element centre `(width / 2, height / 2)` with `k` derived from `fov`
+/// (`reverse == false` barrel `k < 0`, `reverse == true` pincushion `k > 0`),
+/// clamped to element edges (`TileMode::Clamp`).
+const OPTICS_COMPENSATION: &str = r"
+uniform shader source;
+uniform float2 size;
+uniform float k;
+
+float2 clamp_edge(float2 p, float2 s) {
+    return clamp(p, float2(0.5), max(float2(0.5), s - float2(0.5)));
+}
+
+half4 main(float2 p) {
+    float2 center_px = size * 0.5;
+    float half_diag = max(length(center_px), 1.0);
+    float2 rel = (p - center_px) / half_diag;
+    float r2 = dot(rel, rel);
+    float factor = max(0.1, 1.0 + k * r2);
+    float2 src_p = center_px + rel * factor * half_diag;
+    return source.eval(clamp_edge(src_p, size));
+}
+";
+
+/// `offset` (ADR-0225 §5): translate pixels by `(shift_x, shift_y)` in element space, sampling
+/// `p - shift` with periodic modulo wrap (`wrap_flag > 0.5`) or edge clamp (`wrap_flag <= 0.5`).
+const OFFSET: &str = r"
+uniform shader source;
+uniform float2 size;
+uniform float2 shift;
+uniform float wrap_flag;
+
+float2 clamp_edge(float2 p, float2 s) {
+    return clamp(p, float2(0.5), max(float2(0.5), s - float2(0.5)));
+}
+
+half4 main(float2 p) {
+    float2 q = p - shift;
+    if (wrap_flag > 0.5) {
+        q = q - floor(q / size) * size;
+    }
+    return source.eval(clamp_edge(q, size));
+}
+";
+
+thread_local! {
+    static MOSAIC_EFFECT: OnceCell<Option<RuntimeEffect>> = const { OnceCell::new() };
+    static RADIAL_BLUR_EFFECT: OnceCell<Option<RuntimeEffect>> = const { OnceCell::new() };
+    static FIND_EDGES_EFFECT: OnceCell<Option<RuntimeEffect>> = const { OnceCell::new() };
+    static EMBOSS_EFFECT: OnceCell<Option<RuntimeEffect>> = const { OnceCell::new() };
+    static SHARPEN_EFFECT: OnceCell<Option<RuntimeEffect>> = const { OnceCell::new() };
+    static TWIRL_EFFECT: OnceCell<Option<RuntimeEffect>> = const { OnceCell::new() };
+    static BULGE_EFFECT: OnceCell<Option<RuntimeEffect>> = const { OnceCell::new() };
+    static OPTICS_EFFECT: OnceCell<Option<RuntimeEffect>> = const { OnceCell::new() };
+    static OFFSET_EFFECT: OnceCell<Option<RuntimeEffect>> = const { OnceCell::new() };
+}
+
+fn cropped_shader(
+    builder: &RuntimeShaderBuilder,
+    max_sample_radius: f32,
+    width: f64,
+    height: f64,
+) -> Option<ImageFilter> {
+    let rect = Rect::from_wh(width.max(0.0) as f32, height.max(0.0) as f32);
+    let filter = image_filters::runtime_shader_with_options(
+        builder,
+        max_sample_radius,
+        "source",
+        None,
+        false,
+    )?;
+    image_filters::crop(rect, None, filter)
+}
+
+pub(super) fn mosaic(blocks: [f64; 2], width: f64, height: f64) -> Option<ImageFilter> {
+    let bx = blocks[0].round().max(1.0);
+    let by = blocks[1].round().max(1.0);
+    if width <= 0.0 || height <= 0.0 || (bx >= width.round() && by >= height.round()) {
+        return None;
+    }
+    let effect = compiled(&MOSAIC_EFFECT, || {
+        RuntimeEffect::make_for_shader(MOSAIC, None).ok()
+    })?;
+    let mut builder = RuntimeShaderBuilder::new(effect);
+    builder
+        .set_uniform_float("size", &[width as f32, height as f32])
+        .ok()?;
+    builder
+        .set_uniform_float("blocks", &[bx as f32, by as f32])
+        .ok()?;
+    let max_reach = (width / bx).max(height / by).ceil() as f32 + 1.0;
+    cropped_shader(&builder, max_reach, width, height)
+}
+
+pub(super) fn radial_blur(
+    spin: bool,
+    center: [f64; 2],
+    amount: f64,
+    width: f64,
+    height: f64,
+) -> Option<ImageFilter> {
+    if amount <= 0.0 || width <= 0.0 || height <= 0.0 {
+        return None;
+    }
+    let effect = compiled(&RADIAL_BLUR_EFFECT, || {
+        RuntimeEffect::make_for_shader(RADIAL_BLUR, None).ok()
+    })?;
+    let mut builder = RuntimeShaderBuilder::new(effect);
+    let cx = (center[0].clamp(0.0, 1.0) * width) as f32;
+    let cy = (center[1].clamp(0.0, 1.0) * height) as f32;
+    builder
+        .set_uniform_float("size", &[width as f32, height as f32])
+        .ok()?;
+    builder
+        .set_uniform_float("center_px", &[cx, cy])
+        .ok()?;
+    builder
+        .set_uniform_float("amount", &[amount as f32])
+        .ok()?;
+    builder
+        .set_uniform_float("mode", &[if spin { 1.0 } else { 0.0 }])
+        .ok()?;
+    let diag = width.hypot(height) as f32;
+    cropped_shader(&builder, diag, width, height)
+}
+
+pub(super) fn find_edges(invert: bool, width: f64, height: f64) -> Option<ImageFilter> {
+    if width <= 0.0 || height <= 0.0 {
+        return None;
+    }
+    let effect = compiled(&FIND_EDGES_EFFECT, || {
+        RuntimeEffect::make_for_shader(FIND_EDGES, None).ok()
+    })?;
+    let mut builder = RuntimeShaderBuilder::new(effect);
+    builder
+        .set_uniform_float("size", &[width as f32, height as f32])
+        .ok()?;
+    builder
+        .set_uniform_float("invert_flag", &[if invert { 1.0 } else { 0.0 }])
+        .ok()?;
+    cropped_shader(&builder, 2.0, width, height)
+}
+
+pub(super) fn emboss(
+    angle: f64,
+    height_px: f64,
+    contrast: f64,
+    width: f64,
+    height: f64,
+) -> Option<ImageFilter> {
+    if height_px <= 0.0 || contrast <= 0.0 || width <= 0.0 || height <= 0.0 {
+        return None;
+    }
+    let effect = compiled(&EMBOSS_EFFECT, || {
+        RuntimeEffect::make_for_shader(EMBOSS, None).ok()
+    })?;
+    let theta = angle.to_radians();
+    let offset_px = [
+        (theta.cos() * height_px) as f32,
+        (theta.sin() * height_px) as f32,
+    ];
+    let mut builder = RuntimeShaderBuilder::new(effect);
+    builder
+        .set_uniform_float("size", &[width as f32, height as f32])
+        .ok()?;
+    builder.set_uniform_float("offset_px", &offset_px).ok()?;
+    builder
+        .set_uniform_float("contrast", &[contrast as f32])
+        .ok()?;
+    cropped_shader(&builder, height_px.ceil() as f32 + 2.0, width, height)
+}
+
+pub(super) fn sharpen(amount: f64, width: f64, height: f64) -> Option<ImageFilter> {
+    if amount <= 0.0 || width <= 0.0 || height <= 0.0 {
+        return None;
+    }
+    let effect = compiled(&SHARPEN_EFFECT, || {
+        RuntimeEffect::make_for_shader(SHARPEN, None).ok()
+    })?;
+    let mut builder = RuntimeShaderBuilder::new(effect);
+    builder
+        .set_uniform_float("size", &[width as f32, height as f32])
+        .ok()?;
+    builder
+        .set_uniform_float("amount", &[amount as f32])
+        .ok()?;
+    cropped_shader(&builder, 2.0, width, height)
+}
+
+pub(super) fn twirl(
+    center: [f64; 2],
+    radius: f64,
+    angle: f64,
+    width: f64,
+    height: f64,
+) -> Option<ImageFilter> {
+    if angle.abs() <= 1e-9 || radius <= 0.0 || width <= 0.0 || height <= 0.0 {
+        return None;
+    }
+    let effect = compiled(&TWIRL_EFFECT, || {
+        RuntimeEffect::make_for_shader(TWIRL, None).ok()
+    })?;
+    let cx = (center[0].clamp(0.0, 1.0) * width) as f32;
+    let cy = (center[1].clamp(0.0, 1.0) * height) as f32;
+    let radius_px = (radius * width.max(height)) as f32;
+    let mut builder = RuntimeShaderBuilder::new(effect);
+    builder
+        .set_uniform_float("size", &[width as f32, height as f32])
+        .ok()?;
+    builder
+        .set_uniform_float("center_px", &[cx, cy])
+        .ok()?;
+    builder.set_uniform_float("radius", &[radius_px]).ok()?;
+    builder
+        .set_uniform_float("angle_rad", &[angle.to_radians() as f32])
+        .ok()?;
+    cropped_shader(&builder, radius_px.ceil() + 2.0, width, height)
+}
+
+pub(super) fn bulge(
+    center: [f64; 2],
+    radius: f64,
+    bulge_height: f64,
+    width: f64,
+    height: f64,
+) -> Option<ImageFilter> {
+    if bulge_height.abs() <= 1e-9 || radius <= 0.0 || width <= 0.0 || height <= 0.0 {
+        return None;
+    }
+    let effect = compiled(&BULGE_EFFECT, || {
+        RuntimeEffect::make_for_shader(BULGE, None).ok()
+    })?;
+    let cx = (center[0].clamp(0.0, 1.0) * width) as f32;
+    let cy = (center[1].clamp(0.0, 1.0) * height) as f32;
+    let radius_px = (radius * width.max(height)) as f32;
+    let mut builder = RuntimeShaderBuilder::new(effect);
+    builder
+        .set_uniform_float("size", &[width as f32, height as f32])
+        .ok()?;
+    builder
+        .set_uniform_float("center_px", &[cx, cy])
+        .ok()?;
+    builder.set_uniform_float("radius", &[radius_px]).ok()?;
+    builder
+        .set_uniform_float("height", &[bulge_height as f32])
+        .ok()?;
+    cropped_shader(&builder, radius_px.ceil() + 2.0, width, height)
+}
+
+pub(super) fn optics_compensation(
+    fov: f64,
+    reverse: bool,
+    width: f64,
+    height: f64,
+) -> Option<ImageFilter> {
+    if fov <= 0.0 || width <= 0.0 || height <= 0.0 {
+        return None;
+    }
+    let effect = compiled(&OPTICS_EFFECT, || {
+        RuntimeEffect::make_for_shader(OPTICS_COMPENSATION, None).ok()
+    })?;
+    let half_rad = (fov.clamp(0.0, 180.0) * 0.5).to_radians() / std::f64::consts::FRAC_PI_2;
+    let sign = if reverse { 1.0 } else { -1.0 };
+    let k = (sign * 0.75 * half_rad * half_rad) as f32;
+    let mut builder = RuntimeShaderBuilder::new(effect);
+    builder
+        .set_uniform_float("size", &[width as f32, height as f32])
+        .ok()?;
+    builder.set_uniform_float("k", &[k]).ok()?;
+    let diag = width.hypot(height) as f32;
+    cropped_shader(&builder, diag, width, height)
+}
+
+pub(super) fn offset(
+    shift_x: f64,
+    shift_y: f64,
+    wrap: bool,
+    width: f64,
+    height: f64,
+) -> Option<ImageFilter> {
+    if (shift_x.abs() <= 1e-9 && shift_y.abs() <= 1e-9) || width <= 0.0 || height <= 0.0 {
+        return None;
+    }
+    let effect = compiled(&OFFSET_EFFECT, || {
+        RuntimeEffect::make_for_shader(OFFSET, None).ok()
+    })?;
+    let mut builder = RuntimeShaderBuilder::new(effect);
+    builder
+        .set_uniform_float("size", &[width as f32, height as f32])
+        .ok()?;
+    builder
+        .set_uniform_float("shift", &[shift_x as f32, shift_y as f32])
+        .ok()?;
+    builder
+        .set_uniform_float("wrap_flag", &[if wrap { 1.0 } else { 0.0 }])
+        .ok()?;
+    let diag = width.hypot(height) as f32;
+    cropped_shader(&builder, diag, width, height)
+}

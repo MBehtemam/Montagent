@@ -189,6 +189,7 @@ pub fn edl_to_project(edl_text: &str, fps: FrameRate) -> Result<Project, EdlErro
                     role: None,
                     speed: None,
                     overrun: None,
+                    frame_blend: None,
                     volume: None,
                     markers: None,
                     effects: None,
