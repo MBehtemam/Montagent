@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""Generate or transform motion keyframes on a Montagent project from a spec (ADR-0217).
+"""Generate or transform motion keyframes on a Montagent project from a spec (ADR-0217, ADR-0219).
 
-Requires Python >= 3.9 and stdlib only (`ffmpeg` is invoked lazily only when an `"audio"`
-operation is present in `<spec>`, and `montagent` on PATH for final validation).
+Requires Python >= 3.9
+Standard library only (`ffmpeg` is invoked lazily only when an `"audio"` operation is present
+in `<spec>`, and `montagent` on PATH for final validation).
 drift-guard: keyframes.montagent.json keyframes.spec.json
 
 Usage:
@@ -15,6 +16,7 @@ Operations (`op` in each entry of `<spec>`'s `"operations"` list):
   - `smooth`: rolling-window box filter (`window_ms`) + Ramer-Douglas-Peucker thinning (`tol`).
   - `exp_scale`: optical constant-rate zoom `s0 * (s1 / s0)^u` over `[start, end]`.
   - `audio`: maps per-frame audio RMS dBFS (`[floor_db, peak_db]`) onto `[min_v, max_v]`.
+  - `auto_bezier`: Fritsch-Carlson monotonic cubic spline tangent smoothing over `[start, end]`.
 
 With `--check`, exits 0 if the target properties in `<project>` already match what `<spec>`
 produces, or 1 if they have drifted (printing nothing to stdout).
@@ -1031,6 +1033,100 @@ def op_audio(
     return out, t0, t1
 
 
+def op_auto_bezier(
+    current_val: Any,
+    op: Dict[str, Any],
+    el_start: int,
+    el_end: int,
+    fps: float,
+    prop_leaf: str,
+    is_pair: bool,
+    is_int: bool,
+) -> Tuple[List[Dict[str, Any]], int, int]:
+    """Compute Fritsch-Carlson monotonic cubic spline handles for smooth pass-through (ADR-0219)."""
+    kfs_in: List[Dict[str, Any]] = []
+    if "keyframes" in op and isinstance(op["keyframes"], list):
+        kfs_in = [dict(k) for k in op["keyframes"]]
+    elif isinstance(current_val, list) and current_val and isinstance(current_val[0], dict):
+        kfs_in = [dict(k) for k in current_val]
+
+    if len(kfs_in) < 2:
+        raise ValueError(f"auto_bezier on '{prop_leaf}' requires at least 2 keyframes")
+
+    t0 = int(op.get("start", op.get("t0", kfs_in[0]["t"])))
+    t1 = int(op.get("end", op.get("t1", kfs_in[-1]["t"])))
+    slice_kfs = [dict(k) for k in kfs_in if t0 <= int(k["t"]) <= t1]
+    if len(slice_kfs) < 2:
+        return slice_kfs, t0, t1
+
+    axis = 0
+    if is_pair:
+        vals_0 = [to_pair(k["v"])[0] for k in slice_kfs]
+        vals_1 = [to_pair(k["v"])[1] for k in slice_kfs]
+        if max(vals_0) - min(vals_0) < 1e-9 and max(vals_1) - min(vals_1) >= 1e-9:
+            axis = 1
+
+    def scalar_v(val: Any) -> float:
+        if isinstance(val, list):
+            return float(val[axis])
+        return float(val)
+
+    n_segs = len(slice_kfs) - 1
+    dt_list: List[float] = []
+    dv_list: List[float] = []
+    secants: List[float] = []
+    for j in range(1, len(slice_kfs)):
+        dt = float(int(slice_kfs[j]["t"]) - int(slice_kfs[j - 1]["t"]))
+        dv = scalar_v(slice_kfs[j]["v"]) - scalar_v(slice_kfs[j - 1]["v"])
+        dt_list.append(dt)
+        dv_list.append(dv)
+        secants.append(dv / dt if dt > 0.0 else 0.0)
+
+    m0 = float(op.get("start_slope", op.get("m0", 0.0)))
+    mn = float(op.get("end_slope", op.get("mn", 0.0)))
+    slopes: List[float] = [0.0] * (n_segs + 1)
+    slopes[0] = m0
+    slopes[n_segs] = mn
+
+    for i in range(1, n_segs):
+        d_prev = secants[i - 1]
+        d_next = secants[i]
+        if d_prev * d_next <= 0.0:
+            slopes[i] = 0.0
+        else:
+            dt_prev = dt_list[i - 1]
+            dt_next = dt_list[i]
+            w1 = 2.0 * dt_next + dt_prev
+            w2 = dt_next + 2.0 * dt_prev
+            m_i = (w1 + w2) / (w1 / d_prev + w2 / d_next)
+            max_mag = 3.0 * min(abs(d_prev), abs(d_next))
+            if abs(m_i) > max_mag:
+                m_i = math.copysign(max_mag, m_i)
+            slopes[i] = m_i
+
+    x1 = round(1.0 / 3.0, 6)
+    x2 = round(2.0 / 3.0, 6)
+    out: List[Dict[str, Any]] = [dict(slice_kfs[0])]
+    for j in range(1, len(slice_kfs)):
+        kf = dict(slice_kfs[j])
+        dt = dt_list[j - 1]
+        dv = dv_list[j - 1]
+        if abs(dv) <= 1e-12:
+            y1 = 0.0
+            y2 = 1.0
+        else:
+            y1 = round((slopes[j - 1] * dt) / (3.0 * dv), 6)
+            y2 = round(1.0 - (slopes[j] * dt) / (3.0 * dv), 6)
+            if abs(y1) < 1e-12:
+                y1 = 0.0
+            if abs(y2) < 1e-12:
+                y2 = 0.0
+        kf["ease"] = [x1, y1, x2, y2]
+        out.append(kf)
+
+    return out, int(slice_kfs[0]["t"]), int(slice_kfs[-1]["t"])
+
+
 def extract_operations(spec: Any) -> List[Dict[str, Any]]:
     if isinstance(spec, list):
         return spec
@@ -1115,6 +1211,10 @@ def apply_spec(
                 is_int,
                 resolved_dir,
                 pcm_cache,
+            )
+        elif op_name == "auto_bezier":
+            new_kfs, t0, t1 = op_auto_bezier(
+                current_val, op, el_start, el_end, fps, prop_leaf, is_pair, is_int
             )
         else:
             raise ValueError(f"Unknown keyframe operation '{op_name}'")

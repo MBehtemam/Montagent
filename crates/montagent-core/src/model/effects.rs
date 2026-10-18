@@ -225,6 +225,67 @@ pub enum Effect {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         intensity: Option<f64>,
     },
+    /// Chroma-weighted saturation adjustment (`amount` in `[-1, 1]`, identity `0`) (ADR-0221).
+    Vibrance { amount: Animatable<VibranceAmount> },
+    /// Hue rotation in degrees (`angle` in `[-180, 180]`, identity `0`) (ADR-0221).
+    HueRotate { angle: Animatable<HueAngle> },
+    /// Linear channel inversion (`amount` in `[0, 1]`, identity `0`, full invert `1`) (ADR-0221).
+    Invert { amount: Animatable<Fraction> },
+    /// An outer stroke around the element's combined alpha silhouette (ADR-0231 §1).
+    ///
+    /// Evaluated via morphological dilation of the element's alpha channel and composited
+    /// behind the original element with `color` and `opacity` (default `1.0`). `width: 0` is
+    /// the identity.
+    #[serde(rename = "outline")]
+    Outline {
+        width: Animatable<Reach>,
+        color: Animatable<Colour>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        opacity: Option<Animatable<Fraction>>,
+    },
+    /// Flood-fill the element's alpha silhouette with a solid `color` at `opacity`
+    /// (default `1.0`, identity `0.0`) (ADR-0231 §2).
+    #[serde(rename = "color_overlay")]
+    ColorOverlay {
+        color: Animatable<Colour>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        opacity: Option<Animatable<Fraction>>,
+    },
+    /// An inner shadow cast inward from the element's alpha boundary (ADR-0231 §3).
+    ///
+    /// Mirrors `shadow` (ADR-0040): the element's alpha channel is inverted, offset by
+    /// `(dx, dy)`, blurred by `radius` (σ = `radius` / 2), clipped strictly to the element's
+    /// interior alpha mask, and composited over the element with `color` and `opacity`
+    /// (`opacity: 0` is the identity).
+    #[serde(rename = "inner_shadow")]
+    InnerShadow {
+        dx: Animatable<f64>,
+        dy: Animatable<f64>,
+        radius: Animatable<Reach>,
+        color: Animatable<Colour>,
+        opacity: Animatable<Fraction>,
+    },
+    /// Alpha matte cleanup: morphological choke/spread, feathering, and alpha contrast
+    /// (ADR-0227).
+    Matte {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        choke: Option<Animatable<Choke>>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        feather: Option<Animatable<MatteFeather>>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        contrast: Option<Animatable<MatteContrast>>,
+    },
+    /// Rec.709 luminance keyer: extracts alpha transparency from pixel luminance (ADR-0227).
+    LumaKey {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        threshold: Option<Animatable<Fraction>>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        tolerance: Option<Animatable<Fraction>>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        softness: Option<Animatable<Fraction>>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        invert: Option<bool>,
+    },
     /// Pixelation into a `[cols, rows]` grid of uniform-colour cells (ADR-0225).
     Mosaic { blocks: Animatable<MosaicBlocks> },
     /// Zoom or spin radial blur around a normalised `center` (ADR-0225).
@@ -511,6 +572,60 @@ impl Smear {
     /// 4,097 (the prototype's cap, #722).
     pub const MAX: f64 = 4096.0;
 }
+
+bounded!(
+    /// `vibrance`'s `amount`: chroma-weighted saturation boost/cut, from -1 to 1 (ADR-0221).
+    VibranceAmount(f64),
+    "number",
+    -1.0,
+    Some(1.0),
+    "The chroma-weighted saturation adjustment, from `-1` to `1` in a static value and in \
+     every keyframe record. `0` is the identity (ADR-0221)."
+);
+
+bounded!(
+    /// `hue_rotate`'s `angle`: hue rotation in degrees, from -180 to 180 (ADR-0221).
+    HueAngle(f64),
+    "number",
+    -180.0,
+    Some(180.0),
+    "The hue rotation angle in degrees, from `-180` to `180` in a static value and in \
+     every keyframe record. `0` is the identity (ADR-0221)."
+);
+
+bounded!(
+    /// `matte`'s `choke`: morphological erosion (`> 0`) or dilation (`< 0`) radius in
+    /// element pixels, from -50 to 50 (ADR-0227).
+    Choke(f64),
+    "number",
+    -50.0,
+    Some(50.0),
+    "Alpha erosion (`> 0`) or dilation (`< 0`) radius in element pixels, from `-50` to `50` \
+     in a static value and in every keyframe record. `0` is the identity (ADR-0227)."
+);
+
+bounded!(
+    /// `matte`'s `feather`: Gaussian blur radius applied to the alpha matte in element
+    /// pixels, from 0 to 100 (ADR-0227).
+    MatteFeather(f64),
+    "number",
+    0.0,
+    Some(100.0),
+    "Gaussian blur radius applied to the alpha matte in element pixels, from `0` to `100` \
+     in a static value and in every keyframe record (σ = feather / 2). `0` is the identity \
+     (ADR-0227)."
+);
+
+bounded!(
+    /// `matte`'s `contrast`: alpha-curve steepening multiplier around midpoint `0.5`, from
+    /// 0 to 10 (ADR-0227).
+    MatteContrast(f64),
+    "number",
+    0.0,
+    Some(10.0),
+    "Alpha-curve steepening multiplier around midpoint `0.5`, from `0` to `10` in a static \
+     value and in every keyframe record. `1` is the identity (ADR-0227)."
+);
 
 bounded!(
     /// `radial_blur`'s `amount`: blur strength from `0.0` to `100.0` (ADR-0225).
@@ -865,6 +980,45 @@ impl Effect {
             }
         }
 
+        // ADR-0221: `vibrance.amount`, `hue_rotate.angle` and `invert.amount` are bounded in
+        // a static value and in every keyframe record.
+        let adr0221: Vec<Ranged> = match &self {
+            Effect::Vibrance { amount } => vec![(
+                "vibrance",
+                "amount",
+                stated(amount).into_iter().map(|v| v.value()).collect(),
+                VibranceAmount::RANGE,
+            )],
+            Effect::HueRotate { angle } => vec![(
+                "hue_rotate",
+                "angle",
+                stated(angle).into_iter().map(|v| v.value()).collect(),
+                HueAngle::RANGE,
+            )],
+            Effect::Invert { amount } => vec![(
+                "invert",
+                "amount",
+                stated(amount).into_iter().map(|v| v.0).collect(),
+                (0.0, Some(1.0)),
+            )],
+            _ => Vec::new(),
+        };
+        for (member, parameter, values, (min, max)) in adr0221 {
+            if let Some(value) = values
+                .into_iter()
+                .find(|value| !(*value >= min && max.is_none_or(|max| *value <= max)))
+            {
+                let range = match max {
+                    Some(max) => format!("from `{min}` to `{max}`"),
+                    None => format!("at least `{min}`"),
+                };
+                return Err(format!(
+                    "`{member}`'s `{parameter}` is {value}: it must be {range}, in a static \
+                     value and in every keyframe record (ADR-0221)"
+                ));
+            }
+        }
+
         // ADR-0225: every bounded parameter of mosaic, radial_blur, emboss, sharpen, twirl,
         // bulge, and optics_compensation is validated in both static values and keyframe records.
         if let Effect::Mosaic { blocks } = &self {
@@ -985,6 +1139,82 @@ impl Effect {
             }
         }
 
+        if let Effect::Matte {
+            choke,
+            feather,
+            contrast,
+        } = &self
+        {
+            let mut checks: Vec<Ranged> = Vec::new();
+            if let Some(choke) = choke {
+                checks.push((
+                    "matte",
+                    "choke",
+                    stated(choke).into_iter().map(|v| v.value()).collect(),
+                    Choke::RANGE,
+                ));
+            }
+            if let Some(feather) = feather {
+                checks.push((
+                    "matte",
+                    "feather",
+                    stated(feather).into_iter().map(|v| v.value()).collect(),
+                    MatteFeather::RANGE,
+                ));
+            }
+            if let Some(contrast) = contrast {
+                checks.push((
+                    "matte",
+                    "contrast",
+                    stated(contrast).into_iter().map(|v| v.value()).collect(),
+                    MatteContrast::RANGE,
+                ));
+            }
+            for (member, parameter, values, (min, max)) in checks {
+                if let Some(value) = values
+                    .into_iter()
+                    .find(|value| !(*value >= min && max.is_none_or(|max| *value <= max)))
+                {
+                    let max = max.expect("all matte parameters have an upper bound");
+                    return Err(format!(
+                        "`{member}`'s `{parameter}` is {value}: it must be from `{min}` to `{max}`, \
+                         in a static value and in every keyframe record (ADR-0227)"
+                    ));
+                }
+            }
+            return Ok(self);
+        }
+
+        if let Effect::LumaKey {
+            threshold,
+            tolerance,
+            softness,
+            invert: _,
+        } = &self
+        {
+            let mut fields = Vec::new();
+            if let Some(threshold) = threshold {
+                fields.push(("threshold", threshold));
+            }
+            if let Some(tolerance) = tolerance {
+                fields.push(("tolerance", tolerance));
+            }
+            if let Some(softness) = softness {
+                fields.push(("softness", softness));
+            }
+            for (parameter, property) in fields {
+                if let Some(Fraction(value)) = stated(property)
+                    .into_iter()
+                    .find(|Fraction(value)| !(0.0..=1.0).contains(value))
+                {
+                    return Err(format!(
+                        "`luma_key`'s `{parameter}` is {value}: it must be from `0` to `1`, \
+                         in a static value and in every keyframe record (ADR-0227)"
+                    ));
+                }
+            }
+            return Ok(self);
+        }
         if let Effect::Chroma {
             color,
             tolerance,
@@ -1077,6 +1307,69 @@ impl Effect {
                 ));
             }
             return Ok(self);
+        }
+
+        // ADR-0231: `outline`, `color_overlay`, and `inner_shadow` parameter bounds hold in
+        // a static value and in every keyframe record.
+        let layer_styles: Vec<Ranged> = match &self {
+            Effect::Outline { width, opacity, .. } => {
+                let mut bounds = vec![(
+                    "outline",
+                    "width",
+                    stated(width).into_iter().map(|v| v.value()).collect(),
+                    Reach::RANGE,
+                )];
+                if let Some(opacity) = opacity {
+                    bounds.push((
+                        "outline",
+                        "opacity",
+                        stated(opacity).into_iter().map(|v| v.0).collect(),
+                        (0.0, Some(1.0)),
+                    ));
+                }
+                bounds
+            }
+            Effect::ColorOverlay { opacity, .. } => match opacity {
+                Some(opacity) => vec![(
+                    "color_overlay",
+                    "opacity",
+                    stated(opacity).into_iter().map(|v| v.0).collect(),
+                    (0.0, Some(1.0)),
+                )],
+                None => Vec::new(),
+            },
+            Effect::InnerShadow {
+                radius, opacity, ..
+            } => vec![
+                (
+                    "inner_shadow",
+                    "radius",
+                    stated(radius).into_iter().map(|v| v.value()).collect(),
+                    Reach::RANGE,
+                ),
+                (
+                    "inner_shadow",
+                    "opacity",
+                    stated(opacity).into_iter().map(|v| v.0).collect(),
+                    (0.0, Some(1.0)),
+                ),
+            ],
+            _ => Vec::new(),
+        };
+        for (member, parameter, values, (min, max)) in layer_styles {
+            if let Some(value) = values
+                .into_iter()
+                .find(|value| !(*value >= min && max.is_none_or(|max| *value <= max)))
+            {
+                let range = match max {
+                    Some(max) => format!("from `{min}` to `{max}`"),
+                    None => format!("at least `{min}`"),
+                };
+                return Err(format!(
+                    "`{member}`'s `{parameter}` is {value}: it must be {range}, in a static \
+                     value and in every keyframe record (ADR-0231)"
+                ));
+            }
         }
 
         let Effect::Mask {

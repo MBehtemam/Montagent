@@ -1030,3 +1030,291 @@ fn offset_wraps_periodically_when_wrap_is_true_and_clamps_to_edge_when_false() {
     assert_eq!(rgb(&clamped, 210, 200), [255, 0, 0]);
 }
 
+// ---------------------------------------------------------------------------
+// ADR-0231: outline, color_overlay, inner_shadow (and refused bevel_emboss, gradient_overlay)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn layer_styles_parse_as_written_and_bevel_emboss_and_gradient_overlay_are_refused() {
+    for effect in [
+        json!({"name": "outline", "width": 6, "color": "#FFFFFF"}),
+        json!({"name": "outline", "width": 6.5, "color": "#FFFFFF80", "opacity": 0.5}),
+        json!({"name": "color_overlay", "color": "#FF3366"}),
+        json!({"name": "color_overlay", "color": "#FF336680", "opacity": 0.75}),
+        json!({"name": "inner_shadow", "dx": 4, "dy": 6, "radius": 8, "color": "#000000", "opacity": 0.65}),
+    ] {
+        parse(effect.clone()).unwrap_or_else(|e| panic!("{effect}: {e}"));
+    }
+
+    // Required keys on outline, color_overlay, and inner_shadow.
+    for (effect, required) in [
+        (
+            json!({"name": "outline", "width": 4, "color": "#FFFFFF"}),
+            &["width", "color"][..],
+        ),
+        (
+            json!({"name": "color_overlay", "color": "#FF0000"}),
+            &["color"][..],
+        ),
+        (
+            json!({"name": "inner_shadow", "dx": 2, "dy": 3, "radius": 4, "color": "#000000", "opacity": 0.5}),
+            &["dx", "dy", "radius", "color", "opacity"][..],
+        ),
+    ] {
+        for &key in required {
+            let mut missing = effect.clone();
+            missing.as_object_mut().unwrap().remove(key);
+            let error = parse(missing).expect_err(key);
+            assert!(error.contains(&format!("`{key}`")), "{key}: {error}");
+        }
+    }
+
+    // ADR-0231 refuses bevel_emboss and gradient_overlay as unknown effects variants.
+    for refused_name in [
+        json!({"name": "bevel_emboss", "depth": 4, "radius": 6}),
+        json!({"name": "gradient_overlay", "angle": 90, "stops": [{"offset": 0, "color": "#000000"}, {"offset": 1, "color": "#FFFFFF"}]}),
+    ] {
+        let error = parse(refused_name.clone()).expect_err("refused by ADR-0231");
+        assert!(error.contains("unknown variant"), "{error}");
+    }
+}
+
+#[test]
+fn layer_style_values_out_of_range_are_schema_errors_citing_adr_0231() {
+    let refused = [
+        (
+            json!({"name": "outline", "width": -0.5, "color": "#FFFFFF"}),
+            "`outline`'s `width`",
+            "at least `0`",
+        ),
+        (
+            json!({"name": "outline", "width": 4, "color": "#FFFFFF", "opacity": 1.2}),
+            "`outline`'s `opacity`",
+            "from `0` to `1`",
+        ),
+        (
+            json!({"name": "color_overlay", "color": "#FFFFFF", "opacity": -0.1}),
+            "`color_overlay`'s `opacity`",
+            "from `0` to `1`",
+        ),
+        (
+            json!({"name": "inner_shadow", "dx": 0, "dy": 0, "radius": -0.5, "color": "#000000", "opacity": 0.5}),
+            "`inner_shadow`'s `radius`",
+            "at least `0`",
+        ),
+        (
+            json!({"name": "inner_shadow", "dx": 0, "dy": 0, "radius": 4, "color": "#000000", "opacity": 1.5}),
+            "`inner_shadow`'s `opacity`",
+            "from `0` to `1`",
+        ),
+        // In a keyframe record as in a static value.
+        (
+            json!({"name": "outline", "width": keyed(json!(4), json!(-1)), "color": "#FFFFFF"}),
+            "`outline`'s `width`",
+            "every keyframe record",
+        ),
+        (
+            json!({"name": "inner_shadow", "dx": 0, "dy": 0, "radius": keyed(json!(4), json!(-1)), "color": "#000000", "opacity": 0.5}),
+            "`inner_shadow`'s `radius`",
+            "every keyframe record",
+        ),
+    ];
+    for (effect, names, range) in refused {
+        let error = parse(effect.clone()).expect_err(&effect.to_string());
+        assert!(
+            error.contains(names) && error.contains(range),
+            "{effect}: {error}"
+        );
+        assert!(error.contains("ADR-0231"), "{error}");
+    }
+}
+
+#[test]
+fn layer_style_parameters_animate_and_query_at_reports_what_each_resolves_to() {
+    use montagent_core::verbs::query::{Ask, query};
+    let dir = tempdir(line!());
+    let element = json!({"id": "subject", "type": "rect", "start": 0, "end": 1000, "x": 200,
+        "y": 200, "width": 100, "height": 100, "fill": "#F0E0A0", "effects": [
+            {"name": "outline", "width": keyed(json!(2), json!(10)),
+             "color": keyed(json!("#FF0000"), json!("#0000FF")),
+             "opacity": keyed(json!(0.2), json!(0.8))},
+            {"name": "color_overlay", "color": "#00FF00",
+             "opacity": keyed(json!(0.0), json!(1.0))},
+            {"name": "inner_shadow", "dx": keyed(json!(-4), json!(12)),
+             "dy": keyed(json!(2), json!(10)),
+             "radius": keyed(json!(0), json!(16)),
+             "color": "#000000",
+             "opacity": keyed(json!(0.25), json!(0.75))}]});
+    let project = write_project(
+        &dir,
+        "p.montagent.json",
+        &canonical(
+            &json!({"frame": {"width": 400, "height": 400}, "fps": 25,
+                    "background": "#000000",
+                    "tracks": [{"name": "only", "layer": 0, "elements": [element]}]})
+            .to_string(),
+        ),
+    );
+    let answer = query(
+        &project,
+        &Ask {
+            at: Some(500),
+            ..Ask::default()
+        },
+    )
+    .to_json();
+    let value = |property: &str| {
+        answer["query"]["stack"][0]["values"]
+            .as_array()
+            .expect("values")
+            .iter()
+            .find(|row| row["property"] == property)
+            .unwrap_or_else(|| panic!("no `{property}` row: {answer}"))["value"]
+            .clone()
+    };
+    assert_eq!(value("effects[0].width (outline)"), json!(6.0));
+    assert_eq!(value("effects[0].color (outline)"), json!("#800080"));
+    assert_eq!(value("effects[0].opacity (outline)"), json!(0.5));
+    assert_eq!(value("effects[1].color (color_overlay)"), json!("#00FF00"));
+    assert_eq!(value("effects[1].opacity (color_overlay)"), json!(0.5));
+    assert_eq!(value("effects[2].dx (inner_shadow)"), json!(4.0));
+    assert_eq!(value("effects[2].dy (inner_shadow)"), json!(6.0));
+    assert_eq!(value("effects[2].radius (inner_shadow)"), json!(8.0));
+    assert_eq!(value("effects[2].color (inner_shadow)"), json!("#000000"));
+    assert_eq!(value("effects[2].opacity (inner_shadow)"), json!(0.5));
+}
+
+#[test]
+fn outline_with_zero_width_or_zero_alpha_paints_the_same_bytes_as_no_effect() {
+    let bare = painted(line!(), &bar(""));
+    for noop in [
+        r##"{"name":"outline","width":0,"color":"#FFFFFF"}"##,
+        r##"{"name":"outline","width":8,"color":"#FFFFFF","opacity":0}"##,
+        r##"{"name":"outline","width":8,"color":"#FFFFFF00"}"##,
+    ] {
+        assert_eq!(differing(&bare, &painted(line!(), &bar(noop))), 0, "{noop}");
+    }
+}
+
+#[test]
+fn outline_expands_the_alpha_contour_by_width_and_draws_the_element_over_it() {
+    // A 100×100 blue square spans 150..250 on both axes; a 6 px white outline reaches
+    // 144..150 and 250..256 on both axes while leaving the blue interior untouched.
+    let outlined = painted(
+        line!(),
+        &square(
+            "#0000FF",
+            r##"{"name":"outline","width":6,"color":"#FFFFFF"}"##,
+        ),
+    );
+    assert_eq!(rgb(&outlined, 200, 200), [0, 0, 255], "interior stays blue");
+    assert_eq!(
+        rgb(&outlined, 146, 200),
+        [255, 255, 255],
+        "left outline border"
+    );
+    assert_eq!(
+        rgb(&outlined, 253, 200),
+        [255, 255, 255],
+        "right outline border"
+    );
+    assert_eq!(
+        rgb(&outlined, 200, 146),
+        [255, 255, 255],
+        "top outline border"
+    );
+    assert_eq!(
+        rgb(&outlined, 200, 253),
+        [255, 255, 255],
+        "bottom outline border"
+    );
+    assert_eq!(rgb(&outlined, 142, 200), [0, 0, 0], "outside 6 px reach");
+    assert_eq!(rgb(&outlined, 257, 200), [0, 0, 0], "outside 6 px reach");
+}
+
+#[test]
+fn color_overlay_at_zero_alpha_is_identity_and_at_full_alpha_floods_only_the_silhouette() {
+    let bare = painted(line!(), &bar(""));
+    for noop in [
+        r##"{"name":"color_overlay","color":"#FF0000","opacity":0}"##,
+        r##"{"name":"color_overlay","color":"#FF000000","opacity":1}"##,
+    ] {
+        assert_eq!(differing(&bare, &painted(line!(), &bar(noop))), 0, "{noop}");
+    }
+
+    // Full overlay floods the 100×100 square (150..250) with #FF3366 and touches nothing outside.
+    let full = painted(
+        line!(),
+        &square("#204080", r##"{"name":"color_overlay","color":"#FF3366"}"##),
+    );
+    assert_eq!(rgb(&full, 200, 200), [0xFF, 0x33, 0x66]);
+    assert_eq!(rgb(&full, 149, 200), [0, 0, 0]);
+    assert_eq!(rgb(&full, 250, 200), [0, 0, 0]);
+
+    // 50% red overlay over pure blue (#0000FF) blends to [128, 0, 128].
+    let half = painted(
+        line!(),
+        &square(
+            "#0000FF",
+            r##"{"name":"color_overlay","color":"#FF0000","opacity":0.5}"##,
+        ),
+    );
+    let mid = rgb(&half, 200, 200);
+    assert!((mid[0] as i32 - 128).abs() <= 1, "mid: {mid:?}");
+    assert_eq!(mid[1], 0);
+    assert!((mid[2] as i32 - 128).abs() <= 1, "mid: {mid:?}");
+}
+
+#[test]
+fn inner_shadow_at_identity_is_a_noop_and_clips_its_inset_shadow_to_the_silhouette() {
+    let bare = painted(line!(), &bar(""));
+    for noop in [
+        r##"{"name":"inner_shadow","dx":0,"dy":0,"radius":0,"color":"#000000","opacity":1}"##,
+        r##"{"name":"inner_shadow","dx":8,"dy":8,"radius":10,"color":"#000000","opacity":0}"##,
+        r##"{"name":"inner_shadow","dx":8,"dy":8,"radius":10,"color":"#00000000","opacity":1}"##,
+    ] {
+        assert_eq!(differing(&bare, &painted(line!(), &bar(noop))), 0, "{noop}");
+    }
+
+    // Hard inner shadow shifted by (dx: 10, dy: 12) on a white 100×100 square (150..250):
+    // top strip (y in 150..162) and left strip (x in 150..160) are darkened, the rest of the
+    // interior (x >= 160 && y >= 162) stays white, and no pixel outside 150..250 is lit.
+    let inset = painted(
+        line!(),
+        &square(
+            "#FFFFFF",
+            r##"{"name":"inner_shadow","dx":10,"dy":12,"radius":0,"color":"#000000","opacity":0.5}"##,
+        ),
+    );
+    let top_strip = rgb(&inset, 200, 155);
+    let left_strip = rgb(&inset, 155, 200);
+    assert!(
+        (top_strip[0] as i32 - 128).abs() <= 1,
+        "top strip darkened by 50%: {top_strip:?}"
+    );
+    assert!(
+        (left_strip[0] as i32 - 128).abs() <= 1,
+        "left strip darkened by 50%: {left_strip:?}"
+    );
+    assert_eq!(
+        rgb(&inset, 200, 200),
+        [255, 255, 255],
+        "unshadowed interior stays white"
+    );
+    assert_eq!(
+        rgb(&inset, 149, 200),
+        [0, 0, 0],
+        "clipped to silhouette on left"
+    );
+    assert_eq!(
+        rgb(&inset, 250, 200),
+        [0, 0, 0],
+        "clipped to silhouette on right"
+    );
+    assert_eq!(
+        rgb(&inset, 200, 250),
+        [0, 0, 0],
+        "clipped to silhouette on bottom"
+    );
+}
+

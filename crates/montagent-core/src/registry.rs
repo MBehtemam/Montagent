@@ -1096,6 +1096,46 @@ so `to` must paint above `from`.",
         sets: &[Document],
     },
     CheckSpec {
+        // ADR-0220 §4: `wipe` accepts either `direction` or `angle`, mutually exclusively.
+        // Refuse because the document does not say which parameter or value was meant.
+        code: "E-TRANSITION-DIRECTION-OR-ANGLE",
+        classes: &[Error],
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0220",
+        template: "{element}: a `wipe` transition takes either `direction` or `angle` \
+(mutually exclusive), and {problem}.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        // ADR-0220 §3, §5: each transition kind accepts its own closed parameter set.
+        // Refuse because the author may have meant a different `kind` or to drop the key.
+        code: "E-TRANSITION-UNSUPPORTED-KEY",
+        classes: &[Error],
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0220",
+        template: "{element}: `{key}` is not supported on a `{kind}` transition (ADR-0220).",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        // ADR-0220 §3, §5: `blinds.slats` must be >= 1.
+        code: "E-TRANSITION-SLATS-ZERO",
+        classes: &[Error],
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0220",
+        template: "{element}: `slats` on a `blinds` transition is {slats}; it must be at \
+least 1 (ADR-0220).",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
         // ADR-0176 §5. Refuse (ADR-0120): the fix forks — point the side at an element that
         // sounds, or drop the transition — and the document does not say which was meant. An
         // `audio_crossfade` exists to carry sound, so a side with none makes it a fade in
@@ -3851,6 +3891,66 @@ shorten the gloss text.",
         adr: "ADR-0208",
         template: "{element}.runs[{run}]: annotation \"{text}\" overhangs its base run by \
 {overhang} px, exceeding the allowed overhang of {allowed} px.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    // ---- Motion paths (ADR-0218). -----------------------------------------------------------
+    CheckSpec {
+        code: "E-MOTION-PATH-XY",
+        classes: &[Error],
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0218",
+        template: "{element} carries `motion_path` alongside {fields}; position must be owned by \
+either `x`/`y` or `motion_path`, not both.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        code: "E-MOTION-PATH-ZERO-LENGTH",
+        classes: &[Error],
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0218",
+        template: "{element}'s `motion_path` has zero arc length; a motion path must have \
+positive length.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        code: "E-MOTION-PATH-OFFSET-RANGE",
+        classes: &[Error],
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0218",
+        template: "{element}'s `motion_path.offset`{?record} (record {record} at `t` {t}){/record} \
+is {value}, outside `[0.0, 1.0]` on an open motion path (`closed: false`).",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    // ---- Standalone `matte` and `luma_key` bounds (ADR-0227). ------------------------------
+    CheckSpec {
+        code: "E-MATTE-BOUNDS",
+        classes: &[Error],
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0227",
+        template: "{subject} does not fit the published schema: {reason}.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        code: "E-LUMA-KEY-BOUNDS",
+        classes: &[Error],
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0227",
+        template: "{subject} does not fit the published schema: {reason}.",
         status: Live,
         census: None,
         sets: &[Document],

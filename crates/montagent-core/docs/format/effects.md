@@ -115,6 +115,38 @@ the ADR is right where the two disagree.
   in unscaled element-local pixels by sampling at `(x − shift_x, y − shift_y)`. `"wrap": true`
   (the default) wraps periodically modulo `(W, H)` for seamless scrolling or rolling loops;
   `"wrap": false` clamps at the element's border. `shift_x: 0, shift_y: 0` is the identity.
+- **`vibrance`: `{"amount": -1–1}`, chroma-weighted saturation** (ADR-0221). Boosts or cuts
+  saturation weighted by `1 − (max(r,g,b) − min(r,g,b))` around Rec. 709 luma, so muted
+  colours shift while already-saturated colours and skin tones are protected from clipping.
+  `0` is the identity.
+- **`hue_rotate`: `{"angle": -180–180}`, hue rotation in degrees** (ADR-0221). Applies the
+  luminance-preserving Rec. 709 SVG/CSS hue-rotation matrix; `0` is the identity.
+- **`invert`: `{"amount": 0–1}`, linear channel inversion** (ADR-0221). Maps each RGB channel
+  by `c' = c × (1 − 2·amount) + amount`; `0` is the identity, `0.5` is flat mid-grey, and `1`
+  is full photographic inversion.
+- **`matte`: `{"choke": -50–50, "feather": 0–100, "contrast": 0–10}`, standalone alpha-matte
+  refinement** (ADR-0227). All three keys are optional and animatable, defaulting to `choke: 0`,
+  `feather: 0`, and `contrast: 1` (`E-MATTE-BOUNDS`). Positive `choke` erodes (shrinks) the alpha
+  boundary inward by radius `choke`; negative `choke` dilates (expands) the alpha boundary outward
+  by `|choke|`. `feather` blurs the alpha channel with σ = `feather` / 2, and `contrast` scales
+  alpha linearly around midpoint `0.5` (`clamp((α − 0.5) × contrast + 0.5, 0, 1)`), maintaining
+  premultiplied RGB invariants throughout.
+- **`luma_key`: `{"threshold": 0–1, "tolerance": 0–1, "softness": 0–1, "invert": bool}`,
+  luminance keyer** (ADR-0227). `threshold` (default `0`), `tolerance` (default `0.1`), and
+  `softness` (default `0`) are optional and animatable (`E-LUMA-KEY-BOUNDS`); `invert` (default
+  `false`) is an optional static boolean. Evaluates Rec. 709 luminance
+  `Y = 0.2126 R + 0.7152 G + 0.0722 B` on non-premultiplied RGB, keys out pixels within
+  `|Y − threshold| ≤ tolerance`, ramps smoothly across `softness` (`m = clamp((|Y − threshold| −
+  tolerance) / softness, 0, 1)`), optionally inverts `m = 1 − m`, and multiplies both RGB and
+  alpha by `m`.
+- **Layer styles (`outline`, `color_overlay`, `inner_shadow`)** (ADR-0231):
+  - **`outline`: `{"width": >= 0, "color": colour, "opacity": 0–1 (optional)}`, an outer alpha-contour stroke.**
+    `width` is in unscaled element units (`>= 0`); `color` is a `#RRGGBB` or `#RRGGBBAA` colour; `opacity` (`0..=1`, optional, defaults to `1` when omitted) multiplies `color`'s own alpha (`a = round(a_color × opacity)`). Dilates the input layer by `(width, width)` (`image_filters::dilate`), tints to `(r, g, b, a)` via `BlendMode::SrcIn`, and composites the original input layer over the dilated contour (`BlendMode::SrcOver`), expanding reach by `ceil(width)` on every side. `width: 0` or `a == 0` is an identity no-op.
+  - **`color_overlay`: `{"color": colour, "opacity": 0–1 (optional)}`, an alpha-preserving solid colour fill.**
+    Blends non-premultiplied RGB toward `(r, g, b)` by `t = (a_color / 255) × opacity` while keeping pixel alpha `α_in` (`R_out = (1 − t)·R_in + t·(r/255)·α_in`, etc. in premultiplied space). Zero reach; `t == 0` is an identity no-op.
+  - **`inner_shadow`: `{"dx": number, "dy": number, "radius": >= 0, "color": colour, "opacity": 0–1}`, an inset shadow inside the alpha silhouette.**
+    All five keys are required, mirroring `shadow` (ADR-0040). Shifts input alpha by `(dx, dy)` in element space, blurs by `σ = radius / 2` with `TileMode::Decal` so exterior transparency bleeds inward, inverts alpha (`1 − α_blurred`), tints to `(r, g, b, a)` (`a = round(a_color × opacity)`), clips to the original element silhouette (`BlendMode::DstIn`), and composites `SrcOver` over the input layer. Zero reach beyond the silhouette; `a == 0` or `(dx == 0 && dy == 0 && radius == 0)` is an identity no-op.
+  - **`bevel_emboss` and `gradient_overlay` are refused** (ADR-0231): a gradient fill on shapes or text uses native `Paint::Gradient` (`fill` / `color`), a gradient wash over footage uses a masked or `blend`-moded gradient `rect`, and 3D bevel/emboss lighting is pre-rendered with `montagent-prerender` or approximated by stacking a dark `inner_shadow` and a light `inner_shadow` at opposite `(dx, dy)` offsets.
 - **The bound criterion** (ADR-0156, ADR-0225): a member keeps the element's bounds when it
   stays inside the box or a reach it declares as a formula of its parameters. A colour filter
   that maps transparent black to transparent black keeps it (`posterize`), and every

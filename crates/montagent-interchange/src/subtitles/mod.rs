@@ -328,6 +328,7 @@ pub fn cues_to_track(
         let text_el = TextElement {
             x: Some(Animatable::Static(0)),
             y: Some(Animatable::Static(text_y)),
+            motion_path: None,
             origin: None,
             width: frame_width,
             height: text_height,

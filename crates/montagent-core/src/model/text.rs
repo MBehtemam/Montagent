@@ -113,27 +113,86 @@ pub enum UnitBy {
     Line,
 }
 
-/// Which end of the reading order a stagger starts from.
+/// Which end or pair of ends of the reading order a stagger starts from (ADR-0151 §2,
+/// ADR-0224 §1).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema, Default)]
-#[serde(rename_all = "lowercase")]
+#[serde(rename_all = "snake_case")]
 pub enum UnitOrder {
     /// The first unit in reading order starts first.
     #[default]
     Forward,
     /// The last unit in reading order starts first.
     Reverse,
+    /// The center unit (odd `N`) or center pair (even `N`) starts first at step `0`,
+    /// expanding symmetrically outward to the edges (ADR-0224).
+    CenterOut,
+    /// The first and last units start simultaneously at step `0`, converging symmetrically
+    /// inward toward the center (ADR-0224).
+    EdgesIn,
+}
+
+/// A unit's `blur` radius in `[0, 500]` pixels (ADR-0224 §3): `0` at rest, in a static
+/// value and in every keyframe record.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize)]
+#[serde(transparent)]
+pub struct UnitBlur(pub f64);
+
+impl<'de> Deserialize<'de> for UnitBlur {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        use serde::de::Error;
+        let radius = f64::deserialize(deserializer)?;
+        if !(0.0..=500.0).contains(&radius) {
+            return Err(D::Error::custom(format!(
+                "a unit's `blur` is {radius}: `blur` is a radius in [0, 500] pixels (`0` is \
+                 unblurred), in a static value and in every keyframe record (ADR-0224)"
+            )));
+        }
+        Ok(UnitBlur(radius))
+    }
+}
+
+impl JsonSchema for UnitBlur {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        "UnitBlur".into()
+    }
+
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::Schema::try_from(serde_json::json!({
+            "type": "number",
+            "format": "double",
+            "minimum": 0.0,
+            "maximum": 500.0,
+            "description": "A unit's Gaussian blur radius in element pixels, from `0` \
+                            (unblurred) to `500` inclusive, in a static value and in every \
+                            keyframe record (`sigma = r / 2`; ADR-0224).",
+        }))
+        .expect("an object literal is a schema")
+    }
+}
+
+impl crate::resolve::Interpolate for UnitBlur {
+    type Out = f64;
+
+    fn between(a: &Self, b: &Self, p: f64) -> f64 {
+        f64::between(&a.0, &b.0, p)
+    }
+
+    fn held(value: &Self) -> f64 {
+        value.0
+    }
 }
 
 /// A stagger: the element's units run the same animation, each unit started a fixed step
-/// after the one before (ADR-0151 §2).
+/// after the one before (ADR-0151 §2, ADR-0224).
 ///
-/// The five lists are written for the first unit, on the absolute clock like every
-/// keyframe. A unit's **delay** is its position in `order` times `every`, and the unit runs
+/// The six lists are written for the first unit, on the absolute clock like every
+/// keyframe. A unit's **delay** is its step in `order` times `every`, and the unit runs
 /// every list late by its delay: its value at instant *t* is the list's value at
 /// *t − delay*. The values are offsets inside the element: `x`, `y` (element pixels, before
 /// the element's own `scale` and `rotation`) and `rotation` add to the unit's laid-out pose,
-/// `scale` and `opacity` multiply it. At least one list is required. Whitespace and empty
-/// lines take no step. A unit below opacity 1 fades as one group, its stroke and fill
+/// `scale` and `opacity` multiply it, and `blur` applies a per-unit Gaussian blur (`0` at
+/// rest). At least one list is required. Whitespace and empty lines take no step. A unit
+/// below opacity 1 or with `blur > 0` composites as one group, its stroke and fill
 /// together; the element's `effects`, `blend` and `opacity` apply after the units are drawn.
 #[derive(Debug, Clone, PartialEq, Serialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -159,6 +218,8 @@ pub struct Units {
     pub scale: Option<super::Animatable<super::Scale>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub opacity: Option<super::Animatable<f64>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub blur: Option<super::Animatable<UnitBlur>>,
 }
 
 /// The `units` block as written, before its rules are checked.
@@ -181,6 +242,8 @@ struct UnitsWritten {
     scale: Option<super::Animatable<super::Scale>>,
     #[serde(default)]
     opacity: Option<super::Animatable<f64>>,
+    #[serde(default)]
+    blur: Option<super::Animatable<UnitBlur>>,
 }
 
 impl<'de> Deserialize<'de> for Units {
@@ -199,10 +262,11 @@ impl<'de> Deserialize<'de> for Units {
             && w.rotation.is_none()
             && w.scale.is_none()
             && w.opacity.is_none()
+            && w.blur.is_none()
         {
             return Err(D::Error::custom(
-                "a `units` block names none of `x`, `y`, `rotation`, `scale` and `opacity`: \
-                 at least one list is what the units run (ADR-0151)",
+                "a `units` block names none of `x`, `y`, `rotation`, `scale`, `opacity` and \
+                 `blur`: at least one list is what the units run (ADR-0151, ADR-0224)",
             ));
         }
         Ok(Units {
@@ -215,13 +279,14 @@ impl<'de> Deserialize<'de> for Units {
             rotation: w.rotation,
             scale: w.scale,
             opacity: w.opacity,
+            blur: w.blur,
         })
     }
 }
 
 /// A run singling out one unit (ADR-0151 §4): the run holds exactly that unit's graphemes.
 ///
-/// `delay` replaces the derived *position × every* for this unit. A list replaces that
+/// `delay` replaces the derived *step × every* for this unit. A list replaces that
 /// property's list for this unit wholesale; **a run's lists are never delayed** — they run on
 /// the absolute clock as written. A property the run does not name keeps the block's list,
 /// run at the run's delay. Only a list the `units` block declares may be named. At least one
@@ -242,6 +307,8 @@ pub struct UnitOverride {
     pub scale: Option<super::Animatable<super::Scale>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub opacity: Option<super::Animatable<f64>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub blur: Option<super::Animatable<UnitBlur>>,
 }
 
 /// A run's `unit` as written, before its rules are checked.
@@ -260,6 +327,8 @@ struct UnitOverrideWritten {
     scale: Option<super::Animatable<super::Scale>>,
     #[serde(default)]
     opacity: Option<super::Animatable<f64>>,
+    #[serde(default)]
+    blur: Option<super::Animatable<UnitBlur>>,
 }
 
 impl<'de> Deserialize<'de> for UnitOverride {
@@ -278,11 +347,12 @@ impl<'de> Deserialize<'de> for UnitOverride {
             && w.rotation.is_none()
             && w.scale.is_none()
             && w.opacity.is_none()
+            && w.blur.is_none()
         {
             return Err(D::Error::custom(
                 "a run's `unit` is empty: it names a `delay` or a list (`x`, `y`, \
-                 `rotation`, `scale`, `opacity`) that replaces the block's for this unit \
-                 (ADR-0151)",
+                 `rotation`, `scale`, `opacity`, `blur`) that replaces the block's for this \
+                 unit (ADR-0151, ADR-0224)",
             ));
         }
         Ok(UnitOverride {
@@ -292,6 +362,7 @@ impl<'de> Deserialize<'de> for UnitOverride {
             rotation: w.rotation,
             scale: w.scale,
             opacity: w.opacity,
+            blur: w.blur,
         })
     }
 }

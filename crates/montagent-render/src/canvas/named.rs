@@ -90,12 +90,75 @@ half4 main(float2 p) {
 }
 ";
 
+/// `vibrance` (ADR-0221): chroma-weighted saturation boost/cut on non-premultiplied sRGB
+/// colour, with Rec. 709 luma `[0.213, 0.715, 0.072]` and pixel chroma `max(r,g,b) - min(r,g,b)`.
+const VIBRANCE: &str = r"
+uniform float amount;
+
+half4 main(half4 color) {
+    float a = float(color.a);
+    if (a <= 0.0) { return color; }
+    float3 v = clamp(float3(color.rgb) / a, 0.0, 1.0);
+    float mx = max(v.r, max(v.g, v.b));
+    float mn = min(v.r, min(v.g, v.b));
+    float sat = mx - mn;
+    float luma = dot(v, float3(0.213, 0.715, 0.072));
+    float scale = max(0.0, 1.0 + amount * (1.0 - sat));
+    float3 q = clamp(luma + (v - luma) * scale, 0.0, 1.0);
+    return half4(half3(q * a), color.a);
+}
+";
+
 thread_local! {
     static POSTERIZE_EFFECT: OnceCell<Option<RuntimeEffect>> = const { OnceCell::new() };
     static BRIGHT_PASS_EFFECT: OnceCell<Option<RuntimeEffect>> = const { OnceCell::new() };
     static GAIN_EFFECT: OnceCell<Option<RuntimeEffect>> = const { OnceCell::new() };
     static DIRECTIONAL_EFFECT: OnceCell<Option<RuntimeEffect>> = const { OnceCell::new() };
+    static VIBRANCE_EFFECT: OnceCell<Option<RuntimeEffect>> = const { OnceCell::new() };
+    static MATTE_CONTRAST_EFFECT: OnceCell<Option<RuntimeEffect>> = const { OnceCell::new() };
+    static LUMA_KEY_EFFECT: OnceCell<Option<RuntimeEffect>> = const { OnceCell::new() };
 }
+
+/// `matte`'s `contrast` (ADR-0227 §1): linear contrast scaling around alpha midpoint 0.5,
+/// `alpha' = clamp((alpha - 0.5) * contrast + 0.5, 0.0, 1.0)`. Unpremultiplies RGB before
+/// scaling alpha so colour saturation is preserved on semi-transparent edges.
+const MATTE_CONTRAST: &str = r"
+uniform float contrast;
+
+half4 main(half4 color) {
+    float a = float(color.a);
+    if (a <= 0.0) { return half4(0); }
+    float m = clamp((a - 0.5) * contrast + 0.5, 0.0, 1.0);
+    float3 rgb = float3(color.rgb) / a;
+    return half4(half3(rgb * m), half(m));
+}
+";
+
+/// `luma_key` (ADR-0227 §2): keys pixels by Rec.709 luminance `Y = 0.2126 R + 0.7152 G + 0.0722 B`
+/// on non-premultiplied RGB. Within `|Y - threshold| <= tolerance` the matte is `0`; across
+/// `(tolerance, tolerance + softness]` it ramps linearly to `1`; `invert` flips `m` to `1 - m`.
+const LUMA_KEY: &str = r"
+uniform float threshold;
+uniform float tolerance;
+uniform float softness;
+uniform float invert;
+
+half4 main(half4 color) {
+    float a = float(color.a);
+    if (a <= 0.0) { return half4(0); }
+    float3 rgb = float3(color.rgb) / a;
+    float luma = dot(rgb, float3(0.2126, 0.7152, 0.0722));
+    float d = abs(luma - threshold);
+    float m = softness > 0.0
+        ? clamp((d - tolerance) / softness, 0.0, 1.0)
+        : (d <= tolerance ? 0.0 : 1.0);
+    if (invert > 0.5) {
+        m = 1.0 - m;
+    }
+    float out_a = a * m;
+    return half4(half3(rgb * out_a), half(out_a));
+}
+";
 
 /// One SkSL's compile on this painter thread, made by `make` the first time this thread
 /// asks and kept in `cache` after; `None` if this Skia declined it. Every runtime effect of
@@ -118,6 +181,19 @@ fn colour_filter(
     })?;
     let bytes: Vec<u8> = uniforms.iter().flat_map(|v| v.to_ne_bytes()).collect();
     effect.make_color_filter(Data::new_copy(&bytes), None)
+}
+
+/// `vibrance` at `amount` in `[-1, 1]`, or `None` at `0`, the identity (ADR-0221).
+pub(super) fn vibrance(amount: f64) -> Option<ImageFilter> {
+    if amount == 0.0 {
+        return None;
+    }
+    let amount = amount.clamp(-1.0, 1.0) as f32;
+    image_filters::color_filter(
+        colour_filter(&VIBRANCE_EFFECT, VIBRANCE, &[amount])?,
+        None,
+        None,
+    )
 }
 
 /// `posterize` at `levels` (already a whole number from 2 to 256), or `None` at 256, the
@@ -153,6 +229,60 @@ pub(super) fn glow(threshold: f64, sigma: f32, intensity: f64) -> Option<ImageFi
         None,
     )?;
     image_filters::blend(BlendMode::Plus, None, boosted, None)
+}
+
+/// `matte` (ADR-0227 §1): morphological erode (`choke > 0`) or dilate (`choke < 0`), followed
+/// by Gaussian feather (`sigma = feather / 2`) and linear alpha contrast around 0.5, applied
+/// to the matte while preserving unblurred interior RGB via `SrcATop`. `None` at the identity
+/// (`choke: 0`, `feather: 0`, `contrast: 1`).
+pub(super) fn matte(choke: f64, feather: f64, contrast: f64) -> Option<ImageFilter> {
+    let has_choke = choke != 0.0;
+    let has_feather = feather > 0.0;
+    let has_contrast = (contrast - 1.0).abs() > f64::EPSILON;
+    if !has_choke && !has_feather && !has_contrast {
+        return None;
+    }
+    let mut matte: Option<ImageFilter> = None;
+    if choke > 0.0 {
+        let r = choke as f32;
+        matte = Some(image_filters::erode((r, r), matte, None)?);
+    } else if choke < 0.0 {
+        let r = (-choke) as f32;
+        matte = Some(image_filters::dilate((r, r), matte, None)?);
+    }
+    if has_feather {
+        let s = super::sigma(feather);
+        matte = Some(image_filters::blur((s, s), None, matte, None)?);
+    }
+    if has_contrast {
+        let cf = colour_filter(&MATTE_CONTRAST_EFFECT, MATTE_CONTRAST, &[contrast as f32])?;
+        matte = Some(image_filters::color_filter(cf, matte, None)?);
+    }
+    if has_choke || has_feather {
+        image_filters::blend(BlendMode::SrcATop, matte, None, None)
+    } else {
+        matte
+    }
+}
+
+/// `luma_key` (ADR-0227 §2): luminance keyer on Rec.709 luma.
+pub(super) fn luma_key(
+    threshold: f64,
+    tolerance: f64,
+    softness: f64,
+    invert: bool,
+) -> Option<ImageFilter> {
+    let cf = colour_filter(
+        &LUMA_KEY_EFFECT,
+        LUMA_KEY,
+        &[
+            threshold as f32,
+            tolerance as f32,
+            softness as f32,
+            if invert { 1.0 } else { 0.0 },
+        ],
+    )?;
+    image_filters::color_filter(cf, None, None)
 }
 
 /// How far a `directional_blur` reaches past what it is given, per axis, in element pixels:

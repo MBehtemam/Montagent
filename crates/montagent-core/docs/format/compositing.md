@@ -106,9 +106,11 @@ two disagree.
   so `"width": [{"t": 0, "v": 0}, {"t": 600, "v": 400, "ease": "ease-out"}]` on a 400-wide
   element wipes it on from the left edge. One that hides every frame is
   `E-NOT-PAINTED-NO-EXTENT`, naming the mask; an inverted one of no size hides nothing.
-- **`blend` is how the finished element composites into what is below it** (ADR-0147). One
-  of five words: `normal`, `multiply`, `screen`, `overlay`, `add`. It sits beside `opacity`
-  on `rect`, `ellipse`, `text`, `image` and `video`; `audio` and `transition` refuse it.
+- **`blend` is how the finished element composites into what is below it** (ADR-0147, ADR-0221). One
+  of seventeen words: `normal`, `multiply`, `screen`, `overlay`, `add`, `darken`, `lighten`,
+  `color_dodge`, `color_burn`, `hard_light`, `soft_light`, `difference`, `exclusion`, `hue`,
+  `saturation`, `color`, `luminosity`. It sits beside `opacity`
+  on `rect`, `ellipse`, `path`, `text`, `image`, `video` and `nest`; `audio` and `transition` refuse it.
   Omitted means `normal`, and a written `"blend": "normal"` is legal and draws the same
   bytes. It is static and never keyframed: fade a blend in through `opacity`. The order is
   fixed: the element is drawn through its `effects` (masks and shadow included), `opacity`

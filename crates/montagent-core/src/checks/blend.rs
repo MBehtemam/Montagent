@@ -226,10 +226,20 @@ fn bounds(element: &Value, instant: i64, frame: (i64, i64)) -> Option<Bounds> {
         return None;
     }
     let (frame_width, frame_height) = frame;
-    let x = geometry::number::<i64>(element, "x", instant, frame_width as f64 / 2.0);
-    let y = geometry::number::<i64>(element, "y", instant, frame_height as f64 / 2.0);
+    let sample = crate::motion_path::at(element, (i128::from(instant), 1));
+    let x = sample.as_ref().map_or_else(
+        || geometry::number::<i64>(element, "x", instant, frame_width as f64 / 2.0),
+        |s| s.x,
+    );
+    let y = sample.as_ref().map_or_else(
+        || geometry::number::<i64>(element, "y", instant, frame_height as f64 / 2.0),
+        |s| s.y,
+    );
     let [sx, sy] = geometry::number::<[f64; 2]>(element, "scale", instant, [1.0, 1.0]);
-    let rotation = geometry::number::<f64>(element, "rotation", instant, 0.0);
+    let base_rotation = geometry::number::<f64>(element, "rotation", instant, 0.0);
+    let rotation = sample
+        .as_ref()
+        .map_or(base_rotation, |s| s.effective_rotation(base_rotation));
     let origin = match element.get("origin") {
         None => Origin::Center,
         Some(value) => serde_json::from_value(value.clone()).unwrap_or(Origin::Center),
