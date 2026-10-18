@@ -66,7 +66,7 @@ This is the capability map. Read it before you design, so the brief does not lea
 **Paint**
 
 - Timed colour on a word inside text, by recolouring that word's run: `highlight`.
-- Linear and radial gradients as the fill or stroke of a shape, and the colour or stroke of a text element, with the angle, centre, radius and stops animating in place: `gradient`, `angle`, `center`, `radius`, `stops`, `offset`.
+- Linear, radial, sweep (conic) and two-point conical (off-axis focal radial) gradients as the fill or stroke of a shape, and the colour or stroke of a text element, with the angle, centre, radius, focal point and stops animating in place: `gradient`, `linear`, `radial`, `sweep`, `two_point_conical`, `angle`, `center`, `radius`, `focal`, `stops`, `offset`.
 
 **Text**
 
@@ -80,14 +80,14 @@ This is the capability map. Read it before you design, so the brief does not lea
 - Crossfade between clips, and a cut between clips: `transition`, `step`. Write `"audio": "constant_power"` on every new transition between clips that sound, so the sound crossfades too; absent keeps the hard audio cut.
 - Wipe, slide and push between clips, travelling in a direction, with an ease: `kind`, `direction`, `ease`.
 - Chroma key: `chroma`.
-- Blend an element into what is beneath it, as screen, add, multiply or overlay: `blend`.
+- Blend an element into what is beneath it, as screen, add, multiply, overlay, darken, lighten, color_dodge, color_burn, hard_light, soft_light, difference, exclusion, hue, saturation, color or luminosity: `blend`.
 - Keep everything outside a mask shape instead of inside it: `mask`, `invert`.
 - Soften a mask's edge, and animate the softness: `mask`, `feather`.
 - Mask an element through any closed outline drawn point by point, and animate the outline: `mask`, `shape`, `points`.
 
 **Effects**
 
-- Blur, shadow, mask, tint, saturation, brightness, contrast, ASC CDL color grading and 3D LUT cube grading: `blur`, `shadow`, `mask`, `tint`, `saturation`, `brightness`, `contrast`, `cdl`, `lut3d`.
+- Blur, shadow, mask, tint, saturation, brightness, contrast, vibrance, hue rotation, channel inversion, ASC CDL color grading and 3D LUT cube grading: `blur`, `shadow`, `mask`, `tint`, `saturation`, `brightness`, `contrast`, `vibrance`, `hue_rotate`, `invert`, `cdl`, `lut3d`.
 - Film grain that re-rolls every frame from a literal seed, on an element or as a grey `rect` texture blended `overlay`: `grain`, `seed`, `size`, `mono`.
 - Posterize an element's colours into a few flat steps: `posterize`, `levels`.
 - A bloom from an element's bright parts: `glow`, `threshold`, `radius`, `intensity`.
@@ -144,5 +144,6 @@ Montagent refuses these on purpose, so do not wait for them. Each line gives wha
 - Keyframe expressions, or links between values. Write literal keyframes. ([ADR-0145](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0145-capcut-and-premiere-are-where-precedent-is-looked-for-first-and-a-capability-with-none-enters-by-the-entry-test.md))
 - A native SVG or Lottie source. Pre-render it once with `montagent-prerender`: an SVG as one PNG, a Lottie as footage. ([ADR-0171](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0171-svg-and-lottie-do-not-enter-as-sources-and-each-is-pre-rendered-through-the-skill.md))
 - An open shader or script file. Pre-render the look with `montagent-prerender` and bring it in as footage ([ADR-0156](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0156-four-named-effects-join-the-effects-list-and-a-code-drawn-piece-enters-as-pre-rendered-footage.md)). ([ADR-0017](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0017-closed-schema-no-escape-hatch.md))
+- A native 4-color gradient effect or Coons-patch mesh gradient. Layer two to four `radial` or `two_point_conical` gradient `rect` elements with `screen` or `add` blend over a dark base (`montagent-motion`), or pre-render a complex animated mesh with `montagent-prerender`. ([ADR-0222](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0222-sweep-and-two-point-conical-gradients-join-paint-and-4-color-gradient-stays-a-skill-recipe.md))
 - A 3D camera, z-depth sorting, 3D layer intersections, inter-layer 3D cast shadows, or arbitrary 4-point corner pin. Turn flat elements in perspective with `swivel`, `tilt` and `perspective` ([ADR-0167](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0167-an-element-may-be-projected-never-placed-swivel-tilt-and-perspective-join-the-transform.md)), or pre-render 3D scenes with `montagent-prerender` ([ADR-0233](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0233-3d-models-and-multichannel-passes-are-refused-as-native-sources-and-3d-scenes-pre-render-via-headless-recipes.md)).
 - Native 3D model sources (`.glb`, `.gltf`, `.obj`, `.fbx`, `.blend`) or multichannel 3D passes. Pre-render 3D scenes to transparent footage or PNGs with `montagent-prerender`. ([ADR-0233](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0233-3d-models-and-multichannel-passes-are-refused-as-native-sources-and-3d-scenes-pre-render-via-headless-recipes.md))

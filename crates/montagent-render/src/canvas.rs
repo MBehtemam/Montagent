@@ -148,8 +148,8 @@ pub struct Transform {
     pub projection: Option<Projection>,
 }
 
-/// ADR-0147's five modes, each one Skia mode. The arithmetic runs on the stored sRGB
-/// values: the surface carries no colour space, so Skia blends the bytes as they are.
+/// ADR-0147 and ADR-0221 blend modes, each one Skia mode. The arithmetic runs on the stored
+/// sRGB values: the surface carries no colour space, so Skia blends the bytes as they are.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Blend {
     #[default]
@@ -158,6 +158,18 @@ pub enum Blend {
     Screen,
     Overlay,
     Add,
+    Darken,
+    Lighten,
+    ColorDodge,
+    ColorBurn,
+    HardLight,
+    SoftLight,
+    Difference,
+    Exclusion,
+    Hue,
+    Saturation,
+    Color,
+    Luminosity,
 }
 
 impl Blend {
@@ -168,6 +180,18 @@ impl Blend {
             Blend::Screen => BlendMode::Screen,
             Blend::Overlay => BlendMode::Overlay,
             Blend::Add => BlendMode::Plus,
+            Blend::Darken => BlendMode::Darken,
+            Blend::Lighten => BlendMode::Lighten,
+            Blend::ColorDodge => BlendMode::ColorDodge,
+            Blend::ColorBurn => BlendMode::ColorBurn,
+            Blend::HardLight => BlendMode::HardLight,
+            Blend::SoftLight => BlendMode::SoftLight,
+            Blend::Difference => BlendMode::Difference,
+            Blend::Exclusion => BlendMode::Exclusion,
+            Blend::Hue => BlendMode::Hue,
+            Blend::Saturation => BlendMode::Saturation,
+            Blend::Color => BlendMode::Color,
+            Blend::Luminosity => BlendMode::Luminosity,
         }
     }
 }
@@ -557,6 +581,9 @@ impl Effect {
             Effect::DirectionalBlur { .. } => "directional_blur",
             Effect::Cdl { .. } => "cdl",
             Effect::Lut3d { .. } => "lut3d",
+            Effect::Vibrance { .. } => "vibrance",
+            Effect::HueRotate { .. } => "hue_rotate",
+            Effect::Invert { .. } => "invert",
         }
     }
 }
@@ -656,6 +683,12 @@ pub enum Effect {
         table: Vec<u8>,
         intensity: f64,
     },
+    /// Chroma-weighted saturation adjustment (`amount` in `[-1, 1]`, identity `0`) (ADR-0221).
+    Vibrance { amount: f64 },
+    /// Hue rotation in degrees (`angle` in `[-180, 180]`, identity `0`) (ADR-0221).
+    HueRotate { angle: f64 },
+    /// Linear channel inversion (`amount` in `[0, 1]`, identity `0`, full invert `1`) (ADR-0221).
+    Invert { amount: f64 },
 }
 
 /// The figure a mask cuts in its rect (ADR-0084).
@@ -1019,21 +1052,25 @@ impl Effect {
                     None,
                 )
             }
-            // The four colour scalars, named rather than caught by a wildcard: it is what
+            // The colour-matrix scalars, named rather than caught by a wildcard: it is what
             // makes `matrix`'s own exhaustive match a compiler-checked claim about which
             // members reach it, instead of a comment asserting it.
             Effect::Tint { .. }
             | Effect::Saturation { .. }
             | Effect::Brightness { .. }
-            | Effect::Contrast { .. } => image_filters::color_filter(
+            | Effect::Contrast { .. }
+            | Effect::HueRotate { .. }
+            | Effect::Invert { .. } => image_filters::color_filter(
                 color_filters::matrix_row_major(&self.matrix(), None),
                 None,
                 None,
             ),
-            // ADR-0156's three, each a runtime effect of Montagent's own ([`named`]). An
-            // identity value is no filter at all, so it paints a plain layer: the same bytes
-            // as no member even under a rotation, where a filter layer resamples.
+            // ADR-0156's three and ADR-0221's `vibrance`, each a runtime effect of
+            // Montagent's own ([`named`]). An identity value is no filter at all, so it
+            // paints a plain layer: the same bytes as no member even under a rotation, where
+            // a filter layer resamples.
             Effect::Posterize { levels } => named::posterize(levels),
+            Effect::Vibrance { amount } => named::vibrance(amount),
             Effect::Glow {
                 threshold,
                 radius,
@@ -1098,7 +1135,7 @@ impl Effect {
             .make_color_filter(Data::new_copy(&bytes), None)
     }
 
-    /// The four colour scalars as one row-major colour matrix (ADR-0049).
+    /// The colour-matrix scalars as one row-major colour matrix (ADR-0049, ADR-0221).
     ///
     /// Skia applies the matrix to **unpremultiplied** colour and premultiplies afterwards,
     /// so the alpha row is identity in every one of them and a transparent pixel stays
@@ -1179,16 +1216,55 @@ impl Effect {
                     0.0, 0.0, 0.0, 1.0, 0.0,
                 ]
             }
-            // Never reached: [`Effect::filter`] names the four colour members explicitly
+            Effect::HueRotate { angle } => {
+                // W3C / SVG `<feColorMatrix type="hueRotate">` luminance-preserving rotation
+                // in Rec. 709 RGB space (ADR-0221).
+                let (s, c) = (angle as f32).to_radians().sin_cos();
+                [
+                    0.213 + 0.787 * c - 0.213 * s,
+                    0.715 - 0.715 * c - 0.715 * s,
+                    0.072 - 0.072 * c + 0.928 * s,
+                    0.0,
+                    0.0, //
+                    0.213 - 0.213 * c + 0.143 * s,
+                    0.715 + 0.285 * c + 0.140 * s,
+                    0.072 - 0.072 * c - 0.283 * s,
+                    0.0,
+                    0.0, //
+                    0.213 - 0.213 * c - 0.787 * s,
+                    0.715 - 0.715 * c + 0.715 * s,
+                    0.072 + 0.928 * c + 0.072 * s,
+                    0.0,
+                    0.0, //
+                    0.0,
+                    0.0,
+                    0.0,
+                    1.0,
+                    0.0,
+                ]
+            }
+            Effect::Invert { amount } => {
+                // Linear channel inversion: `c' = c × (1 - 2a) + a` (ADR-0221).
+                let a = amount.clamp(0.0, 1.0) as f32;
+                let s = 1.0 - 2.0 * a;
+                [
+                    s, 0.0, 0.0, 0.0, a, //
+                    0.0, s, 0.0, 0.0, a, //
+                    0.0, 0.0, s, 0.0, a, //
+                    0.0, 0.0, 0.0, 1.0, 0.0,
+                ]
+            }
+            // Never reached: [`Effect::filter`] names the colour-matrix members explicitly
             // and sends nothing else here. The identity is what a new member would get if
             // that ever stopped being true, and adding one to the enum breaks *this* match
-            // first, which is the point of spelling the four out rather than `_`.
+            // first, which is the point of spelling the members out rather than `_`.
             Effect::Blur { .. }
             | Effect::Shadow { .. }
             | Effect::Mask { .. }
             | Effect::Chroma { .. }
             | Effect::Grain { .. }
             | Effect::Posterize { .. }
+            | Effect::Vibrance { .. }
             | Effect::Glow { .. }
             | Effect::DirectionalBlur { .. }
             | Effect::Cdl { .. }

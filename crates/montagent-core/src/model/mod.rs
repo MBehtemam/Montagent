@@ -294,14 +294,14 @@ pub enum Fit {
     Literal,
 }
 
-/// How the finished element composites into what is painted below it (ADR-0147).
+/// How the finished element composites into what is painted below it (ADR-0147, ADR-0221).
 ///
 /// The last step of an element's paint: its `effects` (masks and shadow included), then
 /// `opacity`, then this, once, inside its `clip`. The arithmetic runs on the stored sRGB
 /// values. Static: a mode has no in-between, so a blend is faded in through `opacity`.
 /// Omitted means `normal`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "lowercase")]
+#[serde(rename_all = "snake_case")]
 pub enum Blend {
     /// Source over: what an element without the field draws.
     #[default]
@@ -314,6 +314,30 @@ pub enum Blend {
     Overlay,
     /// `min(1, s + d)`: Skia's `Plus`.
     Add,
+    /// `min(s, d)` per channel (ADR-0221).
+    Darken,
+    /// `max(s, d)` per channel (ADR-0221).
+    Lighten,
+    /// Brightens the backdrop to reflect the source (`SkBlendMode::kColorDodge`, ADR-0221).
+    ColorDodge,
+    /// Darkens the backdrop to reflect the source (`SkBlendMode::kColorBurn`, ADR-0221).
+    ColorBurn,
+    /// Multiply or screen depending on the source colour (`SkBlendMode::kHardLight`, ADR-0221).
+    HardLight,
+    /// Darkens or lightens depending on the source colour (`SkBlendMode::kSoftLight`, ADR-0221).
+    SoftLight,
+    /// `|s − d|` per channel (`SkBlendMode::kDifference`, ADR-0221).
+    Difference,
+    /// `s + d − 2·s·d` per channel (`SkBlendMode::kExclusion`, ADR-0221).
+    Exclusion,
+    /// Hue of the source with saturation and luminosity of the backdrop (`SkBlendMode::kHue`, ADR-0221).
+    Hue,
+    /// Saturation of the source with hue and luminosity of the backdrop (`SkBlendMode::kSaturation`, ADR-0221).
+    Saturation,
+    /// Hue and saturation of the source with luminosity of the backdrop (`SkBlendMode::kColor`, ADR-0221).
+    Color,
+    /// Luminosity of the source with hue and saturation of the backdrop (`SkBlendMode::kLuminosity`, ADR-0221).
+    Luminosity,
 }
 
 impl Blend {
@@ -325,6 +349,18 @@ impl Blend {
             Blend::Screen => "screen",
             Blend::Overlay => "overlay",
             Blend::Add => "add",
+            Blend::Darken => "darken",
+            Blend::Lighten => "lighten",
+            Blend::ColorDodge => "color_dodge",
+            Blend::ColorBurn => "color_burn",
+            Blend::HardLight => "hard_light",
+            Blend::SoftLight => "soft_light",
+            Blend::Difference => "difference",
+            Blend::Exclusion => "exclusion",
+            Blend::Hue => "hue",
+            Blend::Saturation => "saturation",
+            Blend::Color => "color",
+            Blend::Luminosity => "luminosity",
         }
     }
 }
