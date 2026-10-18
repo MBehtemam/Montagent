@@ -31,6 +31,18 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: python3 ci/skills_workarounds.py --check
 
+  validate:
+    name: schema and snippet validation
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.90"
+      - name: Run skills in-tree drift guard
+        run: cargo test -p montagent --test skills -- --nocapture
+
   report:
     name: stale workarounds report
     if: github.event_name != 'pull_request'
