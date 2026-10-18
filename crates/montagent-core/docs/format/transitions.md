@@ -10,18 +10,27 @@ two disagree.
 
 - **A transition is its own element bridging `from` and `to` by id** (ADR-0059): two
   distinct visual elements on separate tracks, its `start`/`end` exactly the time they share.
-- **`kind`** (ADR-0150): `crossfade` ramps their opacity linearly; in a `slide` `to` moves in
-  over a still `from`; in a `push` `to` moves in and pushes `from` out, joined; in a `wipe` a
-  straight edge crosses the frame, `from` keeping the side not yet reached and `to` the side
-  passed.
-- **`direction`** is the way the motion travels: `left` means the content moves leftward;
-  the incoming element enters from the right. Required on `wipe`, `slide` and `push`.
-- **`ease`** takes the keyframe vocabulary; omitted means `linear`. Neither `direction` nor
-  `ease` is allowed on a `crossfade`.
+- **`kind`** (ADR-0150, ADR-0220): `crossfade` ramps their opacity linearly; in a `slide` `to`
+  moves in over a still `from`; in a `push` `to` moves in and pushes `from` out, joined; in a
+  `wipe` a straight edge crosses the frame, `from` keeping the side not yet reached and `to`
+  the side passed; `iris` expands (`direction: "out"`, the default) or contracts (`"in"`) a
+  `"circle"` (default) or `"rect"` `shape` from `center` (default `[W/2, H/2]`); `radial_wipe`
+  sweeps a clock sector `"clockwise"` (default) or `"counter_clockwise"` from `start_angle`
+  (default `0.0` at 12 o'clock) around `center`; `blinds` opens `slats` (default `10`, `>= 1`)
+  equal-width parallel slats across the frame.
+- **`direction` and `angle`** (ADR-0150, ADR-0220): `direction` is the way the motion travels:
+  `left` means the content moves leftward; the incoming element enters from the right. Required
+  on `slide`, `push` and `blinds`. On `wipe`, write either `direction` (`left`, `right`, `up`,
+  `down`) or `angle` in degrees (`0` right, `90` down, `180` left, `270` up), never both.
+- **`ease`** takes the keyframe vocabulary; omitted means `linear`. Geometry parameters and
+  `ease` are not allowed on `crossfade` or `audio_crossfade`.
 - **Offsets travel a full frame width or height, outside the element's transform,** in whole
   pixels: a lower-third slides as far as full-screen video, its own keyed motion, effects
-  and `clip` moving with it. A wipe's hard edge is cut against each element's own `clip`.
-- **In a slide, `to` must paint above `from`**; a transition never changes a layer.
+  and `clip` moving with it. A hard aperture (`wipe`, `iris`, `radial_wipe`, `blinds`) is cut
+  with hard aliasing against each element's own `clip`; soft reveals use element-local masks.
+- **In a slide, `to` must paint above `from`**; a transition never changes a layer. `wipe`,
+  `push`, `iris`, `radial_wipe` and `blinds` partition the frame without overlap and work in
+  either layer order.
 - **`audio` carries the sound across the same window**: `cut`, `constant_power`
   or `constant_gain`. `from` fades out and `to` fades in over `start`..`end`, so a trim of
   either element moves the one window. Optional on `crossfade`, `wipe`, `slide` and `push`;

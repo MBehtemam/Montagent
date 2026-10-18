@@ -1023,7 +1023,7 @@ fn declined(unusable: crate::transition::Unusable) -> Declined {
         // A `kind` the format does not have is `validate`'s schema error, and nothing here
         // invents a resolution for it.
         Unusable::Kind(other) => undrawable(format!(
-            "a transition is a `crossfade`, `wipe`, `slide`, `push` or `audio_crossfade`, and this one is a \
+            "a transition is a `crossfade`, `wipe`, `slide`, `push`, `iris`, `radial_wipe`, `blinds` or `audio_crossfade`, and this one is a \
              `{other}`"
         )),
         Unusable::NoKind => undrawable("it states no `kind`"),
@@ -1054,6 +1054,24 @@ fn region_of(rect: Rect) -> Region {
         y: rect.y,
         width: rect.width,
         height: rect.height,
+    }
+}
+
+fn aperture_of(aperture: crate::transition::Aperture) -> montagent_render::canvas::Aperture {
+    use crate::transition::Aperture as Core;
+    use montagent_render::canvas::Aperture as Paint;
+    match aperture {
+        Core::Rect(rect) => Paint::Rect(region_of(rect)),
+        Core::MultiRect(rects) => Paint::MultiRect(rects.into_iter().map(region_of).collect()),
+        Core::Path {
+            bounds,
+            shape,
+            invert,
+        } => Paint::Path {
+            bounds: region_of(bounds),
+            shape,
+            invert,
+        },
     }
 }
 
@@ -2489,14 +2507,14 @@ impl<'a> Painter<'a> {
     }
 
     /// The frame-space aperture the element is painted through: its own `clip` (ADR-0025,
-    /// `image` and `video` only), moved with it by a slide or push, and cut by a wipe
-    /// (ADR-0150). Whole pixels, so the edge is hard and the same on every painter.
-    fn clip(&self, element: &Value) -> Option<Region> {
+    /// `image` and `video` only), moved with it by a slide or push, and cut by a transition
+    /// (ADR-0150, ADR-0220). Hard-aliased, so the edge is sharp and the same on every painter.
+    fn clip(&self, element: &Value) -> Option<montagent_render::canvas::Aperture> {
         let own = match element.get("type").and_then(Value::as_str) {
             Some("image" | "video" | "nest") => geometry::clip_rect(element),
             _ => None,
         };
-        self.bridge(element).aperture(own).map(region_of)
+        self.bridge(element).aperture(own).map(aperture_of)
     }
 }
 
@@ -2734,6 +2752,7 @@ pub(crate) fn unit_draws(
                 body: index,
                 matrix: pose.matrix(pivot).map(|v| v as f32),
                 opacity: pose.opacity.clamp(0.0, 1.0) as f32,
+                blur: pose.blur.max(0.0) as f32,
             })
         })
         .collect();
@@ -3269,6 +3288,28 @@ pub(crate) fn effect_of(
         },
         model::Effect::Invert { .. } => Effect::Invert {
             amount: number("amount")?,
+        },
+        model::Effect::Outline { opacity, .. } => Effect::Outline {
+            width: number("width")?,
+            colour: colour("color")?,
+            opacity: match opacity {
+                Some(_) => number("opacity")?,
+                None => 1.0,
+            },
+        },
+        model::Effect::ColorOverlay { opacity, .. } => Effect::ColorOverlay {
+            colour: colour("color")?,
+            opacity: match opacity {
+                Some(_) => number("opacity")?,
+                None => 1.0,
+            },
+        },
+        model::Effect::InnerShadow { .. } => Effect::InnerShadow {
+            dx: number("dx")?,
+            dy: number("dy")?,
+            radius: number("radius")?,
+            colour: colour("color")?,
+            opacity: number("opacity")?,
         },
     })
 }

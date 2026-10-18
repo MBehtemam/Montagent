@@ -218,6 +218,7 @@ pub(crate) fn bend(element: &Value, placement: &Placement, t: (i128, i128)) -> O
                 body: pose.map_or(usize::MAX - index, |pose| pose.body),
                 matrix: matrix.map(|v| v as f32),
                 opacity: pose.map_or(1.0, |pose| pose.opacity),
+                blur: pose.map_or(0.0, |pose| pose.blur),
             })
         })
         .collect();

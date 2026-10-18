@@ -165,10 +165,14 @@ fn derive(schema: &Value) -> Table {
 /// The schema reference of a text's own curve (ADR-0161 §2).
 const TEXT_PATH_REF: &str = "#/$defs/TextPath";
 
+/// The schema reference of a visual element's own trajectory (ADR-0218 §1).
+const MOTION_PATH_REF: &str = "#/$defs/MotionPath";
+
 /// The properties of one object branch whose type is an `Animatable{T}`, in schema order. A
 /// paint is followed by its gradient's parameters as nested paths — `fill.angle`,
-/// `fill.stops`, `fill.center`, `fill.radius` (ADR-0149 §6) — and a text's curve is read as
-/// its own nested `path.points` (ADR-0161 §8).
+/// `fill.stops`, `fill.center`, `fill.radius` (ADR-0149 §6) — a text's curve is read as its
+/// own nested `path.points` (ADR-0161 §8), and a visual element's trajectory is read as its
+/// own nested `motion_path.offset` (ADR-0218 §1).
 fn animatable_properties(defs: &Value, branch: &Value) -> Vec<Property> {
     let mut properties = Vec::new();
     for (name, property) in branch["properties"].as_object().into_iter().flatten() {
@@ -176,6 +180,17 @@ fn animatable_properties(defs: &Value, branch: &Value) -> Vec<Property> {
         // (ADR-0161 §8); its `closed` is static.
         if property["$ref"].as_str() == Some(TEXT_PATH_REF) {
             for nested in animatable_properties(defs, &defs["TextPath"]) {
+                properties.push(Property {
+                    name: format!("{name}.{}", nested.name),
+                    ..nested
+                });
+            }
+            continue;
+        }
+        // A visual element's trajectory carries its one animatable scalar nested, as
+        // `motion_path.offset` (ADR-0218 §1); its `closed`, `points` and `orient` are static.
+        if property["$ref"].as_str() == Some(MOTION_PATH_REF) {
+            for nested in animatable_properties(defs, &defs["MotionPath"]) {
                 properties.push(Property {
                     name: format!("{name}.{}", nested.name),
                     ..nested
@@ -680,6 +695,23 @@ fn clamp(
             crate::model::PathOffset::RANGE.0,
             crate::model::PathOffset::RANGE.1,
         ),
+        // ADR-0218 §2: on an open motion_path, clamp offset into [0, 1]; on a closed one,
+        // clamp into [-1, 2] before wrapping.
+        "motion_path.offset" => {
+            if element
+                .get("motion_path")
+                .and_then(|mp| mp.get("closed"))
+                .and_then(Value::as_bool)
+                == Some(false)
+            {
+                number.clamp(0.0, 1.0)
+            } else {
+                number.clamp(
+                    crate::model::MotionPathOffset::RANGE.0,
+                    crate::model::MotionPathOffset::RANGE.1,
+                )
+            }
+        }
         _ => number,
     })
 }

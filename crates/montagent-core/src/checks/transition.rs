@@ -91,7 +91,7 @@ pub fn check(document: &Loose, report: &mut Report) {
         if element.get("type").and_then(Value::as_str) != Some("transition") {
             continue;
         }
-        let findings = match references(element, &visual, &sounding) {
+        let mut findings = match references(element, &visual, &sounding) {
             Some(findings) => findings,
             None => candidate(element, &stack)
                 .into_iter()
@@ -99,6 +99,7 @@ pub fn check(document: &Loose, report: &mut Report) {
                 .chain(sound_reviews(element, &by_id))
                 .collect(),
         };
+        findings.extend(parameters(element));
 
         for finding in findings {
             let mut finding = finding.at_file(file);
@@ -108,6 +109,79 @@ pub fn check(document: &Loose, report: &mut Report) {
             report.push(finding);
         }
     }
+}
+
+/// `E-TRANSITION-DIRECTION-OR-ANGLE`, `E-TRANSITION-UNSUPPORTED-KEY`, and
+/// `E-TRANSITION-SLATS-ZERO` (ADR-0220 §3–§5).
+fn parameters(element: &Value) -> Vec<Finding> {
+    let Some(kind) = element.get("kind").and_then(Value::as_str) else {
+        return Vec::new();
+    };
+    let subject = subject_of(element.get("id").and_then(Value::as_str));
+    let mut findings = Vec::new();
+
+    let unsupported: &[&str] = match kind {
+        "crossfade" | "audio_crossfade" => &[
+            "shape",
+            "direction",
+            "angle",
+            "start_angle",
+            "center",
+            "slats",
+            "ease",
+        ],
+        "wipe" => &["shape", "start_angle", "center", "slats"],
+        "slide" | "push" => &["shape", "angle", "start_angle", "center", "slats"],
+        "iris" => &["angle", "start_angle", "slats"],
+        "radial_wipe" => &["shape", "angle", "slats"],
+        "blinds" => &["shape", "angle", "start_angle", "center"],
+        _ => &[],
+    };
+
+    for &key in unsupported {
+        if element.get(key).is_some() {
+            findings.push(
+                Finding::new("E-TRANSITION-UNSUPPORTED-KEY")
+                    .at_element(subject.clone())
+                    .field("element", json!(subject))
+                    .field("kind", json!(kind))
+                    .field("key", json!(key)),
+            );
+        }
+    }
+
+    if kind == "wipe" {
+        let problem = match (
+            element.get("direction").is_some(),
+            element.get("angle").is_some(),
+        ) {
+            (true, true) => Some("states both `direction` and `angle`"),
+            (false, false) => Some("states neither `direction` nor `angle`"),
+            _ => None,
+        };
+        if let Some(problem) = problem {
+            findings.push(
+                Finding::new("E-TRANSITION-DIRECTION-OR-ANGLE")
+                    .at_element(subject.clone())
+                    .field("element", json!(subject))
+                    .field("problem", json!(problem)),
+            );
+        }
+    }
+
+    if kind == "blinds"
+        && let Some(slats) = element.get("slats").and_then(Value::as_i64)
+        && slats < 1
+    {
+        findings.push(
+            Finding::new("E-TRANSITION-SLATS-ZERO")
+                .at_element(subject.clone())
+                .field("element", json!(subject))
+                .field("slats", json!(slats)),
+        );
+    }
+
+    findings
 }
 
 /// `E-TRANSITION-REF-MISSING` and `E-TRANSITION-REF-SELF`: `Some` where the two references
