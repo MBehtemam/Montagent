@@ -205,3 +205,30 @@ Parse the timestamps and emit contiguous `video` elements on a track:
 - Element 2: `start: t1`, `end: t2`, `source_start: t1`, `source_end: t2`
 - Run `montagent validate` on the resulting project.
 
+### Downstream HDR mastering
+
+Montagent renders in 8-bit display-referred sRGB and tags Rec.709 `1-1-1` ([ADR-0216](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0216-srgb-is-the-working-colour-space-and-video-boundaries-convert-and-tag-bt709.md)). In-engine HDR export is refused from `render` ([ADR-0236](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0236-in-engine-hdr-encoding-and-tone-mapping-are-refused-from-render-and-hdr-mastering-stays-downstream.md)). When HDR deliverables (Rec.2100 HLG or PQ) are required, render to a lossless Apple ProRes 4444 master (`format: "prores_4444"` under [ADR-0203](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0203-prores-and-dnxhr-mezzanines-join-output-format.md)) and master downstream via `ffmpeg`:
+
+```bash
+# Conform ProRes 4444 master to 10-bit HLG (Rec.2100 HLG, BT.2020 primaries)
+ffmpeg -i master_prores.mov \
+  -vf "zscale=tin=srgb:pin=bt709:rin=limited:t=arib-std-b67:p=bt2020:m=bt2020nc:r=limited,format=yuv420p10le" \
+  -c:v libx265 -tag:v hvc1 -crf 18 -preset slow \
+  -color_primaries bt2020 -color_trc arib-std-b67 -colorspace bt2020nc \
+  output_hlg.mp4
+```
+
+### OpenEXR sequences and cinema raw conform
+
+OpenEXR (`.exr`) frame sequences and proprietary camera raw formats (`.braw`, `.r3d`, `.arri`, `.xocn`) are refused as native sources ([ADR-0002](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0002-video-ingest-container-and-codec-whitelist.md), [ADR-0171](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0171-svg-and-lottie-do-not-enter-as-sources-and-each-is-pre-rendered-through-the-skill.md), [ADR-0238](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0238-openexr-sequences-and-cinema-raw-formats-are-refused-and-conform-upstream-to-prores-4444.md)). Conform them upstream into a 10-bit ProRes 4444 or DNxHR HQX `.mov` file with Rec.709 color tags:
+
+```bash
+# Conform an EXR image sequence to 10-bit ProRes 4444 MOV with BT.709 tagging
+ffmpeg -framerate 24 -i "sequence_%05d.exr" \
+  -vf "format=gbrpf32le,zscale=tin=linear:pin=bt709:t=bt709:p=bt709:m=bt709,format=yuv444p10le" \
+  -c:v prores_ks -profile:v 4 -vendor apl0 -pix_fmt yuv444p10le \
+  -color_primaries bt709 -color_trc bt709 -colorspace bt709 \
+  conformed_footage.mov
+```
+
+
