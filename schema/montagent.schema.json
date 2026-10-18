@@ -731,6 +731,60 @@
             "source"
           ],
           "description": "3D LUT (.cube) tetrahedral interpolation grading (ADR-0206)."
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "amount": {
+              "$ref": "#/$defs/AnimatableVibranceAmount"
+            },
+            "name": {
+              "type": "string",
+              "const": "vibrance"
+            }
+          },
+          "required": [
+            "name",
+            "amount"
+          ],
+          "description": "Chroma-weighted saturation adjustment (`amount` in `[-1, 1]`, identity `0`) (ADR-0221)."
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "angle": {
+              "$ref": "#/$defs/AnimatableHueAngle"
+            },
+            "name": {
+              "type": "string",
+              "const": "hue_rotate"
+            }
+          },
+          "required": [
+            "name",
+            "angle"
+          ],
+          "description": "Hue rotation in degrees (`angle` in `[-180, 180]`, identity `0`) (ADR-0221)."
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "amount": {
+              "$ref": "#/$defs/AnimatableFraction"
+            },
+            "name": {
+              "type": "string",
+              "const": "invert"
+            }
+          },
+          "required": [
+            "name",
+            "amount"
+          ],
+          "description": "Linear channel inversion (`amount` in `[0, 1]`, identity `0`, full invert `1`) (ADR-0221)."
         }
       ],
       "description": "One member of the closed vocabulary, discriminated by `name`.\n\nTwo effects of the same name are ordinary rather than forbidden (ADR-0040) — the\ncontainer is a list precisely so a second shadow has somewhere to go."
@@ -1794,6 +1848,164 @@
       ],
       "description": "One `{\"t\",\"t_from\",\"v\",\"ease\"}` record — `t_from` optional (ADR-0086)."
     },
+    "AnimatableVibranceAmount": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/VibranceAmount",
+          "description": "Constant for the element's whole life."
+        },
+        {
+          "type": "array",
+          "prefixItems": [
+            {
+              "$ref": "#/$defs/FirstKeyframeVibranceAmount"
+            }
+          ],
+          "items": {
+            "$ref": "#/$defs/KeyframeVibranceAmount"
+          },
+          "description": "Keyframed. Clamps at both ends (ADR-0012): before the first record the value is the\nfirst value, after the last it is the last, so *\"and then it holds\"* costs no syntax.\nRecords must be written with strictly increasing `t` (ADR-0082) — array order is\nclock order.",
+          "minItems": 1
+        }
+      ],
+      "description": "A property that is either one value or a list of keyframe records.\n\nThe polymorphism is the format's, not a convenience: ADR-0055 restates it for `volume`\nas *\"the same scalar-or-keyframe-array polymorphism every other animatable property\nalready has.\"* It is deliberately **not** the same as the `scale` union ADR-0012\nrejected — that was two shapes for one *value* (`1.08` versus `[1.08, 1.08]`), which\nputs a shape test in every consumer; this is a value versus its animation over time,\nwhich no amount of normalising can collapse."
+    },
+    "VibranceAmount": {
+      "type": "number",
+      "description": "The chroma-weighted saturation adjustment, from `-1` to `1` in a static value and in every keyframe record. `0` is the identity (ADR-0221).",
+      "minimum": -1.0,
+      "maximum": 1.0
+    },
+    "FirstKeyframeVibranceAmount": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "t": {
+          "type": "integer",
+          "format": "int64",
+          "description": "Milliseconds on the project's one absolute clock. Legal outside the element's own\nrange — that is how a trimmed move is spelled, and seven of the fixture's photo\nelements carry one."
+        },
+        "t_from": {
+          "description": "What this record's own `t` was derived from, where the author recorded it\n(ADR-0086).\n\n**Immediately after `t`**, which is the whole of ADR-0086's key-order\nspecification: ADR-0041 derives canonical order from schema order, and schema order\nis this struct's declaration order, so adjacency to the annotated value costs\nnothing to state twice and cannot drift.\n\nOptional, and its absence means *no claim* — never a claim of independence\n(ADR-0086's sixth condition of admission). Required was measured and rejected: on\nthe committed fixture it would put an escape value on 121 instants to check 14.",
+          "$ref": "#/$defs/FirstDerivation"
+        },
+        "v": {
+          "$ref": "#/$defs/VibranceAmount"
+        }
+      },
+      "required": [
+        "t",
+        "v"
+      ],
+      "description": "The first record of a keyframe list, which carries no `ease`: `ease` describes the segment *arriving at* a record, and nothing arrives at the first one. Writing one here is a schema error naming the convention, never an ignored field (ADR-0012, ADR-0038). Its `t_from`, where it carries one, is narrowed for the same reason (ADR-0086)."
+    },
+    "KeyframeVibranceAmount": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "t": {
+          "type": "integer",
+          "format": "int64",
+          "description": "Milliseconds on the project's one absolute clock. Legal outside the element's own\nrange — that is how a trimmed move is spelled, and seven of the fixture's photo\nelements carry one."
+        },
+        "t_from": {
+          "description": "What this record's own `t` was derived from, where the author recorded it\n(ADR-0086).\n\n**Immediately after `t`**, which is the whole of ADR-0086's key-order\nspecification: ADR-0041 derives canonical order from schema order, and schema order\nis this struct's declaration order, so adjacency to the annotated value costs\nnothing to state twice and cannot drift.\n\nOptional, and its absence means *no claim* — never a claim of independence\n(ADR-0086's sixth condition of admission). Required was measured and rejected: on\nthe committed fixture it would put an escape value on 121 instants to check 14.",
+          "$ref": "#/$defs/Derivation"
+        },
+        "v": {
+          "$ref": "#/$defs/VibranceAmount"
+        },
+        "ease": {
+          "description": "The shape of the interpolation **arriving at** this record from the previous one.\n\nADR-0038: required on every record except the first, where it is a schema error.\nPresence is a pure function of position in the list, so there is never an absent\nvalue to default, normalise, or keep in sync with SPLIT's equality check. The\n`Option` here carries that positional rule, not a default.",
+          "$ref": "#/$defs/Ease"
+        }
+      },
+      "required": [
+        "t",
+        "v",
+        "ease"
+      ],
+      "description": "One `{\"t\",\"t_from\",\"v\",\"ease\"}` record — `t_from` optional (ADR-0086)."
+    },
+    "AnimatableHueAngle": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/HueAngle",
+          "description": "Constant for the element's whole life."
+        },
+        {
+          "type": "array",
+          "prefixItems": [
+            {
+              "$ref": "#/$defs/FirstKeyframeHueAngle"
+            }
+          ],
+          "items": {
+            "$ref": "#/$defs/KeyframeHueAngle"
+          },
+          "description": "Keyframed. Clamps at both ends (ADR-0012): before the first record the value is the\nfirst value, after the last it is the last, so *\"and then it holds\"* costs no syntax.\nRecords must be written with strictly increasing `t` (ADR-0082) — array order is\nclock order.",
+          "minItems": 1
+        }
+      ],
+      "description": "A property that is either one value or a list of keyframe records.\n\nThe polymorphism is the format's, not a convenience: ADR-0055 restates it for `volume`\nas *\"the same scalar-or-keyframe-array polymorphism every other animatable property\nalready has.\"* It is deliberately **not** the same as the `scale` union ADR-0012\nrejected — that was two shapes for one *value* (`1.08` versus `[1.08, 1.08]`), which\nputs a shape test in every consumer; this is a value versus its animation over time,\nwhich no amount of normalising can collapse."
+    },
+    "HueAngle": {
+      "type": "number",
+      "description": "The hue rotation angle in degrees, from `-180` to `180` in a static value and in every keyframe record. `0` is the identity (ADR-0221).",
+      "minimum": -180.0,
+      "maximum": 180.0
+    },
+    "FirstKeyframeHueAngle": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "t": {
+          "type": "integer",
+          "format": "int64",
+          "description": "Milliseconds on the project's one absolute clock. Legal outside the element's own\nrange — that is how a trimmed move is spelled, and seven of the fixture's photo\nelements carry one."
+        },
+        "t_from": {
+          "description": "What this record's own `t` was derived from, where the author recorded it\n(ADR-0086).\n\n**Immediately after `t`**, which is the whole of ADR-0086's key-order\nspecification: ADR-0041 derives canonical order from schema order, and schema order\nis this struct's declaration order, so adjacency to the annotated value costs\nnothing to state twice and cannot drift.\n\nOptional, and its absence means *no claim* — never a claim of independence\n(ADR-0086's sixth condition of admission). Required was measured and rejected: on\nthe committed fixture it would put an escape value on 121 instants to check 14.",
+          "$ref": "#/$defs/FirstDerivation"
+        },
+        "v": {
+          "$ref": "#/$defs/HueAngle"
+        }
+      },
+      "required": [
+        "t",
+        "v"
+      ],
+      "description": "The first record of a keyframe list, which carries no `ease`: `ease` describes the segment *arriving at* a record, and nothing arrives at the first one. Writing one here is a schema error naming the convention, never an ignored field (ADR-0012, ADR-0038). Its `t_from`, where it carries one, is narrowed for the same reason (ADR-0086)."
+    },
+    "KeyframeHueAngle": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "t": {
+          "type": "integer",
+          "format": "int64",
+          "description": "Milliseconds on the project's one absolute clock. Legal outside the element's own\nrange — that is how a trimmed move is spelled, and seven of the fixture's photo\nelements carry one."
+        },
+        "t_from": {
+          "description": "What this record's own `t` was derived from, where the author recorded it\n(ADR-0086).\n\n**Immediately after `t`**, which is the whole of ADR-0086's key-order\nspecification: ADR-0041 derives canonical order from schema order, and schema order\nis this struct's declaration order, so adjacency to the annotated value costs\nnothing to state twice and cannot drift.\n\nOptional, and its absence means *no claim* — never a claim of independence\n(ADR-0086's sixth condition of admission). Required was measured and rejected: on\nthe committed fixture it would put an escape value on 121 instants to check 14.",
+          "$ref": "#/$defs/Derivation"
+        },
+        "v": {
+          "$ref": "#/$defs/HueAngle"
+        },
+        "ease": {
+          "description": "The shape of the interpolation **arriving at** this record from the previous one.\n\nADR-0038: required on every record except the first, where it is a schema error.\nPresence is a pure function of position in the list, so there is never an absent\nvalue to default, normalise, or keep in sync with SPLIT's equality check. The\n`Option` here carries that positional rule, not a default.",
+          "$ref": "#/$defs/Ease"
+        }
+      },
+      "required": [
+        "t",
+        "v",
+        "ease"
+      ],
+      "description": "One `{\"t\",\"t_from\",\"v\",\"ease\"}` record — `t_from` optional (ADR-0086)."
+    },
     "FontFile": {
       "type": "object",
       "additionalProperties": false,
@@ -2823,7 +3035,7 @@
             },
             "kind": {
               "$ref": "#/$defs/TransitionKind",
-              "description": "`crossfade` ramps the two elements' opacity; `wipe`, `slide` and `push` move or cut\nthem a whole frame's width or height, outside their own transforms (ADR-0150)."
+              "description": "`crossfade` ramps the two elements' opacity; `wipe`, `slide` and `push` move or cut\nthem a whole frame's width or height, outside their own transforms (ADR-0150); `iris`,\n`radial_wipe` and `blinds` cut them by geometric apertures (ADR-0220)."
             },
             "from": {
               "type": "string"
@@ -2831,12 +3043,42 @@
             "to": {
               "type": "string"
             },
+            "shape": {
+              "description": "The geometric aperture shape for an `iris` transition: `\"circle\"` or `\"rect\"`.\nOmitted means `\"circle\"`; refused on every other `kind` (ADR-0220).",
+              "$ref": "#/$defs/IrisShape"
+            },
             "direction": {
-              "description": "The way the motion travels: `\"left\"` means the content (or a wipe's edge) moves\nleftward, so the incoming element enters from the right. Required on `wipe`,\n`slide` and `push`; refused on `crossfade` (ADR-0150).",
+              "description": "The way the motion travels: `\"left\"` means the content (or a wipe's edge) moves\nleftward, so the incoming element enters from the right. Required on `slide`,\n`push` and `blinds`; paired with `angle` on `wipe` (one or the other); optional on\n`iris` (`\"out\"` or `\"in\"`) and `radial_wipe` (`\"clockwise\"` or `\"counter_clockwise\"`);\nrefused on `crossfade` and `audio_crossfade` (ADR-0150, ADR-0220).",
               "$ref": "#/$defs/Direction"
             },
+            "angle": {
+              "type": "number",
+              "format": "double",
+              "description": "Sweep angle in degrees for a `wipe` (`0` = up, `90` = right, `180` = down,\n`270` = left). Mutually exclusive with `direction` on `wipe`, and refused on every\nother `kind` (ADR-0220)."
+            },
+            "start_angle": {
+              "type": "number",
+              "format": "double",
+              "description": "Starting ray angle in degrees for a `radial_wipe` (`0` = 12 o'clock / straight up).\nOmitted means `0.0`; refused on every other `kind` (ADR-0220)."
+            },
+            "center": {
+              "type": "array",
+              "items": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "minItems": 2,
+              "maxItems": 2,
+              "description": "Aperture origin `[x, y]` in frame pixel coordinates for `iris` and `radial_wipe`.\nOmitted means the frame centre `[W / 2, H / 2]`; refused on every other `kind`\n(ADR-0220)."
+            },
+            "slats": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1,
+              "description": "Number of equal-width parallel slats (`>= 1`) for a `blinds` transition. Omitted\nmeans `10`; refused on every other `kind` (ADR-0220)."
+            },
             "ease": {
-              "description": "The keyframe vocabulary, applied to the window's progress. Omitted means `linear`;\nrefused on `crossfade` (ADR-0150).",
+              "description": "The keyframe vocabulary, applied to the window's progress. Omitted means `linear`;\nrefused on `crossfade` and `audio_crossfade` (ADR-0150, ADR-0220).",
               "$ref": "#/$defs/Ease"
             },
             "audio": {
@@ -2868,7 +3110,32 @@
               "anyOf": [
                 {
                   "required": [
+                    "shape"
+                  ]
+                },
+                {
+                  "required": [
                     "direction"
+                  ]
+                },
+                {
+                  "required": [
+                    "angle"
+                  ]
+                },
+                {
+                  "required": [
+                    "start_angle"
+                  ]
+                },
+                {
+                  "required": [
+                    "center"
+                  ]
+                },
+                {
+                  "required": [
+                    "slats"
                   ]
                 },
                 {
@@ -2878,7 +3145,7 @@
                 }
               ]
             },
-            "description": "A crossfade travels nowhere and its ramp is linear, so `direction` and `ease` are fields of `wipe`, `slide` and `push` only (ADR-0150)."
+            "description": "A crossfade travels nowhere and its ramp is linear, so geometry parameters and `ease` are fields of the geometric transition kinds only (ADR-0150, ADR-0220)."
           },
           "else": {
             "if": {
@@ -2899,7 +3166,32 @@
                 "anyOf": [
                   {
                     "required": [
+                      "shape"
+                    ]
+                  },
+                  {
+                    "required": [
                       "direction"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "angle"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "start_angle"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "center"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "slats"
                     ]
                   },
                   {
@@ -2923,13 +3215,233 @@
                 "not": {},
                 "description": "`cut` is refused on an `audio_crossfade`: a kind with nothing to do is a mistake."
               },
-              "description": "An `audio_crossfade` paints nothing and names its curve: `audio` is required and is `constant_power` or `constant_gain`; `direction` and `ease` are not fields of it (ADR-0176)."
+              "description": "An `audio_crossfade` paints nothing and names its curve: `audio` is required and is `constant_power` or `constant_gain`; geometry parameters and `ease` are not fields of it (ADR-0176, ADR-0220)."
             },
             "else": {
-              "required": [
-                "direction"
+              "allOf": [
+                {
+                  "if": {
+                    "properties": {
+                      "kind": {
+                        "const": "wipe"
+                      }
+                    },
+                    "required": [
+                      "kind"
+                    ]
+                  },
+                  "then": {
+                    "oneOf": [
+                      {
+                        "required": [
+                          "direction"
+                        ],
+                        "not": {
+                          "required": [
+                            "angle"
+                          ]
+                        }
+                      },
+                      {
+                        "required": [
+                          "angle"
+                        ],
+                        "not": {
+                          "required": [
+                            "direction"
+                          ]
+                        }
+                      }
+                    ],
+                    "not": {
+                      "anyOf": [
+                        {
+                          "required": [
+                            "shape"
+                          ]
+                        },
+                        {
+                          "required": [
+                            "start_angle"
+                          ]
+                        },
+                        {
+                          "required": [
+                            "center"
+                          ]
+                        },
+                        {
+                          "required": [
+                            "slats"
+                          ]
+                        }
+                      ]
+                    },
+                    "description": "A `wipe` names its sweep by either `direction` (`left`, `right`, `up`, `down`) or `angle` in degrees, never both (ADR-0150, ADR-0220)."
+                  }
+                },
+                {
+                  "if": {
+                    "properties": {
+                      "kind": {
+                        "enum": [
+                          "slide",
+                          "push"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "kind"
+                    ]
+                  },
+                  "then": {
+                    "required": [
+                      "direction"
+                    ],
+                    "not": {
+                      "anyOf": [
+                        {
+                          "required": [
+                            "shape"
+                          ]
+                        },
+                        {
+                          "required": [
+                            "angle"
+                          ]
+                        },
+                        {
+                          "required": [
+                            "start_angle"
+                          ]
+                        },
+                        {
+                          "required": [
+                            "center"
+                          ]
+                        },
+                        {
+                          "required": [
+                            "slats"
+                          ]
+                        }
+                      ]
+                    },
+                    "description": "A `slide` or `push` names the way its motion travels via `direction` (`left`, `right`, `up`, `down`) (ADR-0150)."
+                  }
+                },
+                {
+                  "if": {
+                    "properties": {
+                      "kind": {
+                        "const": "iris"
+                      }
+                    },
+                    "required": [
+                      "kind"
+                    ]
+                  },
+                  "then": {
+                    "not": {
+                      "anyOf": [
+                        {
+                          "required": [
+                            "angle"
+                          ]
+                        },
+                        {
+                          "required": [
+                            "start_angle"
+                          ]
+                        },
+                        {
+                          "required": [
+                            "slats"
+                          ]
+                        }
+                      ]
+                    },
+                    "description": "An `iris` takes optional `shape` (`circle` or `rect`), `direction` (`out` or `in`), and `center` `[x, y]` (ADR-0220)."
+                  }
+                },
+                {
+                  "if": {
+                    "properties": {
+                      "kind": {
+                        "const": "radial_wipe"
+                      }
+                    },
+                    "required": [
+                      "kind"
+                    ]
+                  },
+                  "then": {
+                    "not": {
+                      "anyOf": [
+                        {
+                          "required": [
+                            "shape"
+                          ]
+                        },
+                        {
+                          "required": [
+                            "angle"
+                          ]
+                        },
+                        {
+                          "required": [
+                            "slats"
+                          ]
+                        }
+                      ]
+                    },
+                    "description": "A `radial_wipe` takes optional `direction` (`clockwise` or `counter_clockwise`), `start_angle`, and `center` `[x, y]` (ADR-0220)."
+                  }
+                },
+                {
+                  "if": {
+                    "properties": {
+                      "kind": {
+                        "const": "blinds"
+                      }
+                    },
+                    "required": [
+                      "kind"
+                    ]
+                  },
+                  "then": {
+                    "required": [
+                      "direction"
+                    ],
+                    "not": {
+                      "anyOf": [
+                        {
+                          "required": [
+                            "shape"
+                          ]
+                        },
+                        {
+                          "required": [
+                            "angle"
+                          ]
+                        },
+                        {
+                          "required": [
+                            "start_angle"
+                          ]
+                        },
+                        {
+                          "required": [
+                            "center"
+                          ]
+                        }
+                      ]
+                    },
+                    "description": "A `blinds` transition requires `direction` (`left`, `right`, `up`, `down`) and takes optional `slats` >= 1 (ADR-0220)."
+                  }
+                }
               ],
-              "description": "A `wipe`, `slide` or `push` names the way its motion travels (ADR-0150)."
+              "description": "Each geometric transition kind accepts only its own parameters (ADR-0150, ADR-0220)."
             }
           },
           "description": "A transition is its own element type, with its own time range and two id references —\nnot a property on either bridged element, which would create an unprincipled ownership\nquestion, and not an effect, which is element-local by construction (ADR-0059).\n\nADR-0059 names *\"two id references\"* without naming the fields. This ticket calls them\n`from` and `to`, and records that as a spelling the ADR series may want to ratify.\n\n`direction` and `ease` are fields of `wipe`, `slide` and `push` only (ADR-0150): a\ncrossfade travels nowhere, and its linear ramp is what keeps its two halves summing to\na constant. A Rust struct cannot say \"required under three `kind`s and an unknown key\nunder the fourth\", so [`Transition::checked`] says it on the way in and\n`crate::schema::publish_transition_fields` says it in the published schema — the\narrangement `mask`'s `radius` already has."
@@ -3278,9 +3790,69 @@
           "type": "string",
           "const": "add",
           "description": "`min(1, s + d)`: Skia's `Plus`."
+        },
+        {
+          "type": "string",
+          "const": "darken",
+          "description": "`min(s, d)` per channel (ADR-0221)."
+        },
+        {
+          "type": "string",
+          "const": "lighten",
+          "description": "`max(s, d)` per channel (ADR-0221)."
+        },
+        {
+          "type": "string",
+          "const": "color_dodge",
+          "description": "Brightens the backdrop to reflect the source (`SkBlendMode::kColorDodge`, ADR-0221)."
+        },
+        {
+          "type": "string",
+          "const": "color_burn",
+          "description": "Darkens the backdrop to reflect the source (`SkBlendMode::kColorBurn`, ADR-0221)."
+        },
+        {
+          "type": "string",
+          "const": "hard_light",
+          "description": "Multiply or screen depending on the source colour (`SkBlendMode::kHardLight`, ADR-0221)."
+        },
+        {
+          "type": "string",
+          "const": "soft_light",
+          "description": "Darkens or lightens depending on the source colour (`SkBlendMode::kSoftLight`, ADR-0221)."
+        },
+        {
+          "type": "string",
+          "const": "difference",
+          "description": "`|s − d|` per channel (`SkBlendMode::kDifference`, ADR-0221)."
+        },
+        {
+          "type": "string",
+          "const": "exclusion",
+          "description": "`s + d − 2·s·d` per channel (`SkBlendMode::kExclusion`, ADR-0221)."
+        },
+        {
+          "type": "string",
+          "const": "hue",
+          "description": "Hue of the source with saturation and luminosity of the backdrop (`SkBlendMode::kHue`, ADR-0221)."
+        },
+        {
+          "type": "string",
+          "const": "saturation",
+          "description": "Saturation of the source with hue and luminosity of the backdrop (`SkBlendMode::kSaturation`, ADR-0221)."
+        },
+        {
+          "type": "string",
+          "const": "color",
+          "description": "Hue and saturation of the source with luminosity of the backdrop (`SkBlendMode::kColor`, ADR-0221)."
+        },
+        {
+          "type": "string",
+          "const": "luminosity",
+          "description": "Luminosity of the source with hue and saturation of the backdrop (`SkBlendMode::kLuminosity`, ADR-0221)."
         }
       ],
-      "description": "How the finished element composites into what is painted below it (ADR-0147).\n\nThe last step of an element's paint: its `effects` (masks and shadow included), then\n`opacity`, then this, once, inside its `clip`. The arithmetic runs on the stored sRGB\nvalues. Static: a mode has no in-between, so a blend is faded in through `opacity`.\nOmitted means `normal`."
+      "description": "How the finished element composites into what is painted below it (ADR-0147, ADR-0221).\n\nThe last step of an element's paint: its `effects` (masks and shadow included), then\n`opacity`, then this, once, inside its `clip`. The arithmetic runs on the stored sRGB\nvalues. Static: a mode has no in-between, so a blend is faded in through `opacity`.\nOmitted means `normal`."
     },
     "MotionBlur": {
       "type": "object",
@@ -5132,7 +5704,10 @@
             "crossfade",
             "wipe",
             "slide",
-            "push"
+            "push",
+            "iris",
+            "radial_wipe",
+            "blinds"
           ]
         },
         {
@@ -5142,15 +5717,27 @@
         }
       ]
     },
+    "IrisShape": {
+      "type": "string",
+      "enum": [
+        "circle",
+        "rect"
+      ],
+      "description": "The geometric aperture shape for an `iris` transition (ADR-0220)."
+    },
     "Direction": {
       "type": "string",
       "enum": [
         "left",
         "right",
         "up",
-        "down"
+        "down",
+        "out",
+        "in",
+        "clockwise",
+        "counter_clockwise"
       ],
-      "description": "A `wipe`, `slide` or `push`'s direction: the way the motion travels, never the edge\nsomething enters from (ADR-0150)."
+      "description": "A transition's `direction`: the way a `wipe`, `slide`, `push` or `blinds` moves (`left`,\n`right`, `up`, `down`), whether an `iris` expands or contracts (`out`, `in`), or which\nway a `radial_wipe` sweeps (`clockwise`, `counter_clockwise`) (ADR-0150, ADR-0220)."
     },
     "TransitionAudio": {
       "oneOf": [

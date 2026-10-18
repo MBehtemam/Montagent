@@ -118,6 +118,13 @@ pub struct Probe {
     /// this crate depends on it, not the other way round. So the codec has to travel out
     /// of the one authority that reads it rather than being re-derived at the spawn.
     pub codec_name: Option<String>,
+    /// The video stream's `color_space` matrix tag as `ffprobe` reports it (`bt709`,
+    /// `smpte170m`, `bt470bg`, `bt2020nc`, `gbr`, `unknown`, …).
+    ///
+    /// ADR-0216 §2: `decode` needs to know whether the source carries an explicit matrix
+    /// tag (`out_range=pc`, leaving `in_color_matrix=auto`) or is untagged
+    /// (`in_color_matrix=bt709:out_range=pc`).
+    pub color_space: Option<String>,
     pub audio: Option<Audio>,
 }
 
@@ -171,6 +178,18 @@ impl SourceAlpha {
 }
 
 impl Probe {
+    /// Whether `ffprobe` reported a known `color_space` matrix tag on the video stream
+    /// (`bt709`, `smpte170m`, `bt470bg`, `bt2020nc`, `gbr`, …) rather than omitting it or
+    /// reporting `"unknown"` / `"unspecified"` (ADR-0216 §2).
+    pub fn has_color_space_tag(&self) -> bool {
+        self.color_space.as_deref().is_some_and(|tag| {
+            let tag = tag.trim();
+            !tag.is_empty()
+                && !tag.eq_ignore_ascii_case("unknown")
+                && !tag.eq_ignore_ascii_case("unspecified")
+        })
+    }
+
     /// The decoder this source needs for its pixels to arrive intact.
     ///
     /// ADR-0089. [`Decoder::LibVpxVp9`] for exactly one shape — VP9 whose alpha is a side
@@ -183,12 +202,13 @@ impl Probe {
     /// the native decoder and libvpx's — it names the codec, never the decoder that would
     /// be chosen for it.
     pub fn decoder(&self) -> Decoder {
-        match self.codec_name.as_deref() {
+        let base = match self.codec_name.as_deref() {
             Some("vp9") if self.alpha.is_some_and(SourceAlpha::is_side_stream) => {
                 Decoder::LibVpxVp9
             }
             _ => Decoder::Auto,
-        }
+        };
+        base.with_tagged_matrix(self.has_color_space_tag())
     }
 }
 
@@ -647,6 +667,10 @@ fn read(source: &str, value: &Value) -> Option<Probe> {
         .and_then(|stream| stream.get("codec_name"))
         .and_then(Value::as_str)
         .map(str::to_string);
+    let color_space = video
+        .and_then(|stream| stream.get("color_space"))
+        .and_then(Value::as_str)
+        .map(str::to_string);
     let audio = audio.map(|stream| Audio {
         sample_rate: stream
             .get("sample_rate")
@@ -667,6 +691,7 @@ fn read(source: &str, value: &Value) -> Option<Probe> {
         dimensions,
         alpha,
         codec_name,
+        color_space,
         audio,
     })
 }
@@ -1162,5 +1187,47 @@ mod tests {
     fn a_stream_with_no_tags_at_all_reads_as_no_declaration() {
         let bare = json!({ "codec_type": "video", "codec_name": "h264", "pix_fmt": "yuv420p" });
         assert_eq!(source_alpha(&bare), SourceAlpha::ABSENT);
+    }
+
+    #[test]
+    fn probe_reads_color_space_and_selects_tagged_or_untagged_decoder() {
+        for tag in ["bt709", "smpte170m", "bt470bg", "bt2020nc", "gbr"] {
+            let s = json!({
+                "codec_type": "video",
+                "codec_name": "h264",
+                "pix_fmt": "yuv420p",
+                "color_space": tag,
+            });
+            let p = probe_of(s);
+            assert_eq!(p.color_space.as_deref(), Some(tag));
+            assert!(p.has_color_space_tag(), "{tag} is a known matrix tag");
+            assert_eq!(p.decoder(), Decoder::Tagged, "{tag}");
+
+            let vp9_alpha = json!({
+                "codec_type": "video",
+                "codec_name": "vp9",
+                "pix_fmt": "yuv420p",
+                "color_space": tag,
+                "tags": { "alpha_mode": "1" },
+            });
+            assert_eq!(probe_of(vp9_alpha).decoder(), Decoder::LibVpxVp9Tagged);
+        }
+
+        for untagged in [None, Some("unknown"), Some("unspecified"), Some("")] {
+            let mut s = json!({
+                "codec_type": "video",
+                "codec_name": "h264",
+                "pix_fmt": "yuv420p",
+            });
+            if let Some(val) = untagged {
+                s["color_space"] = json!(val);
+            }
+            let p = probe_of(s);
+            assert!(
+                !p.has_color_space_tag(),
+                "{untagged:?} must be treated as untagged"
+            );
+            assert_eq!(p.decoder(), Decoder::Auto, "{untagged:?}");
+        }
     }
 }

@@ -106,9 +106,11 @@ two disagree.
   so `"width": [{"t": 0, "v": 0}, {"t": 600, "v": 400, "ease": "ease-out"}]` on a 400-wide
   element wipes it on from the left edge. One that hides every frame is
   `E-NOT-PAINTED-NO-EXTENT`, naming the mask; an inverted one of no size hides nothing.
-- **`blend` is how the finished element composites into what is below it** (ADR-0147). One
-  of five words: `normal`, `multiply`, `screen`, `overlay`, `add`. It sits beside `opacity`
-  on `rect`, `ellipse`, `text`, `image` and `video`; `audio` and `transition` refuse it.
+- **`blend` is how the finished element composites into what is below it** (ADR-0147, ADR-0221). One
+  of seventeen words: `normal`, `multiply`, `screen`, `overlay`, `add`, `darken`, `lighten`,
+  `color_dodge`, `color_burn`, `hard_light`, `soft_light`, `difference`, `exclusion`, `hue`,
+  `saturation`, `color`, `luminosity`. It sits beside `opacity`
+  on `rect`, `ellipse`, `path`, `text`, `image`, `video` and `nest`; `audio` and `transition` refuse it.
   Omitted means `normal`, and a written `"blend": "normal"` is legal and draws the same
   bytes. It is static and never keyframed: fade a blend in through `opacity`. The order is
   fixed: the element is drawn through its `effects` (masks and shadow included), `opacity`
@@ -243,8 +245,8 @@ two disagree.
 
 ## Named effects
 
-- **`posterize`, `glow` and `directional_blur` are `effects` members like `grain`**
-  (ADR-0156): applied in list order, each filtering the element's own pixels plus a reach it
+- **`posterize`, `glow`, `directional_blur`, `vibrance`, `hue_rotate` and `invert` are `effects` members like `grain`**
+  (ADR-0156, ADR-0221): applied in list order, each filtering the element's own pixels plus a reach it
   declares. Every key is required and every number is animatable; a value out of range is a
   schema error, in a static value and in every keyframe record.
 - **`posterize`: `{"levels": 2–256}`, an integer.** Per channel, on non-premultiplied sRGB
@@ -252,6 +254,15 @@ two disagree.
   `levels: 2` sends 0.49 to 0 and 0.5 to 1. Alpha is untouched, and `256` paints the same
   bytes as no member. A keyed `levels` resolves to a continuous value and is rounded half away
   from zero, as `shift` rounds.
+- **`vibrance`: `{"amount": -1–1}`, chroma-weighted saturation (ADR-0221).** Boosts or cuts
+  saturation weighted by `1 − (max(r,g,b) − min(r,g,b))` around Rec. 709 luma, so muted
+  colours shift while already-saturated colours and skin tones are protected from clipping.
+  `0` is the identity.
+- **`hue_rotate`: `{"angle": -180–180}`, hue rotation in degrees (ADR-0221).** Applies the
+  luminance-preserving Rec. 709 SVG/CSS hue-rotation matrix; `0` is the identity.
+- **`invert`: `{"amount": 0–1}`, linear channel inversion (ADR-0221).** Maps each RGB channel
+  by `c' = c × (1 − 2·amount) + amount`; `0` is the identity, `0.5` is flat mid-grey, and `1`
+  is full photographic inversion.
 - **`glow`: `{"threshold": 0–1, "radius": ≥ 0, "intensity": 0–4}`, a threshold bloom.** The
   bright-pass scales each pixel by `max(0, luma − threshold) / (1 − threshold)`, luma Rec.709
   on the non-premultiplied sRGB values, alpha with the colour. That bright part is blurred

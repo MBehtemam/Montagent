@@ -112,6 +112,8 @@ fn subject(property: &str, records: Value) -> Value {
             let mut gradient = match parameter {
                 "center" | "radius" => json!({"gradient": "radial", "center": [0.5, 0.5],
                                               "radius": 1}),
+                "focal" => json!({"gradient": "two_point_conical", "center": [0.5, 0.5],
+                                  "radius": 1, "focal": [0.25, 0.25]}),
                 _ => json!({"gradient": "linear", "angle": 90}),
             };
             gradient["stops"] = values(Kind::Stops).0;
@@ -174,7 +176,9 @@ fn effect(name: &str) -> Value {
                    "height": 400})
         }
         "tint" => json!({"name": "tint", "color": "#FF8800", "amount": 0.5}),
-        "saturation" | "brightness" | "contrast" => json!({"name": name, "amount": 0.5}),
+        "saturation" | "brightness" | "contrast" | "vibrance" | "invert" => {
+            json!({"name": name, "amount": 0.5})
+        }
         "chroma" => {
             json!({"name": "chroma", "color": "#00FF00", "tolerance": 0.2, "softness": 0.1,
                    "spill": 0.1})
@@ -183,6 +187,7 @@ fn effect(name: &str) -> Value {
         "posterize" => json!({"name": "posterize", "levels": 8}),
         "glow" => json!({"name": "glow", "threshold": 0.5, "radius": 10, "intensity": 1}),
         "directional_blur" => json!({"name": "directional_blur", "angle": 30, "length": 12}),
+        "hue_rotate" => json!({"name": "hue_rotate", "angle": 45}),
         other => panic!("no static `{other}` for this test to key a parameter of"),
     }
 }
