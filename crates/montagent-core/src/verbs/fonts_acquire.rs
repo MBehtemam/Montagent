@@ -40,8 +40,13 @@ fn execution() -> Value {
     json!({"scope":"local","working_directory":std::env::current_dir().ok().map(|path|path.display().to_string())})
 }
 fn outcome(error: Failure) -> Value {
+    let next_step = if error.0 == "network_denied" {
+        "Check network proxy and DNS configuration, or download the font file directly and use `montagent fonts vendor` to vendor offline."
+    } else {
+        "Correct the reported input or explicitly acquire native font files externally, then retry."
+    };
     json!({"status":"failed","execution":execution(),"files":[],"receipt":null,
-        "findings":[{"code":error.0,"detail":error.1}],"next_step":"Correct the reported input or explicitly acquire native font files externally, then retry."})
+        "findings":[{"code":error.0,"detail":error.1}],"next_step":next_step})
 }
 pub fn acquire(ask: &Acquire) -> Value {
     acquire_using(ask, &download)
@@ -116,10 +121,19 @@ fn download(locator: &str) -> Result<(Vec<u8>, String), Failure> {
             .recv_timeout(std::time::Duration::from_secs(5))
             .map_err(|_| failure("limit_exceeded", "DNS resolution timed out"))?
             .map_err(|e| failure("fetch_failure", e))?;
-        if addresses.is_empty() || addresses.iter().any(|a| !public_address(a.ip())) {
+        if addresses.is_empty() {
             return Err(failure(
                 "network_denied",
-                "Private, loopback and reserved addresses are refused",
+                format!("Host '{host}' did not resolve to any IP addresses"),
+            ));
+        }
+        if let Some(denied) = addresses.iter().find(|a| !public_address(a.ip())) {
+            return Err(failure(
+                "network_denied",
+                format!(
+                    "Resolved host '{host}' to non-public/reserved IP {}. Private, loopback, and reserved benchmark ranges (including 198.18.0.0/15) are refused by the SSRF security policy.",
+                    denied.ip()
+                ),
             ));
         }
         let remaining = std::time::Duration::from_secs(30)
@@ -731,6 +745,20 @@ mod tests {
                 expected_sha256: None,
             });
             assert_eq!(out["findings"][0]["code"], "network_denied", "{out}");
+            assert!(
+                out["findings"][0]["detail"]
+                    .as_str()
+                    .unwrap()
+                    .contains(&format!("Resolved host '{host}' to non-public/reserved IP {host}")),
+                "{out}"
+            );
+            assert!(
+                out["next_step"]
+                    .as_str()
+                    .unwrap()
+                    .contains("Check network proxy and DNS configuration"),
+                "{out}"
+            );
             assert!(!destination.exists());
         }
     }
