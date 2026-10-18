@@ -1,0 +1,130 @@
+{
+  "ops": [
+    {
+      "op": "taper",
+      "track": "taper_swish",
+      "layer": 10,
+      "id": "swish",
+      "start": 0,
+      "end": 4000,
+      "x": 60,
+      "y": 60,
+      "width": 440,
+      "height": 260,
+      "fill": "#FFB020",
+      "start_width": 4,
+      "end_width": 6,
+      "width_px": 28,
+      "start_length": 0.35,
+      "end_length": 0.35,
+      "start_ease": 0.5,
+      "end_ease": 0.5,
+      "cap": "round",
+      "points": [
+        {"at": [40, 180], "out": [90, -100]},
+        {"at": [220, 120], "in": [-70, 0], "out": [70, 0]},
+        {"at": [400, 80], "in": [-80, 90]}
+      ]
+    },
+    {
+      "op": "boolean",
+      "mode": "union",
+      "track": "boolean_badge",
+      "layer": 20,
+      "id": "badge_union",
+      "start": 0,
+      "end": 4000,
+      "x": 560,
+      "y": 60,
+      "width": 440,
+      "height": 260,
+      "fill": "#38BDF8",
+      "paths": [
+        [
+          {"at": [60, 40]},
+          {"at": [240, 40]},
+          {"at": [240, 200]},
+          {"at": [60, 200]}
+        ],
+        [
+          {"at": [160, 80]},
+          {"at": [360, 80]},
+          {"at": [360, 220]},
+          {"at": [160, 220]}
+        ]
+      ]
+    },
+    {
+      "op": "pucker_bloat",
+      "track": "sparkle_track",
+      "layer": 30,
+      "id": "sparkle",
+      "start": 0,
+      "end": 4000,
+      "x": 60,
+      "y": 380,
+      "width": 320,
+      "height": 320,
+      "fill": "#F43F5E",
+      "amount": -45,
+      "points": [
+        {"at": [80, 80]},
+        {"at": [240, 80]},
+        {"at": [240, 240]},
+        {"at": [80, 240]}
+      ]
+    },
+    {
+      "op": "zig_zag",
+      "track": "wave_track",
+      "layer": 40,
+      "id": "wave_line",
+      "start": 0,
+      "end": 4000,
+      "x": 420,
+      "y": 380,
+      "width": 580,
+      "height": 240,
+      "closed": false,
+      "stroke": "#A7F3D0",
+      "stroke_width": 8,
+      "stroke_cap": "round",
+      "stroke_join": "round",
+      "ridges": 5,
+      "size": 28,
+      "smooth": true,
+      "points": [
+        {"at": [40, 120]},
+        {"at": [540, 120]}
+      ]
+    },
+    {
+      "op": "trim_sequential",
+      "track": "seq_trim",
+      "layer": 50,
+      "id": "seq_stroke",
+      "start": 0,
+      "end": 4000,
+      "x": 60,
+      "y": 740,
+      "width": 940,
+      "height": 260,
+      "stroke": "#FDE047",
+      "stroke_width": 10,
+      "stroke_cap": "round",
+      "trim_start_ms": 200,
+      "trim_end_ms": 3200,
+      "ease": "ease-out",
+      "paths": [
+        {
+          "id": "seq_stroke_1",
+          "points": [{"at": [40, 80]}, {"at": [340, 80]}]
+        },
+        {
+          "id": "seq_stroke_2",
+          "points": [{"at": [380, 80]}, {"at": [880, 180]}]
+        }
+      ]
+    }
+  ]
+}
