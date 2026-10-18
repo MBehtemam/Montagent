@@ -173,6 +173,7 @@ fn run_checks(
     // instant of the half-open clock, and every check above steps over it for that reason.
     // `render` refused it and this list said nothing, so this is the check that owns it.
     crate::checks::range::check(document, report);
+    crate::checks::markers::check(document, report);
     // The cross-track coverage question the track check cannot see (ADR-0018, #200):
     // group-scoped pairing, not a frame-wide union — see `crate::checks::coverage`.
     crate::checks::coverage::check(document, report);

@@ -420,6 +420,7 @@ pub fn fcpxml_to_project(xml_text: &str) -> Result<Project, FcpxmlError> {
                 speed: None,
                 overrun: None,
                 volume: None,
+                markers: None,
                 audio_effects: None,
             })
         } else {
@@ -448,6 +449,7 @@ pub fn fcpxml_to_project(xml_text: &str) -> Result<Project, FcpxmlError> {
                 speed: None,
                 overrun: None,
                 volume: None,
+                markers: None,
                 effects: None,
                 audio_effects: None,
             })
@@ -512,6 +514,7 @@ pub fn fcpxml_to_project(xml_text: &str) -> Result<Project, FcpxmlError> {
         output: None,
         master: None,
         effects: None,
+        markers: None,
         fonts: None,
         font_vendor: None,
         tracks,

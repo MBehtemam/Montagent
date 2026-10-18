@@ -567,6 +567,102 @@ pub struct Track {
     pub elements: Vec<Element>,
 }
 
+/// Semantic classification for a timeline or element marker (ADR-0230).
+///
+/// When `kind` is omitted on a [`Marker`], it defaults semantically to [`MarkerKind::Comment`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "lowercase")]
+pub enum MarkerKind {
+    /// Free-form note, review feedback, or agent scratchpad annotation (default when omitted).
+    #[default]
+    Comment,
+    /// Structural section boundary exported to container chapter metadata on project-level
+    /// markers during `render` (ADR-0230).
+    Chapter,
+    /// Musical beat, rhythm hit, or cut sync point.
+    Beat,
+    /// Action cue, dialog cue, or sound-effect trigger point.
+    Cue,
+}
+
+impl MarkerKind {
+    /// The word a document spells this marker kind with.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            MarkerKind::Comment => "comment",
+            MarkerKind::Chapter => "chapter",
+            MarkerKind::Beat => "beat",
+            MarkerKind::Cue => "cue",
+        }
+    }
+}
+
+/// A non-rendering timeline or element annotation (ADR-0230).
+///
+/// Project-level markers (`Project::markers`) use project timeline milliseconds (`0` to
+/// project duration) and move with `shift` ripple edits; element-level markers use
+/// milliseconds relative to the element's `start` (`0` = element start) and remain anchored
+/// to the element across `shift` operations.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields, remote = "Self")]
+pub struct Marker {
+    /// Timestamp in integer milliseconds (`>= 0`, ADR-0230).
+    #[schemars(range(min = 0))]
+    pub at: i64,
+    /// Optional non-negative span in integer milliseconds (`>= 0`). When omitted or `0`,
+    /// the marker is a point marker (ADR-0230).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(range(min = 0))]
+    pub duration: Option<i64>,
+    /// Optional human- or agent-readable description (ADR-0230).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub label: Option<String>,
+    /// Optional semantic classification; omitted means `"comment"` (ADR-0230).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub kind: Option<MarkerKind>,
+}
+
+impl Marker {
+    /// The marker's semantic kind, defaulting to [`MarkerKind::Comment`] when `kind` is
+    /// omitted (ADR-0230).
+    pub fn effective_kind(&self) -> MarkerKind {
+        self.kind.unwrap_or(MarkerKind::Comment)
+    }
+
+    fn checked(self) -> Result<Self, String> {
+        if self.at < 0 {
+            return Err(format!(
+                "`at` is {}: a marker timestamp is a non-negative integer of milliseconds \
+                 (`>= 0`, ADR-0230)",
+                self.at
+            ));
+        }
+        if let Some(duration) = self.duration
+            && duration < 0
+        {
+            return Err(format!(
+                "`duration` is {duration}: a marker duration is a non-negative integer of \
+                 milliseconds (`>= 0`, ADR-0230)"
+            ));
+        }
+        Ok(self)
+    }
+}
+
+impl Serialize for Marker {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        Marker::serialize(self, serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for Marker {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        Marker::deserialize(deserializer)?
+            .checked()
+            .map_err(D::Error::custom)
+    }
+}
+
 /// The whole video, as a single declarative document.
 ///
 /// Field order is canonical key order (ADR-0041), and matches the committed fixture
@@ -596,6 +692,9 @@ pub struct Project {
     /// Project-level master visual effects executed at the device boundary (ADR-0205).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub effects: Option<Vec<Effect>>,
+    /// Project-level timeline markers and chapter annotations (ADR-0230).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub markers: Option<Vec<Marker>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub fonts: Option<BTreeMap<String, Vec<FontFile>>>,
     #[serde(
@@ -648,6 +747,11 @@ impl Element {
     pub fn role(&self) -> Option<Role> {
         self.body.role()
     }
+
+    /// Element-local markers if this element declares any (ADR-0230).
+    pub fn markers(&self) -> Option<&[Marker]> {
+        self.body.markers()
+    }
 }
 
 /// The per-type field set, discriminated by `type`.
@@ -694,6 +798,21 @@ impl Body {
             Body::Audio(a) => a.role,
             Body::Video(v) => v.role,
             _ => None,
+        }
+    }
+
+    /// Element-local markers if this body is a visual, audio, or nest element declaring any (ADR-0230).
+    pub fn markers(&self) -> Option<&[Marker]> {
+        match self {
+            Body::Image(e) => e.markers.as_deref(),
+            Body::Video(e) => e.markers.as_deref(),
+            Body::Text(e) => e.markers.as_deref(),
+            Body::Rect(e) => e.markers.as_deref(),
+            Body::Ellipse(e) => e.markers.as_deref(),
+            Body::Path(e) => e.markers.as_deref(),
+            Body::Audio(e) => e.markers.as_deref(),
+            Body::Nest(e) => e.markers.as_deref(),
+            Body::Transition(_) => None,
         }
     }
 }
@@ -798,6 +917,9 @@ pub struct Image {
     pub blend: Option<Blend>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub motion_blur: Option<MotionBlur>,
+    /// Element-local timeline markers, relative to `start` (ADR-0230).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub markers: Option<Vec<Marker>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub effects: Option<Vec<Effect>>,
 }
@@ -879,6 +1001,9 @@ pub struct Video {
     /// at one instant via a keyframe (ADR-0055).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub volume: Option<Animatable<Volume>>,
+    /// Element-local timeline markers, relative to `start` (ADR-0230).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub markers: Option<Vec<Marker>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub effects: Option<Vec<Effect>>,
     /// The embedded track's signal-shaping list, run after `speed` and `overrun` and before
@@ -1025,6 +1150,9 @@ pub struct TextElement {
     pub blend: Option<Blend>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub motion_blur: Option<MotionBlur>,
+    /// Element-local timeline markers, relative to `start` (ADR-0230).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub markers: Option<Vec<Marker>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub effects: Option<Vec<Effect>>,
     /// `false` says this text is not a caption — a title, a lower-third, a logo, a
@@ -1355,6 +1483,9 @@ pub struct Rect {
     pub blend: Option<Blend>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub motion_blur: Option<MotionBlur>,
+    /// Element-local timeline markers, relative to `start` (ADR-0230).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub markers: Option<Vec<Marker>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub effects: Option<Vec<Effect>>,
 }
@@ -1450,6 +1581,9 @@ pub struct Ellipse {
     pub blend: Option<Blend>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub motion_blur: Option<MotionBlur>,
+    /// Element-local timeline markers, relative to `start` (ADR-0230).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub markers: Option<Vec<Marker>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub effects: Option<Vec<Effect>>,
 }
@@ -1562,6 +1696,9 @@ pub struct PathElement {
     pub blend: Option<Blend>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub motion_blur: Option<MotionBlur>,
+    /// Element-local timeline markers, relative to `start` (ADR-0230).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub markers: Option<Vec<Marker>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub effects: Option<Vec<Effect>>,
 }
@@ -1689,6 +1826,9 @@ pub struct Audio {
     pub overrun: Option<AudioOverrun>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub volume: Option<Animatable<Volume>>,
+    /// Element-local timeline markers, relative to `start` (ADR-0230).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub markers: Option<Vec<Marker>>,
     /// An ordered list of signal-shaping members, run after `speed` and `overrun` and before
     /// `volume` (ADR-0169). Written after `volume` in the file, as every list appends.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -2175,6 +2315,9 @@ pub struct Nest {
     pub blend: Option<Blend>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub motion_blur: Option<MotionBlur>,
+    /// Element-local timeline markers, relative to `start` (ADR-0230).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub markers: Option<Vec<Marker>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub effects: Option<Vec<Effect>>,
     pub elements: Vec<Element>,

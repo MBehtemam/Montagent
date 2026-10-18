@@ -372,6 +372,7 @@ pub fn cues_to_track(
             opacity: None,
             blend: None,
             motion_blur: None,
+            markers: None,
             effects: None,
             caption: Some(true),
         };
@@ -481,6 +482,7 @@ pub fn import_subtitles(
         output: None,
         master: None,
         effects: None,
+        markers: None,
         fonts: None,
         font_vendor: None,
         tracks: vec![track],
