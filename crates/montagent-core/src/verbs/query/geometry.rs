@@ -250,7 +250,7 @@ pub(crate) fn bridged_visible_rect(
                 ..rect
             };
             match bridge.aperture(clip_rect(element)) {
-                Some(aperture) => moved.intersect(aperture).map(Ok),
+                Some(aperture) => moved.intersect(aperture.bounds()).map(Ok),
                 None => Some(Ok(moved)),
             }
         }
