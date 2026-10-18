@@ -24,7 +24,7 @@ licence attestation.
 | `media/lottie.mov` | `montagent-prerender`'s sample Lottie (`references/sample_lottie.json`: shapes, embedded-glyph Inter Bold text and a keyed fade, with transparent areas) as 50 frames at 320×180 and 25 fps, PNG in MOV with alpha, built by that skill's `prerender.py build` through its sample ThorVG player (`thorvg-python` 1.1.3), one fresh player per frame: the footage its Lottie route places as a `video`. |
 | `rig/rig.json`, `rig/parts/` | A three-level rig (torso → head → mouth and eyes; torso → arm) in the pack's `character/rig.json` shape: parts padded so each pivot is the canvas centre, parents, and a viseme → mouth table. |
 | `rig.montagent.json`, `rig.spec.json` | A project with only a voice on the bed, and a spec that hops the fixture rig in, raises its arm, tilts its head, syncs its mouth to `media/bed.visemes.json` and blinks it: the input to `montagent-character`'s `bake_rig.py`. |
-| `keyframes.montagent.json`, `keyframes.spec.json` | A project with `media/beat.wav` and a card shape, and a spec exercising `wiggle`, `bounce`, `loop`, `smooth`, `exp_scale`, and `audio`: the input to `montagent-motion`'s `keyframes.py`. |
+| `keyframes.montagent.json`, `keyframes.spec.json` | A project with `media/beat.wav` and a card shape, and a spec exercising `wiggle`, `bounce`, `loop`, `smooth`, `exp_scale`, `audio`, and `auto_bezier`: the input to `montagent-motion`'s `keyframes.py`. |
 
 Everything except the font is synthetic, and `make_fixtures.py` regenerates it with ffmpeg (`resvg` for `media/mark.png`, `thorvg-python` for `media/lottie.mov`).
 
