@@ -1,0 +1,57 @@
+{
+  "frame": {"width": 1280, "height": 720},
+  "fps": 30,
+  "background": "#10141C",
+  "duration": 2000,
+  "output": "out/keyframes.mp4",
+  "tracks": [
+    {
+      "name": "sfx",
+      "layer": 0,
+      "elements": [
+        {
+          "id": "beat",
+          "type": "audio",
+          "start": 0,
+          "end": 2000,
+          "source": "media/beat.wav",
+          "source_start": 0,
+          "source_end": 2000
+        }
+      ]
+    },
+    {
+      "name": "motion",
+      "layer": 1,
+      "elements": [
+        {
+          "id": "card",
+          "type": "shape",
+          "start": 0,
+          "end": 2000,
+          "shape": "rect",
+          "x": 640,
+          "y": [
+            {"t": 0, "v": -100},
+            {"t": 300, "v": 360, "ease": "linear"}
+          ],
+          "width": 320,
+          "height": 180,
+          "fill": "#FF5A36",
+          "opacity": [
+            {"t": 0, "v": 0.4},
+            {"t": 500, "v": 1.0, "ease": {"cubic-bezier": [0.25, 0.1, 0.25, 1.0]}}
+          ],
+          "scale": 1.0,
+          "rotation": [
+            {"t": 0, "v": -6.0},
+            {"t": 200, "v": 6.0, "ease": "linear"},
+            {"t": 400, "v": -5.0, "ease": "linear"},
+            {"t": 600, "v": 4.0, "ease": "linear"},
+            {"t": 1000, "v": 0.0, "ease": "linear"}
+          ]
+        }
+      ]
+    }
+  ]
+}
