@@ -55,7 +55,7 @@ fn a_path_mask_written_feather_before_points_comes_out_in_canonical_order() {
 /// One member of every effect kind, and a mask of every shape, each carrying every field its
 /// branch admits. Values are spelled the way the writer spells them, so the only thing that
 /// can differ between a member as written here and the writer's output is key order.
-const EVERY_MEMBER: [&str; 23] = [
+const EVERY_MEMBER: [&str; 26] = [
     r#"{"name":"blur","radius":2.5}"#,
     r##"{"name":"shadow","dx":1.5,"dy":2.5,"radius":3.5,"color":"#000000","opacity":0.5}"##,
     r#"{"name":"mask","shape":"circle","x":1,"y":2,"width":30,"height":40,"invert":true,"feather":6}"#,
@@ -76,6 +76,9 @@ const EVERY_MEMBER: [&str; 23] = [
     r#"{"name":"vibrance","amount":0.5}"#,
     r#"{"name":"hue_rotate","angle":45.5}"#,
     r#"{"name":"invert","amount":0.5}"#,
+    r##"{"name":"outline","width":3.5,"color":"#FFFFFF","opacity":0.5}"##,
+    r##"{"name":"color_overlay","color":"#FF0000","opacity":0.5}"##,
+    r##"{"name":"inner_shadow","dx":1.5,"dy":2.5,"radius":3.5,"color":"#000000","opacity":0.5}"##,
     r#"{"name":"matte","choke":2.5,"feather":4.5,"contrast":1.5}"#,
     r#"{"name":"luma_key","threshold":0.25,"tolerance":0.5,"softness":0.125,"invert":true}"#,
     // A keyed parameter: the keyframe records inside a member are not a structure this

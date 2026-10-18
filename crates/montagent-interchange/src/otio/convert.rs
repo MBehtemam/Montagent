@@ -169,6 +169,7 @@ pub fn otio_to_project(otio_json: &str) -> Result<Project, OtioError> {
                             source_time: None,
                             x: None,
                             y: None,
+                            motion_path: None,
                             origin: None,
                             width: frame_width,
                             height: frame_height,

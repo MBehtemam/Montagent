@@ -430,6 +430,7 @@ pub fn fcpxml_to_project(xml_text: &str) -> Result<Project, FcpxmlError> {
                 source_time: None,
                 x: None,
                 y: None,
+                motion_path: None,
                 origin: None,
                 width: frame_width,
                 height: frame_height,

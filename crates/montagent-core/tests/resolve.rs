@@ -507,8 +507,8 @@ fn the_published_schema_states_the_positional_rule_too() {
         }
     }
     assert_eq!(
-        seen, 42,
-        "twenty-one keyframe instantiations, first and non-first"
+        seen, 50,
+        "twenty-five keyframe instantiations, first and non-first"
     );
 }
 
@@ -584,9 +584,10 @@ fn every_animatable_property_the_schema_publishes_is_one_the_view_resolves() {
     let mut animatable: Vec<String> = Vec::new();
     collect_animatable(&schema, None, &mut animatable);
     // A gradient's own parameters are printed inside their paint, never as properties of
-    // their own (ADR-0149 §6; `gradient_animate.rs` reads them there). `radius` stays: a
-    // `rect` has one of its own, and so does `angle`: `directional_blur` has one (ADR-0156).
-    animatable.retain(|name| !matches!(name.as_str(), "center" | "stops"));
+    // their own (ADR-0149 §6, ADR-0222; `gradient_animate.rs` reads them there), and a text
+    // stagger unit's `blur` resolves per unit inside `units`. `radius` stays: a `rect` has
+    // one of its own, and so does `angle`: `directional_blur` has one (ADR-0156).
+    animatable.retain(|name| !matches!(name.as_str(), "blur" | "center" | "focal" | "stops"));
     animatable.sort();
     animatable.dedup();
     assert!(
@@ -620,7 +621,13 @@ fn every_animatable_property_the_schema_publishes_is_one_the_view_resolves() {
                                  {"name": "posterize", "levels": 8},
                                  {"name": "glow", "threshold": 0.5, "radius": 4,
                                   "intensity": 1},
-                                 {"name": "directional_blur", "angle": 30, "length": 6}]},
+                                 {"name": "directional_blur", "angle": 30, "length": 6},
+                                 {"name": "outline", "width": 2, "color": "#FFFFFF",
+                                  "opacity": 1.0},
+                                 {"name": "color_overlay", "color": "#FF0000",
+                                  "opacity": 0.5},
+                                 {"name": "inner_shadow", "dx": 1, "dy": 1, "radius": 2,
+                                  "color": "#000000", "opacity": 0.5}]},
                     {"id": "outline", "type": "path", "start": 0, "end": 1000,
                      "x": 300, "y": 2, "width": 10, "height": 10, "closed": false,
                      "stroke": "#FFFFFF", "stroke_width": 1,
@@ -629,6 +636,7 @@ fn every_animatable_property_the_schema_publishes_is_one_the_view_resolves() {
                      "width": 100, "height": 50, "font": "brand", "size": 20,
                      "color": "#FFFFFF", "letter_spacing": 0,
                      "runs": [{"text": "hi"}],
+                     "motion_path": {"points": [{"at": [20, 30]}, {"at": [80, 30]}], "offset": 0.5},
                      "path": {"closed": false, "points": [{"at": [20, 30]}, {"at": [80, 30]}]},
                      "path_offset": 0.5},
                     {"id": "footage", "type": "video", "start": 0, "end": 1000,
@@ -653,10 +661,13 @@ fn every_animatable_property_the_schema_publishes_is_one_the_view_resolves() {
                 // An effect parameter is named by its place in `effects` (ADR-0146 §4):
                 // `effects[0].feather (mask)` is the schema's `feather`.
                 // A text's curve is the schema's `points`, nested as `path.points`
-                // (ADR-0161).
+                // (ADR-0161), and `motion_path.offset` is the schema's `offset` (ADR-0218).
                 .map(|value| {
                     let property = value["property"].as_str().unwrap_or("?");
-                    let property = property.strip_prefix("path.").unwrap_or(property);
+                    let property = property
+                        .strip_prefix("path.")
+                        .or_else(|| property.strip_prefix("motion_path."))
+                        .unwrap_or(property);
                     property
                         .split_once("].")
                         .map_or(property, |(_, rest)| {

@@ -790,6 +790,86 @@
           "type": "object",
           "additionalProperties": false,
           "properties": {
+            "width": {
+              "$ref": "#/$defs/AnimatableReach"
+            },
+            "color": {
+              "$ref": "#/$defs/AnimatableColour"
+            },
+            "opacity": {
+              "$ref": "#/$defs/AnimatableFraction"
+            },
+            "name": {
+              "type": "string",
+              "const": "outline"
+            }
+          },
+          "required": [
+            "name",
+            "width",
+            "color"
+          ],
+          "description": "An outer stroke around the element's combined alpha silhouette (ADR-0231 §1).\n\nEvaluated via morphological dilation of the element's alpha channel and composited\nbehind the original element with `color` and `opacity` (default `1.0`). `width: 0` is\nthe identity."
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "color": {
+              "$ref": "#/$defs/AnimatableColour"
+            },
+            "opacity": {
+              "$ref": "#/$defs/AnimatableFraction"
+            },
+            "name": {
+              "type": "string",
+              "const": "color_overlay"
+            }
+          },
+          "required": [
+            "name",
+            "color"
+          ],
+          "description": "Flood-fill the element's alpha silhouette with a solid `color` at `opacity`\n(default `1.0`, identity `0.0`) (ADR-0231 §2)."
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "dx": {
+              "$ref": "#/$defs/Animatabledouble"
+            },
+            "dy": {
+              "$ref": "#/$defs/Animatabledouble"
+            },
+            "radius": {
+              "$ref": "#/$defs/AnimatableReach"
+            },
+            "color": {
+              "$ref": "#/$defs/AnimatableColour"
+            },
+            "opacity": {
+              "$ref": "#/$defs/AnimatableFraction"
+            },
+            "name": {
+              "type": "string",
+              "const": "inner_shadow"
+            }
+          },
+          "required": [
+            "name",
+            "dx",
+            "dy",
+            "radius",
+            "color",
+            "opacity"
+          ],
+          "description": "An inner shadow cast inward from the element's alpha boundary (ADR-0231 §3).\n\nMirrors `shadow` (ADR-0040): the element's alpha channel is inverted, offset by\n`(dx, dy)`, blurred by `radius` (σ = `radius` / 2), clipped strictly to the element's\ninterior alpha mask, and composited over the element with `color` and `opacity`\n(`opacity: 0` is the identity)."
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
             "choke": {
               "$ref": "#/$defs/AnimatableChoke"
             },
@@ -2427,6 +2507,10 @@
             "y": {
               "$ref": "#/$defs/Animatableint64"
             },
+            "motion_path": {
+              "description": "The trajectory this element's `origin` moves along, in place of `x` and `y`\n(ADR-0218).",
+              "$ref": "#/$defs/MotionPath"
+            },
             "origin": {
               "$ref": "#/$defs/Origin"
             },
@@ -2552,6 +2636,10 @@
             },
             "y": {
               "$ref": "#/$defs/Animatableint64"
+            },
+            "motion_path": {
+              "description": "The trajectory this element's `origin` moves along, in place of `x` and `y`\n(ADR-0218).",
+              "$ref": "#/$defs/MotionPath"
             },
             "origin": {
               "$ref": "#/$defs/Origin"
@@ -2694,6 +2782,10 @@
             },
             "y": {
               "$ref": "#/$defs/Animatableint64"
+            },
+            "motion_path": {
+              "description": "The trajectory this element's `origin` moves along, in place of `x` and `y`\n(ADR-0218).",
+              "$ref": "#/$defs/MotionPath"
             },
             "origin": {
               "$ref": "#/$defs/Origin"
@@ -2845,6 +2937,10 @@
             "y": {
               "$ref": "#/$defs/Animatableint64"
             },
+            "motion_path": {
+              "description": "The trajectory this element's `origin` moves along, in place of `x` and `y`\n(ADR-0218).",
+              "$ref": "#/$defs/MotionPath"
+            },
             "origin": {
               "$ref": "#/$defs/Origin"
             },
@@ -2972,6 +3068,10 @@
             "y": {
               "$ref": "#/$defs/Animatableint64"
             },
+            "motion_path": {
+              "description": "The trajectory this element's `origin` moves along, in place of `x` and `y`\n(ADR-0218).",
+              "$ref": "#/$defs/MotionPath"
+            },
             "origin": {
               "$ref": "#/$defs/Origin"
             },
@@ -3094,6 +3194,10 @@
             },
             "y": {
               "$ref": "#/$defs/Animatableint64"
+            },
+            "motion_path": {
+              "description": "The trajectory this element's `origin` moves along, in place of `x` and `y`\n(ADR-0218).",
+              "$ref": "#/$defs/MotionPath"
             },
             "origin": {
               "$ref": "#/$defs/Origin"
@@ -3844,6 +3948,113 @@
         }
       ],
       "description": "The per-type field set, discriminated by `type`.\n\nADR-0012: the field set is a **function of `type`** — *\"`x` on an audio element is a\nschema error naming the replacement\"*, never a silently-ignored field. That is also why\nshapes are sibling types rather than one `shape` type with a discriminator inside it: a\nsecond, omissible discriminator would let a malformed ellipse render as a rect, silently\nand plausibly (ADR-0014)."
+    },
+    "MotionPath": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "closed": {
+          "type": "boolean",
+          "description": "Whether a last segment runs from the last vertex back to the first. Static (ADR-0218 §1)."
+        },
+        "points": {
+          "$ref": "#/$defs/Points",
+          "description": "The trajectory's vertices, in integer pixels in frame space. Static: a trajectory does\nnot deform while the element rides it (ADR-0218 §1)."
+        },
+        "offset": {
+          "description": "Where on `points` the element's `origin` sits, as a fraction of the curve's total arc\nlength `L`: `[0, 1]` on an open path, or `[-1, 2]` (wrapped via `rem_euclid(1.0)`) on\na closed path (ADR-0218 §1, §2). Default `0`.",
+          "$ref": "#/$defs/AnimatableMotionPathOffset"
+        },
+        "orient": {
+          "type": "boolean",
+          "description": "Whether the trajectory's tangent angle is added to the element's `rotation` at every\ninstant (ADR-0218 §1, §3). Static. Default `false`."
+        }
+      },
+      "required": [
+        "closed",
+        "points"
+      ],
+      "description": "A visual element's own trajectory in frame space (ADR-0218 §1): `closed` and `points`,\nboth required and static, an optional animatable arc-length `offset` (`0` when omitted),\nand an optional static `orient` (`false` when omitted). Replaces `x` and `y`."
+    },
+    "AnimatableMotionPathOffset": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/MotionPathOffset",
+          "description": "Constant for the element's whole life."
+        },
+        {
+          "type": "array",
+          "prefixItems": [
+            {
+              "$ref": "#/$defs/FirstKeyframeMotionPathOffset"
+            }
+          ],
+          "items": {
+            "$ref": "#/$defs/KeyframeMotionPathOffset"
+          },
+          "description": "Keyframed. Clamps at both ends (ADR-0012): before the first record the value is the\nfirst value, after the last it is the last, so *\"and then it holds\"* costs no syntax.\nRecords must be written with strictly increasing `t` (ADR-0082) — array order is\nclock order.",
+          "minItems": 1
+        }
+      ],
+      "description": "A property that is either one value or a list of keyframe records.\n\nThe polymorphism is the format's, not a convenience: ADR-0055 restates it for `volume`\nas *\"the same scalar-or-keyframe-array polymorphism every other animatable property\nalready has.\"* It is deliberately **not** the same as the `scale` union ADR-0012\nrejected — that was two shapes for one *value* (`1.08` versus `[1.08, 1.08]`), which\nputs a shape test in every consumer; this is a value versus its animation over time,\nwhich no amount of normalising can collapse."
+    },
+    "MotionPathOffset": {
+      "type": "number",
+      "format": "double",
+      "description": "A fraction of the motion path's total arc length, from `-1` to `2` inclusive, in a static value and in every keyframe record (ADR-0218).",
+      "minimum": -1.0,
+      "maximum": 2.0
+    },
+    "FirstKeyframeMotionPathOffset": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "t": {
+          "type": "integer",
+          "format": "int64",
+          "description": "Milliseconds on the project's one absolute clock. Legal outside the element's own\nrange — that is how a trimmed move is spelled, and seven of the fixture's photo\nelements carry one."
+        },
+        "t_from": {
+          "description": "What this record's own `t` was derived from, where the author recorded it\n(ADR-0086).\n\n**Immediately after `t`**, which is the whole of ADR-0086's key-order\nspecification: ADR-0041 derives canonical order from schema order, and schema order\nis this struct's declaration order, so adjacency to the annotated value costs\nnothing to state twice and cannot drift.\n\nOptional, and its absence means *no claim* — never a claim of independence\n(ADR-0086's sixth condition of admission). Required was measured and rejected: on\nthe committed fixture it would put an escape value on 121 instants to check 14.",
+          "$ref": "#/$defs/FirstDerivation"
+        },
+        "v": {
+          "$ref": "#/$defs/MotionPathOffset"
+        }
+      },
+      "required": [
+        "t",
+        "v"
+      ],
+      "description": "The first record of a keyframe list, which carries no `ease`: `ease` describes the segment *arriving at* a record, and nothing arrives at the first one. Writing one here is a schema error naming the convention, never an ignored field (ADR-0012, ADR-0038). Its `t_from`, where it carries one, is narrowed for the same reason (ADR-0086)."
+    },
+    "KeyframeMotionPathOffset": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "t": {
+          "type": "integer",
+          "format": "int64",
+          "description": "Milliseconds on the project's one absolute clock. Legal outside the element's own\nrange — that is how a trimmed move is spelled, and seven of the fixture's photo\nelements carry one."
+        },
+        "t_from": {
+          "description": "What this record's own `t` was derived from, where the author recorded it\n(ADR-0086).\n\n**Immediately after `t`**, which is the whole of ADR-0086's key-order\nspecification: ADR-0041 derives canonical order from schema order, and schema order\nis this struct's declaration order, so adjacency to the annotated value costs\nnothing to state twice and cannot drift.\n\nOptional, and its absence means *no claim* — never a claim of independence\n(ADR-0086's sixth condition of admission). Required was measured and rejected: on\nthe committed fixture it would put an escape value on 121 instants to check 14.",
+          "$ref": "#/$defs/Derivation"
+        },
+        "v": {
+          "$ref": "#/$defs/MotionPathOffset"
+        },
+        "ease": {
+          "description": "The shape of the interpolation **arriving at** this record from the previous one.\n\nADR-0038: required on every record except the first, where it is a schema error.\nPresence is a pure function of position in the list, so there is never an absent\nvalue to default, normalise, or keep in sync with SPLIT's equality check. The\n`Option` here carries that positional rule, not a default.",
+          "$ref": "#/$defs/Ease"
+        }
+      },
+      "required": [
+        "t",
+        "v",
+        "ease"
+      ],
+      "description": "One `{\"t\",\"t_from\",\"v\",\"ease\"}` record — `t_from` optional (ADR-0086)."
     },
     "Origin": {
       "type": "string",
