@@ -3112,6 +3112,10 @@ pub(crate) fn effect_of(
     // is a document the model refuses and never reaches.
     let number = |key: &str| read(key)?.ok()?.number();
     let colour = |key: &str| rgba_of(&read(key)?.ok()?.colour()?);
+    let pair = |key: &str| match read(key)?.ok()? {
+        animatable::Resolved::Pair(p) => Some(p),
+        _ => None,
+    };
     Some(match declared {
         model::Effect::Blur { .. } => Effect::Blur {
             radius: number("radius")?,
@@ -3249,6 +3253,62 @@ pub(crate) fn effect_of(
                 intensity: intensity.unwrap_or(1.0),
             }
         }
+        model::Effect::Mosaic { .. } => {
+            let [bx, by] = pair("blocks")?;
+            Effect::Mosaic {
+                blocks: [bx.round().max(1.0), by.round().max(1.0)],
+            }
+        }
+        model::Effect::RadialBlur { kind, center, .. } => Effect::RadialBlur {
+            kind: match kind {
+                model::RadialBlurKind::Zoom => montagent_render::canvas::RadialBlurKind::Zoom,
+                model::RadialBlurKind::Spin => montagent_render::canvas::RadialBlurKind::Spin,
+            },
+            center: match center {
+                Some(_) => pair("center")?,
+                None => [0.5, 0.5],
+            },
+            amount: number("amount")?,
+        },
+        model::Effect::FindEdges { invert } => Effect::FindEdges {
+            invert: invert.unwrap_or(false),
+        },
+        model::Effect::Emboss { contrast, .. } => Effect::Emboss {
+            angle: number("angle")?,
+            height: number("height")?,
+            contrast: match contrast {
+                Some(_) => number("contrast")?,
+                None => 1.0,
+            },
+        },
+        model::Effect::Sharpen { .. } => Effect::Sharpen {
+            amount: number("amount")?,
+        },
+        model::Effect::Twirl { center, .. } => Effect::Twirl {
+            center: match center {
+                Some(_) => pair("center")?,
+                None => [0.5, 0.5],
+            },
+            radius: number("radius")?,
+            angle: number("angle")?,
+        },
+        model::Effect::Bulge { center, .. } => Effect::Bulge {
+            center: match center {
+                Some(_) => pair("center")?,
+                None => [0.5, 0.5],
+            },
+            radius: number("radius")?,
+            height: number("height")?,
+        },
+        model::Effect::OpticsCompensation { reverse, .. } => Effect::OpticsCompensation {
+            fov: number("fov")?,
+            reverse: reverse.unwrap_or(false),
+        },
+        model::Effect::Offset { wrap, .. } => Effect::Offset {
+            shift_x: number("shift_x")?,
+            shift_y: number("shift_y")?,
+            wrap: wrap.unwrap_or(true),
+        },
     })
 }
 

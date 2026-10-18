@@ -225,6 +225,182 @@ pub enum Effect {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         intensity: Option<f64>,
     },
+    /// Pixelation into a `[cols, rows]` grid of uniform-colour cells (ADR-0225).
+    Mosaic { blocks: Animatable<MosaicBlocks> },
+    /// Zoom or spin radial blur around a normalised `center` (ADR-0225).
+    RadialBlur {
+        kind: RadialBlurKind,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        center: Option<Animatable<EffectCenter>>,
+        amount: Animatable<RadialBlurAmount>,
+    },
+    /// 3×3 Sobel gradient magnitude edge detector (ADR-0225).
+    FindEdges {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        invert: Option<bool>,
+    },
+    /// Directional relief emboss blended onto the source at `contrast` (ADR-0225).
+    Emboss {
+        angle: Animatable<f64>,
+        height: Animatable<EmbossHeight>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        contrast: Option<Animatable<EmbossContrast>>,
+    },
+    /// Unsharp-mask sharpen against a 3×3 Gaussian neighbourhood (ADR-0225).
+    Sharpen { amount: Animatable<SharpenAmount> },
+    /// Quadratic falloff vortex twist inside `radius` around `center` (ADR-0225).
+    Twirl {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        center: Option<Animatable<EffectCenter>>,
+        radius: Animatable<DistortionRadius>,
+        angle: Animatable<f64>,
+    },
+    /// Smooth radial magnify or pinch inside `radius` around `center` (ADR-0225).
+    Bulge {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        center: Option<Animatable<EffectCenter>>,
+        radius: Animatable<DistortionRadius>,
+        height: Animatable<BulgeHeight>,
+    },
+    /// Brown-Conrady radial lens distortion or compensation (ADR-0225).
+    OpticsCompensation {
+        fov: Animatable<OpticsFov>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        reverse: Option<bool>,
+    },
+    /// Pixel shift in `x` and `y` with periodic wrap or edge clamp (ADR-0225).
+    Offset {
+        shift_x: Animatable<f64>,
+        shift_y: Animatable<f64>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        wrap: Option<bool>,
+    },
+}
+
+/// `radial_blur`'s mode: `"zoom"` (radial smear away from `center`) or `"spin"` (angular smear
+/// around `center`) (ADR-0225).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum RadialBlurKind {
+    Zoom,
+    Spin,
+}
+
+/// `mosaic`'s `blocks`: `[cols, rows]`, each an integer `>= 1` (ADR-0225).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct MosaicBlocks(pub [i64; 2]);
+
+impl JsonSchema for MosaicBlocks {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        "MosaicBlocks".into()
+    }
+
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::Schema::try_from(serde_json::json!({
+            "type": "array",
+            "items": {
+                "type": "integer",
+                "minimum": 1,
+            },
+            "minItems": 2,
+            "maxItems": 2,
+            "description": "Horizontal and vertical block counts `[cols, rows]`, each an integer \
+                            at least `1`, in a static value and in every keyframe record. \
+                            `[width, height]` is the identity (ADR-0225).",
+        }))
+        .expect("an object literal is a schema")
+    }
+}
+
+impl crate::resolve::Interpolate for MosaicBlocks {
+    type Out = [f64; 2];
+
+    fn between(a: &Self, b: &Self, p: f64) -> [f64; 2] {
+        [
+            f64::between(&(a.0[0] as f64), &(b.0[0] as f64), p),
+            f64::between(&(a.0[1] as f64), &(b.0[1] as f64), p),
+        ]
+    }
+
+    fn held(value: &Self) -> [f64; 2] {
+        [value.0[0] as f64, value.0[1] as f64]
+    }
+}
+
+/// Normalised `[cx, cy]` in `[0.0, 1.0]²` in element coordinates (ADR-0225).
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct EffectCenter(pub [f64; 2]);
+
+impl JsonSchema for EffectCenter {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        "EffectCenter".into()
+    }
+
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::Schema::try_from(serde_json::json!({
+            "type": "array",
+            "items": {
+                "type": "number",
+                "format": "double",
+                "minimum": 0.0,
+                "maximum": 1.0,
+            },
+            "minItems": 2,
+            "maxItems": 2,
+            "description": "Normalised `[cx, cy]` coordinates in `[0.0, 1.0]²` within the element \
+                            box, in a static value and in every keyframe record. Defaults to \
+                            `[0.5, 0.5]` when omitted (ADR-0225).",
+        }))
+        .expect("an object literal is a schema")
+    }
+}
+
+impl crate::resolve::Interpolate for EffectCenter {
+    type Out = [f64; 2];
+
+    fn between(a: &Self, b: &Self, p: f64) -> [f64; 2] {
+        <[f64; 2]>::between(&a.0, &b.0, p)
+    }
+
+    fn held(value: &Self) -> [f64; 2] {
+        value.0
+    }
+}
+
+/// `twirl` and `bulge`'s `radius`: strictly positive (`> 0.0`) in element pixels (ADR-0225).
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct DistortionRadius(pub f64);
+
+impl JsonSchema for DistortionRadius {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        "DistortionRadius".into()
+    }
+
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::Schema::try_from(serde_json::json!({
+            "type": "number",
+            "format": "double",
+            "exclusiveMinimum": 0.0,
+            "description": "Distortion radius in element pixels, strictly greater than `0.0`, \
+                            in a static value and in every keyframe record (ADR-0225).",
+        }))
+        .expect("an object literal is a schema")
+    }
+}
+
+impl crate::resolve::Interpolate for DistortionRadius {
+    type Out = f64;
+
+    fn between(a: &Self, b: &Self, p: f64) -> f64 {
+        f64::between(&a.0, &b.0, p)
+    }
+
+    fn held(value: &Self) -> f64 {
+        value.0
+    }
 }
 
 /// Declares a bounded number type for one named-effect parameter (ADR-0156 §4), the way
@@ -335,6 +511,66 @@ impl Smear {
     /// 4,097 (the prototype's cap, #722).
     pub const MAX: f64 = 4096.0;
 }
+
+bounded!(
+    /// `radial_blur`'s `amount`: blur strength from `0.0` to `100.0` (ADR-0225).
+    RadialBlurAmount(f64),
+    "number",
+    0.0,
+    Some(100.0),
+    "Radial blur strength from `0` (the identity) to `100` in a static value and in every \
+     keyframe record (ADR-0225)."
+);
+
+bounded!(
+    /// `emboss`'s `height`: sample offset in element pixels from `0.0` to `10.0` (ADR-0225).
+    EmbossHeight(f64),
+    "number",
+    0.0,
+    Some(10.0),
+    "Emboss sample offset in element pixels from `0` (the identity) to `10` in a static \
+     value and in every keyframe record (ADR-0225)."
+);
+
+bounded!(
+    /// `emboss`'s `contrast`: relief blend factor from `0.0` to `5.0` (ADR-0225).
+    EmbossContrast(f64),
+    "number",
+    0.0,
+    Some(5.0),
+    "Emboss relief blend factor from `0` (the identity) to `5` in a static value and in \
+     every keyframe record. Defaults to `1.0` when omitted (ADR-0225)."
+);
+
+bounded!(
+    /// `sharpen`'s `amount`: unsharp-mask gain from `0.0` to `5.0` (ADR-0225).
+    SharpenAmount(f64),
+    "number",
+    0.0,
+    Some(5.0),
+    "Unsharp-mask strength from `0` (the identity) to `5` in a static value and in every \
+     keyframe record (ADR-0225)."
+);
+
+bounded!(
+    /// `bulge`'s `height`: radial magnify (`> 0`) or pinch (`< 0`) from `-1.0` to `1.0` (ADR-0225).
+    BulgeHeight(f64),
+    "number",
+    -1.0,
+    Some(1.0),
+    "Radial distortion strength from `-1` (pinch) through `0` (the identity) to `1` (magnify) \
+     in a static value and in every keyframe record (ADR-0225)."
+);
+
+bounded!(
+    /// `optics_compensation`'s `fov`: field-of-view angle in degrees from `0.0` to `180.0` (ADR-0225).
+    OpticsFov(f64),
+    "number",
+    0.0,
+    Some(180.0),
+    "Field-of-view compensation angle in degrees from `0` (the identity) to `180` in a \
+     static value and in every keyframe record (ADR-0225)."
+);
 
 /// `grain`'s `seed`: an integer from `0` to `2³¹ − 1`, never keyed (ADR-0156 §4).
 ///
@@ -625,6 +861,126 @@ impl Effect {
                 return Err(format!(
                     "`{member}`'s `{parameter}` is {value}: it must be {range}, in a static \
                      value and in every keyframe record (ADR-0156)"
+                ));
+            }
+        }
+
+        // ADR-0225: every bounded parameter of mosaic, radial_blur, emboss, sharpen, twirl,
+        // bulge, and optics_compensation is validated in both static values and keyframe records.
+        if let Effect::Mosaic { blocks } = &self {
+            if let Some(MosaicBlocks([cols, rows])) = stated(blocks)
+                .into_iter()
+                .find(|MosaicBlocks([cols, rows])| *cols < 1 || *rows < 1)
+            {
+                return Err(format!(
+                    "`mosaic`'s `blocks` is [{cols}, {rows}]: both horizontal and vertical \
+                     block counts must be at least `1`, in a static value and in every \
+                     keyframe record (ADR-0225, E-OUT-OF-RANGE)"
+                ));
+            }
+            return Ok(self);
+        }
+
+        let check_center = |member: &str, center: &Option<Animatable<EffectCenter>>| -> Result<(), String> {
+            if let Some(center) = center
+                && let Some(EffectCenter([cx, cy])) = stated(center).into_iter().find(
+                    |EffectCenter([cx, cy])| !(0.0..=1.0).contains(cx) || !(0.0..=1.0).contains(cy),
+                )
+            {
+                return Err(format!(
+                    "`{member}`'s `center` is [{cx}, {cy}]: each coordinate must be from `0` \
+                     to `1`, in a static value and in every keyframe record \
+                     (ADR-0225, E-OUT-OF-RANGE)"
+                ));
+            }
+            Ok(())
+        };
+
+        let check_radius = |member: &str, radius: &Animatable<DistortionRadius>| -> Result<(), String> {
+            if let Some(DistortionRadius(value)) = stated(radius)
+                .into_iter()
+                .find(|DistortionRadius(value)| !(*value > 0.0))
+            {
+                return Err(format!(
+                    "`{member}`'s `radius` is {value}: it must be strictly greater than `0` \
+                     (`> 0.0`), in a static value and in every keyframe record \
+                     (ADR-0225, E-OUT-OF-RANGE)"
+                ));
+            }
+            Ok(())
+        };
+
+        match &self {
+            Effect::RadialBlur { center, .. } => check_center("radial_blur", center)?,
+            Effect::Twirl { center, radius, .. } => {
+                check_center("twirl", center)?;
+                check_radius("twirl", radius)?;
+            }
+            Effect::Bulge { center, radius, .. } => {
+                check_center("bulge", center)?;
+                check_radius("bulge", radius)?;
+            }
+            _ => {}
+        }
+
+        let named_0225: Vec<Ranged> = match &self {
+            Effect::RadialBlur { amount, .. } => vec![(
+                "radial_blur",
+                "amount",
+                stated(amount).into_iter().map(|v| v.value()).collect(),
+                RadialBlurAmount::RANGE,
+            )],
+            Effect::Emboss {
+                height, contrast, ..
+            } => {
+                let mut v = vec![(
+                    "emboss",
+                    "height",
+                    stated(height).into_iter().map(|v| v.value()).collect(),
+                    EmbossHeight::RANGE,
+                )];
+                if let Some(contrast) = contrast {
+                    v.push((
+                        "emboss",
+                        "contrast",
+                        stated(contrast).into_iter().map(|v| v.value()).collect(),
+                        EmbossContrast::RANGE,
+                    ));
+                }
+                v
+            }
+            Effect::Sharpen { amount } => vec![(
+                "sharpen",
+                "amount",
+                stated(amount).into_iter().map(|v| v.value()).collect(),
+                SharpenAmount::RANGE,
+            )],
+            Effect::Bulge { height, .. } => vec![(
+                "bulge",
+                "height",
+                stated(height).into_iter().map(|v| v.value()).collect(),
+                BulgeHeight::RANGE,
+            )],
+            Effect::OpticsCompensation { fov, .. } => vec![(
+                "optics_compensation",
+                "fov",
+                stated(fov).into_iter().map(|v| v.value()).collect(),
+                OpticsFov::RANGE,
+            )],
+            _ => Vec::new(),
+        };
+        for (member, parameter, values, (min, max)) in named_0225 {
+            if let Some(value) = values
+                .into_iter()
+                .find(|value| !(*value >= min && max.is_none_or(|max| *value <= max)))
+            {
+                let range = match max {
+                    Some(max) => format!("from `{min}` to `{max}`"),
+                    None => format!("at least `{min}`"),
+                };
+                return Err(format!(
+                    "`{member}`'s `{parameter}` is {value}: it must be {range}, in a static \
+                     value and in every keyframe record (ADR-0225, E-OUT-OF-RANGE)"
                 ));
             }
         }

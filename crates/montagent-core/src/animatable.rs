@@ -236,11 +236,16 @@ fn typed(defs: &Value, name: &str, def: &str) -> Option<Property> {
         (_, Some("array")) => Kind::Pair,
         _ => return None,
     };
+    let bounds = if value["type"].as_str() == Some("array") {
+        &value["items"]
+    } else {
+        value
+    };
     Some(Property {
         name: name.to_string(),
         kind,
-        minimum: value["minimum"].as_f64(),
-        maximum: value["maximum"].as_f64(),
+        minimum: bounds["minimum"].as_f64(),
+        maximum: bounds["maximum"].as_f64(),
     })
 }
 
@@ -770,6 +775,17 @@ fn clamp_parameter(
         let corner = (width.max(0.0), height.max(0.0));
         return Resolved::Points(clamped(vertices.clone(), ((0.0, 0.0), corner)));
     }
+    let property = declared.property;
+    let clamp_scalar = |mut v: f64| {
+        if (member == "twirl" || member == "bulge") && key == "radius" {
+            v = v.max(f64::MIN_POSITIVE);
+        }
+        v = property.minimum.map_or(v, |minimum| v.max(minimum));
+        property.maximum.map_or(v, |maximum| v.min(maximum))
+    };
+    if let Resolved::Pair([a, b]) = value {
+        return Resolved::Pair([clamp_scalar(a), clamp_scalar(b)]);
+    }
     let Resolved::Number(number) = value else {
         return value;
     };
@@ -784,15 +800,7 @@ fn clamp_parameter(
             _ => {}
         }
     }
-    let property = declared.property;
-    let number = property
-        .minimum
-        .map_or(number, |minimum| number.max(minimum));
-    Resolved::Number(
-        property
-            .maximum
-            .map_or(number, |maximum| number.min(maximum)),
-    )
+    Resolved::Number(clamp_scalar(number))
 }
 
 /// Half the shorter of two sides, at least `0`; unbounded where there are no sides to read.

@@ -424,3 +424,609 @@ fn a_directional_blur_at_90_degrees_smears_up_and_down() {
     assert!(!lit(200, 189) && !lit(200, 211));
     assert!(!lit(149, 200) && !lit(250, 200));
 }
+
+// ---------------------------------------------------------------------------
+// ADR-0225 (#1100): mosaic, radial_blur, find_edges, emboss, sharpen,
+// twirl, bulge, optics_compensation, and offset
+// ---------------------------------------------------------------------------
+
+#[test]
+fn adr_0225_effects_require_every_parameter_and_reject_unknown_fields() {
+    for (effect, required_keys) in [
+        (json!({"name": "mosaic", "blocks": [8, 8]}), &["blocks"][..]),
+        (
+            json!({"name": "radial_blur", "kind": "spin", "center": [0.5, 0.5], "amount": 20}),
+            &["kind", "amount"][..],
+        ),
+        (
+            json!({"name": "radial_blur", "kind": "zoom", "amount": 50}),
+            &["kind", "amount"][..],
+        ),
+        (json!({"name": "find_edges", "invert": false}), &[][..]),
+        (
+            json!({"name": "emboss", "angle": 135, "height": 2, "contrast": 1.5}),
+            &["angle", "height"][..],
+        ),
+        (json!({"name": "sharpen", "amount": 1.5}), &["amount"][..]),
+        (
+            json!({"name": "twirl", "center": [0.5, 0.5], "radius": 0.5, "angle": 90}),
+            &["radius", "angle"][..],
+        ),
+        (
+            json!({"name": "bulge", "center": [0.5, 0.5], "radius": 0.5, "height": 0.5}),
+            &["radius", "height"][..],
+        ),
+        (
+            json!({"name": "optics_compensation", "fov": 60, "reverse": false}),
+            &["fov"][..],
+        ),
+        (
+            json!({"name": "offset", "shift_x": 10, "shift_y": -20, "wrap": true}),
+            &["shift_x", "shift_y"][..],
+        ),
+    ] {
+        parse(effect.clone()).unwrap_or_else(|e| panic!("{effect}: {e}"));
+        for key in required_keys {
+            let mut missing = effect.clone();
+            missing.as_object_mut().unwrap().remove(*key);
+            let error = parse(missing).expect_err(key);
+            assert!(error.contains(&format!("`{key}`")), "{key}: {error}");
+        }
+        let mut extra = effect.clone();
+        extra
+            .as_object_mut()
+            .unwrap()
+            .insert("unexpected".into(), json!(1));
+        assert!(
+            parse(extra)
+                .expect_err("unknown field")
+                .contains("unknown field `unexpected`")
+        );
+    }
+}
+
+#[test]
+fn adr_0225_out_of_range_values_cite_the_member_range_and_adr_0225() {
+    let refused = [
+        (
+            json!({"name": "mosaic", "blocks": [0, 4]}),
+            "`mosaic`'s `blocks`",
+            "at least `1`",
+        ),
+        (
+            json!({"name": "mosaic", "blocks": [4, -1]}),
+            "`mosaic`'s `blocks`",
+            "at least `1`",
+        ),
+        (
+            json!({"name": "radial_blur", "kind": "spin", "center": [-0.1, 0.5], "amount": 10}),
+            "`radial_blur`'s `center`",
+            "from `0` to `1`",
+        ),
+        (
+            json!({"name": "radial_blur", "kind": "zoom", "center": [0.5, 1.1], "amount": 10}),
+            "`radial_blur`'s `center`",
+            "from `0` to `1`",
+        ),
+        (
+            json!({"name": "radial_blur", "kind": "spin", "center": [0.5, 0.5], "amount": -1}),
+            "`radial_blur`'s `amount`",
+            "from `0` to `100`",
+        ),
+        (
+            json!({"name": "radial_blur", "kind": "spin", "center": [0.5, 0.5], "amount": 101}),
+            "`radial_blur`'s `amount`",
+            "from `0` to `100`",
+        ),
+        (
+            json!({"name": "emboss", "angle": 0, "height": -0.5, "contrast": 1}),
+            "`emboss`'s `height`",
+            "from `0` to `10`",
+        ),
+        (
+            json!({"name": "emboss", "angle": 0, "height": 10.5, "contrast": 1}),
+            "`emboss`'s `height`",
+            "from `0` to `10`",
+        ),
+        (
+            json!({"name": "emboss", "angle": 0, "height": 2, "contrast": -0.5}),
+            "`emboss`'s `contrast`",
+            "from `0` to `5`",
+        ),
+        (
+            json!({"name": "emboss", "angle": 0, "height": 2, "contrast": 5.5}),
+            "`emboss`'s `contrast`",
+            "from `0` to `5`",
+        ),
+        (
+            json!({"name": "sharpen", "amount": -0.5}),
+            "`sharpen`'s `amount`",
+            "from `0` to `5`",
+        ),
+        (
+            json!({"name": "sharpen", "amount": 5.5}),
+            "`sharpen`'s `amount`",
+            "from `0` to `5`",
+        ),
+        (
+            json!({"name": "twirl", "center": [1.5, 0.5], "radius": 0.5, "angle": 45}),
+            "`twirl`'s `center`",
+            "from `0` to `1`",
+        ),
+        (
+            json!({"name": "twirl", "center": [0.5, 0.5], "radius": 0, "angle": 45}),
+            "`twirl`'s `radius`",
+            "strictly greater than `0`",
+        ),
+        (
+            json!({"name": "twirl", "center": [0.5, 0.5], "radius": -0.5, "angle": 45}),
+            "`twirl`'s `radius`",
+            "strictly greater than `0`",
+        ),
+        (
+            json!({"name": "bulge", "center": [0.5, -0.2], "radius": 0.5, "height": 0.5}),
+            "`bulge`'s `center`",
+            "from `0` to `1`",
+        ),
+        (
+            json!({"name": "bulge", "center": [0.5, 0.5], "radius": 0, "height": 0.5}),
+            "`bulge`'s `radius`",
+            "strictly greater than `0`",
+        ),
+        (
+            json!({"name": "bulge", "center": [0.5, 0.5], "radius": 0.5, "height": -1.5}),
+            "`bulge`'s `height`",
+            "from `-1` to `1`",
+        ),
+        (
+            json!({"name": "bulge", "center": [0.5, 0.5], "radius": 0.5, "height": 1.5}),
+            "`bulge`'s `height`",
+            "from `-1` to `1`",
+        ),
+        (
+            json!({"name": "optics_compensation", "fov": -1, "reverse": false}),
+            "`optics_compensation`'s `fov`",
+            "from `0` to `180`",
+        ),
+        (
+            json!({"name": "optics_compensation", "fov": 181, "reverse": false}),
+            "`optics_compensation`'s `fov`",
+            "from `0` to `180`",
+        ),
+        // Keyframe records are checked against the same bounds.
+        (
+            json!({"name": "mosaic", "blocks": keyed(json!([2, 2]), json!([0, 4]))}),
+            "`mosaic`'s `blocks`",
+            "every keyframe record",
+        ),
+        (
+            json!({"name": "optics_compensation", "fov": keyed(json!(30), json!(185)), "reverse": false}),
+            "`optics_compensation`'s `fov`",
+            "every keyframe record",
+        ),
+    ];
+    for (effect, names, range) in refused {
+        let error = parse(effect.clone()).expect_err(&effect.to_string());
+        assert!(
+            error.contains(names) && error.contains(range),
+            "{effect}: {error}"
+        );
+        assert!(error.contains("ADR-0225"), "{error}");
+        assert!(error.contains("E-OUT-OF-RANGE"), "{error}");
+    }
+}
+
+#[test]
+fn adr_0225_animatable_parameters_resolve_in_query_at_and_validate() {
+    use montagent_core::verbs::query::{Ask, query};
+    let dir = tempdir(line!());
+    let element = json!({
+        "id": "subject", "type": "rect", "start": 0, "end": 1000,
+        "x": 200, "y": 200, "width": 100, "height": 100, "fill": "#F0E0A0",
+        "effects": [
+            {"name": "mosaic", "blocks": keyed(json!([2, 4]), json!([10, 20]))},
+            {"name": "radial_blur", "kind": "spin",
+             "center": keyed(json!([0.2, 0.4]), json!([0.8, 0.6])),
+             "amount": keyed(json!(10), json!(50))},
+            {"name": "emboss", "angle": keyed(json!(0), json!(90)),
+             "height": keyed(json!(1), json!(5)),
+             "contrast": keyed(json!(0.5), json!(2.5))},
+            {"name": "sharpen", "amount": keyed(json!(0), json!(4))},
+            {"name": "twirl", "center": keyed(json!([0.3, 0.3]), json!([0.7, 0.7])),
+             "radius": keyed(json!(0.4), json!(1.2)),
+             "angle": keyed(json!(-90), json!(90))},
+            {"name": "bulge", "center": keyed(json!([0.4, 0.6]), json!([0.6, 0.4])),
+             "radius": keyed(json!(0.5), json!(1.5)),
+             "height": keyed(json!(-1), json!(1))},
+            {"name": "optics_compensation",
+             "fov": keyed(json!(20), json!(100)), "reverse": false},
+            {"name": "offset",
+             "shift_x": keyed(json!(-10), json!(30)),
+             "shift_y": keyed(json!(20), json!(-40)),
+             "wrap": true}
+        ]
+    });
+    let project = write_project(
+        &dir,
+        "p.montagent.json",
+        &canonical(
+            &json!({"frame": {"width": 400, "height": 400}, "fps": 25,
+                    "background": "#000000",
+                    "tracks": [{"name": "only", "layer": 0, "elements": [element]}]})
+            .to_string(),
+        ),
+    );
+    let answer = query(
+        &project,
+        &Ask {
+            at: Some(500),
+            ..Ask::default()
+        },
+    )
+    .to_json();
+    let value = |property: &str| {
+        answer["query"]["stack"][0]["values"]
+            .as_array()
+            .expect("values")
+            .iter()
+            .find(|row| row["property"] == property)
+            .unwrap_or_else(|| panic!("no `{property}` row: {answer}"))["value"]
+            .clone()
+    };
+    assert_eq!(value("effects[0].blocks (mosaic)"), json!([6.0, 12.0]));
+    assert_eq!(value("effects[1].center (radial_blur)"), json!([0.5, 0.5]));
+    assert_eq!(value("effects[1].amount (radial_blur)"), json!(30.0));
+    assert_eq!(value("effects[2].angle (emboss)"), json!(45.0));
+    assert_eq!(value("effects[2].height (emboss)"), json!(3.0));
+    assert_eq!(value("effects[2].contrast (emboss)"), json!(1.5));
+    assert_eq!(value("effects[3].amount (sharpen)"), json!(2.0));
+    assert_eq!(value("effects[4].center (twirl)"), json!([0.5, 0.5]));
+    assert_eq!(value("effects[4].radius (twirl)"), json!(0.8));
+    assert_eq!(value("effects[4].angle (twirl)"), json!(0.0));
+    assert_eq!(value("effects[5].center (bulge)"), json!([0.5, 0.5]));
+    assert_eq!(value("effects[5].radius (bulge)"), json!(1.0));
+    assert_eq!(value("effects[5].height (bulge)"), json!(0.0));
+    assert_eq!(value("effects[6].fov (optics_compensation)"), json!(60.0));
+    assert_eq!(value("effects[7].shift_x (offset)"), json!(10.0));
+    assert_eq!(value("effects[7].shift_y (offset)"), json!(-10.0));
+    assert!(
+        montagent_core::validate(&project)
+            .findings
+            .iter()
+            .all(|finding| !finding.code.to_string().starts_with("E-")),
+        "the keyed ADR-0225 members validate"
+    );
+}
+
+#[test]
+fn adr_0225_identity_parameters_paint_the_same_bytes_as_no_effect() {
+    let bare = painted(line!(), &ramp(""));
+    for identity in [
+        r#"{"name":"mosaic","blocks":[256,200]}"#,
+        r#"{"name":"radial_blur","kind":"spin","center":[0.5,0.5],"amount":0}"#,
+        r#"{"name":"radial_blur","kind":"zoom","center":[0.5,0.5],"amount":0}"#,
+        r#"{"name":"emboss","angle":135,"height":0,"contrast":1}"#,
+        r#"{"name":"emboss","angle":135,"height":2,"contrast":0}"#,
+        r#"{"name":"sharpen","amount":0}"#,
+        r#"{"name":"twirl","center":[0.5,0.5],"radius":0.5,"angle":0}"#,
+        r#"{"name":"bulge","center":[0.5,0.5],"radius":0.5,"height":0}"#,
+        r#"{"name":"optics_compensation","fov":0,"reverse":false}"#,
+        r#"{"name":"optics_compensation","fov":0,"reverse":true}"#,
+        r#"{"name":"offset","shift_x":0,"shift_y":0,"wrap":false}"#,
+        r#"{"name":"offset","shift_x":0,"shift_y":0,"wrap":true}"#,
+    ] {
+        assert_eq!(
+            differing(&bare, &painted(line!(), &ramp(identity))),
+            0,
+            "{identity}"
+        );
+    }
+}
+
+#[test]
+fn mosaic_quantises_into_flat_blocks_and_steps_at_block_boundaries() {
+    // `ramp` is at x: 72..328 (width 256), y: 100..300 (height 200).
+    // With 4 horizontal blocks, each block is 64 px wide: 72..136, 136..200, 200..264, 264..328.
+    let pixelated = painted(
+        line!(),
+        &ramp(r#"{"name":"mosaic","blocks":[4,2]}"#),
+    );
+    // Inside the first block (x = 80..130), every pixel is identical.
+    let first_block = rgb(&pixelated, 80, 150)[0];
+    for x in 80..130 {
+        assert_eq!(rgb(&pixelated, x, 150)[0], first_block, "flat block at x={x}");
+    }
+    let second_block = rgb(&pixelated, 150, 150)[0];
+    assert!(second_block > first_block + 40, "next block steps up");
+}
+
+#[test]
+fn radial_blur_spin_and_zoom_smear_off_centre_features() {
+    // A small bright dot above the centre of a 100×100 black-filled element:
+    // we use a radial gradient with a narrow white disc near [0.5, 0.2].
+    let dot_box = |effects: &str| {
+        format!(
+            r##"{{"id":"box","type":"rect","start":0,"end":1000,"x":150,"y":150,
+                "origin":"top-left","width":100,"height":100,
+                "fill":{{"gradient":"radial","center":[0.5,0.2],"radius":0.08,"stops":[
+                    {{"offset":0,"color":"#FFFFFF"}},
+                    {{"offset":1,"color":"#FFFFFF"}},
+                    {{"offset":1,"color":"#000000"}}]}},
+                "effects":[{effects}]}}"##
+        )
+    };
+    let bare = painted(line!(), &dot_box(""));
+    // At (200, 170) the dot is bright; sideways at (220, 175) and inward at (200, 190) it is black.
+    assert_ne!(rgb(&bare, 200, 170), [0; 3]);
+    assert_eq!(rgb(&bare, 220, 175), [0; 3]);
+    assert_eq!(rgb(&bare, 200, 190), [0; 3]);
+
+    // Spin about [0.5, 0.5] smears the dot along the arc through (220, 175) but not inward to (200, 200).
+    let spun = painted(
+        line!(),
+        &dot_box(r#"{"name":"radial_blur","kind":"spin","center":[0.5,0.5],"amount":60}"#),
+    );
+    assert_ne!(
+        rgb(&spun, 215, 174),
+        [0; 3],
+        "spin smears along the circle"
+    );
+    assert_eq!(
+        rgb(&spun, 200, 200),
+        [0; 3],
+        "spin does not smear through the centre"
+    );
+
+    // Zoom about [0.5, 0.5] smears the dot radially along x = 200 toward the centre (200, 185).
+    let zoomed = painted(
+        line!(),
+        &dot_box(r#"{"name":"radial_blur","kind":"zoom","center":[0.5,0.5],"amount":80}"#),
+    );
+    assert_ne!(
+        rgb(&zoomed, 200, 185),
+        [0; 3],
+        "zoom smears radially toward the centre"
+    );
+}
+
+#[test]
+fn find_edges_emboss_and_sharpen_clamp_at_element_boundaries_and_respond_to_edges() {
+    // A 100×100 square split vertically at x = 200: left half dark (#202020), right half bright (#E0E0E0).
+    let split_square = |effects: &str| {
+        format!(
+            r##"{{"id":"split","type":"rect","start":0,"end":1000,"x":150,"y":150,
+                "origin":"top-left","width":100,"height":100,
+                "fill":{{"gradient":"linear","angle":90,"stops":[
+                    {{"offset":0,"color":"#202020"}},
+                    {{"offset":0.5,"color":"#202020"}},
+                    {{"offset":0.5,"color":"#E0E0E0"}},
+                    {{"offset":1,"color":"#E0E0E0"}}]}},
+                "effects":[{effects}]}}"##
+        )
+    };
+
+    // 1. find_edges: flat regions are black (invert: false) or white (invert: true); the step at x = 200 is opposite.
+    let edges = painted(line!(), &split_square(r#"{"name":"find_edges","invert":false}"#));
+    assert_eq!(rgb(&edges, 170, 200), [0; 3], "flat left half has zero Sobel gradient");
+    assert_eq!(rgb(&edges, 230, 200), [0; 3], "flat right half has zero Sobel gradient");
+    assert!(
+        rgb(&edges, 200, 200)[0] > 200,
+        "vertical step edge has strong Sobel gradient"
+    );
+    // Edge-clamped sampling (ADR-0225 §1): the outer pixel (150, 200) samples clamped [0, W]x[0, H],
+    // so there is NO artificial edge against transparent black at the element boundary!
+    assert_eq!(
+        rgb(&edges, 150, 200),
+        [0; 3],
+        "element boundary does not trigger a false Sobel edge"
+    );
+
+    let edges_inv = painted(line!(), &split_square(r#"{"name":"find_edges","invert":true}"#));
+    assert_eq!(rgb(&edges_inv, 170, 200), [255; 3], "inverted flat region is white");
+    assert!(rgb(&edges_inv, 200, 200)[0] < 55, "inverted step edge is dark");
+
+    // 2. emboss: flat region blends with neutral grey; step edge lights up or darkens with angle.
+    let embossed_right = painted(
+        line!(),
+        &split_square(r#"{"name":"emboss","angle":0,"height":2,"contrast":2}"#),
+    );
+    let embossed_left = painted(
+        line!(),
+        &split_square(r#"{"name":"emboss","angle":180,"height":2,"contrast":2}"#),
+    );
+    assert!(
+        u16::from(rgb(&embossed_right, 200, 200)[0])
+            > u16::from(rgb(&embossed_left, 200, 200)[0]) + 80,
+        "reversing emboss angle flips the relief highlight at the step edge"
+    );
+
+    // 3. sharpen: a soft ramp across x = 200 becomes steeper at the transition and stays flat away from it.
+    let soft_split = |effects: &str| {
+        format!(
+            r##"{{"id":"soft","type":"rect","start":0,"end":1000,"x":150,"y":150,
+                "origin":"top-left","width":100,"height":100,
+                "fill":{{"gradient":"linear","angle":90,"stops":[
+                    {{"offset":0,"color":"#404040"}},
+                    {{"offset":0.48,"color":"#404040"}},
+                    {{"offset":0.52,"color":"#C0C0C0"}},
+                    {{"offset":1,"color":"#C0C0C0"}}]}},
+                "effects":[{effects}]}}"##
+        )
+    };
+    let unsharpened = painted(line!(), &soft_split(""));
+    let sharpened = painted(line!(), &soft_split(r#"{"name":"sharpen","amount":4}"#));
+    // Just to the dark side of the knee (x = 198) sharpen pulls darker; just to the bright side (x = 202) brighter.
+    assert!(
+        rgb(&sharpened, 198, 200)[0] < rgb(&unsharpened, 198, 200)[0],
+        "sharpen darkens the dark knee"
+    );
+    assert!(
+        rgb(&sharpened, 202, 200)[0] > rgb(&unsharpened, 202, 200)[0],
+        "sharpen brightens the bright knee"
+    );
+    // And the element's outer edge (150, 200) does not get a halo from outside the box.
+    assert_eq!(rgb(&sharpened, 150, 200), rgb(&unsharpened, 150, 200));
+}
+
+#[test]
+fn twirl_bulge_and_optics_compensation_warp_interior_coordinates_and_clamp_edges() {
+    // A 100×100 box at (150, 150) split horizontally at y = 200: top half red (#FF0000), bottom half blue (#0000FF).
+    let two_tone = |effects: &str| {
+        format!(
+            r##"{{"id":"box","type":"rect","start":0,"end":1000,"x":150,"y":150,
+                "origin":"top-left","width":100,"height":100,
+                "fill":{{"gradient":"linear","angle":180,"stops":[
+                    {{"offset":0,"color":"#FF0000"}},
+                    {{"offset":0.5,"color":"#FF0000"}},
+                    {{"offset":0.5,"color":"#0000FF"}},
+                    {{"offset":1,"color":"#0000FF"}}]}},
+                "effects":[{effects}]}}"##
+        )
+    };
+    let bare = painted(line!(), &two_tone(""));
+    // At (210, 195) (right of centre, just above midline) the bare box is pure red; at (190, 205) pure blue.
+    assert_eq!(rgb(&bare, 210, 195), [255, 0, 0]);
+    assert_eq!(rgb(&bare, 190, 205), [0, 0, 255]);
+
+    // 1. twirl: a 180° twist within radius 0.4 swaps the top and bottom halves near the centre,
+    // while corners outside radius 0.4 (40 px) are untouched.
+    let twirled = painted(
+        line!(),
+        &two_tone(r#"{"name":"twirl","center":[0.5,0.5],"radius":0.4,"angle":180}"#),
+    );
+    assert_eq!(
+        rgb(&twirled, 200, 195),
+        [0, 0, 255],
+        "5 px above centre has twisted 180° to sample the blue half"
+    );
+    assert_eq!(
+        rgb(&twirled, 155, 155),
+        [255, 0, 0],
+        "corner outside radius 0.4 is untouched"
+    );
+
+    // 2. bulge: a disc near the centre gets pushed outward when height > 0 and pulled inward when height < 0.
+    let stripe_box = |effects: &str| {
+        format!(
+            r##"{{"id":"stripe","type":"rect","start":0,"end":1000,"x":150,"y":150,
+                "origin":"top-left","width":100,"height":100,
+                "fill":{{"gradient":"radial","center":[0.5,0.5],"radius":0.6,"stops":[
+                    {{"offset":0,"color":"#FFFFFF"}},
+                    {{"offset":0.5,"color":"#FFFFFF"}},
+                    {{"offset":0.5,"color":"#202020"}},
+                    {{"offset":1,"color":"#202020"}}]}},
+                "effects":[{effects}]}}"##
+        )
+    };
+    let bare_disc = painted(line!(), &stripe_box(""));
+    // The disc has radius 0.5 * 0.6 * √0.5 * 100 ≈ 21.2 px, so at 25 px from centre (225, 200) it is dark (#202020),
+    // and at 15 px from centre (215, 200) it is white (#FFFFFF).
+    assert_eq!(rgb(&bare_disc, 225, 200), [0x20; 3]);
+    assert_eq!(rgb(&bare_disc, 215, 200), [0xFF; 3]);
+
+    let bulged_out = painted(
+        line!(),
+        &stripe_box(r#"{"name":"bulge","center":[0.5,0.5],"radius":0.5,"height":1}"#),
+    );
+    assert_eq!(
+        rgb(&bulged_out, 225, 200),
+        [0xFF; 3],
+        "positive bulge magnifies the white disc outward to r=25"
+    );
+
+    let pinched_in = painted(
+        line!(),
+        &stripe_box(r#"{"name":"bulge","center":[0.5,0.5],"radius":0.5,"height":-1}"#),
+    );
+    assert_eq!(
+        rgb(&pinched_in, 215, 200),
+        [0x20; 3],
+        "negative bulge pinches the dark exterior inward to r=15"
+    );
+
+    // 3. optics_compensation: reverse: false maps r' = r*(1 + k*u^2) (pulls exterior inward),
+    // reverse: true maps r' = r/(1 + k*u^2) (pushes interior outward), and edge clamping keeps
+    // the corners opaque rather than pulling in transparent black from outside the box.
+    let wide_disc = |effects: &str| {
+        format!(
+            r##"{{"id":"wide","type":"rect","start":0,"end":1000,"x":150,"y":150,
+                "origin":"top-left","width":100,"height":100,
+                "fill":{{"gradient":"radial","center":[0.5,0.5],"radius":1.2,"stops":[
+                    {{"offset":0,"color":"#FFFFFF"}},
+                    {{"offset":0.5,"color":"#FFFFFF"}},
+                    {{"offset":0.5,"color":"#202020"}},
+                    {{"offset":1,"color":"#202020"}}]}},
+                "effects":[{effects}]}}"##
+        )
+    };
+    let bare_wide = painted(line!(), &wide_disc(""));
+    assert_eq!(rgb(&bare_wide, 240, 200), [0xFF; 3]);
+    assert_eq!(rgb(&bare_wide, 245, 200), [0x20; 3]);
+
+    let optics_forward = painted(
+        line!(),
+        &wide_disc(r#"{"name":"optics_compensation","fov":180,"reverse":false}"#),
+    );
+    let optics_reverse = painted(
+        line!(),
+        &wide_disc(r#"{"name":"optics_compensation","fov":180,"reverse":true}"#),
+    );
+    assert_eq!(
+        rgb(&optics_forward, 245, 200),
+        [0xFF; 3],
+        "reverse: false (barrel) pushes the white disc outward to r=45"
+    );
+    assert_eq!(
+        rgb(&optics_reverse, 240, 200),
+        [0x20; 3],
+        "reverse: true (pincushion) pulls the dark exterior inward to r=40"
+    );
+    assert_eq!(
+        rgb(&optics_reverse, 152, 152),
+        [0x20; 3],
+        "corners clamp to the box edge colour instead of transparent black"
+    );
+}
+
+#[test]
+fn offset_wraps_periodically_when_wrap_is_true_and_clamps_to_edge_when_false() {
+    // A 100×100 box at (150, 150) split vertically at x = 200: left half red (#FF0000), right half green (#00FF00).
+    let split = |effects: &str| {
+        format!(
+            r##"{{"id":"split","type":"rect","start":0,"end":1000,"x":150,"y":150,
+                "origin":"top-left","width":100,"height":100,
+                "fill":{{"gradient":"linear","angle":90,"stops":[
+                    {{"offset":0,"color":"#FF0000"}},
+                    {{"offset":0.5,"color":"#FF0000"}},
+                    {{"offset":0.5,"color":"#00FF00"}},
+                    {{"offset":1,"color":"#00FF00"}}]}},
+                "effects":[{effects}]}}"##
+        )
+    };
+    // Shift right by +30 px:
+    // At x = 160 (10 px inside left edge), source coordinate is 10 - 30 = -20.
+    // With `wrap: true`, -20 mod 100 = 80 (in the green right half).
+    // With `wrap: false`, -20 clamps to 0 (in the red left half).
+    let wrapped = painted(
+        line!(),
+        &split(r#"{"name":"offset","shift_x":30,"shift_y":0,"wrap":true}"#),
+    );
+    let clamped = painted(
+        line!(),
+        &split(r#"{"name":"offset","shift_x":30,"shift_y":0,"wrap":false}"#),
+    );
+    assert_eq!(
+        rgb(&wrapped, 160, 200),
+        [0, 255, 0],
+        "wrap: true wraps the green right half around to the left side"
+    );
+    assert_eq!(
+        rgb(&clamped, 160, 200),
+        [255, 0, 0],
+        "wrap: false clamps to the red left edge"
+    );
+    // In both modes, x = 210 (60 px from left) samples 60 - 30 = 30 (from the red left half).
+    assert_eq!(rgb(&wrapped, 210, 200), [255, 0, 0]);
+    assert_eq!(rgb(&clamped, 210, 200), [255, 0, 0]);
+}
+

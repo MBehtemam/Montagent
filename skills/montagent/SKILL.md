@@ -92,11 +92,13 @@ This is the capability map. Read it before you design, so the brief does not lea
 - Posterize an element's colours into a few flat steps: `posterize`, `levels`.
 - A bloom from an element's bright parts: `glow`, `threshold`, `radius`, `intensity`.
 - Smear an element along one direction, whether or not it moves: `directional_blur`, `angle`, `length`.
+- Pixelate an element into flat blocks, blur it radially as a spin or zoom, extract Sobel edges, carve directional relief, or sharpen edges with an unsharp mask: `mosaic`, `blocks`, `radial_blur`, `kind`, `center`, `amount`, `find_edges`, `invert`, `emboss`, `angle`, `height`, `contrast`, `sharpen`.
+- Warp an element with a twirl, pinch/bulge, or radial lens distortion/undistortion, or scroll/tile it inside its box: `twirl`, `radius`, `angle`, `bulge`, `height`, `optics_compensation`, `fov`, `reverse`, `offset`, `shift_x`, `shift_y`, `wrap`.
 - A texture or glow laid over footage, as a `rect` carrying an effect and a blend, the way a vignette or a light leak is built: `rect`, `effects`, `blend`.
 - A look outside this vocabulary, drawn in your own code, pre-rendered to lossless footage with alpha and placed as a `video`, with a recipe that rebuilds it: `video` (`montagent-prerender`).
 - A vector drawing (SVG), brought in as one image: rasterised once to a PNG at the size it is shown, placed as an `image`, with a recipe that rebuilds it: `image` (`montagent-prerender`).
 - A Lottie animation, brought in as footage: rendered frame by frame, one fresh player per frame, into lossless footage with alpha, placed as a `video`, with a recipe that rebuilds it: `video` (`montagent-prerender`).
-- Keyframe any effect's numbers and colours, and reveal an element through a keyed mask: `effects`, `radius`, `dx`, `dy`, `color`, `opacity`, `x`, `y`, `width`, `height`, `amount`, `tolerance`, `softness`, `spill`, `levels`, `threshold`, `intensity`, `angle`, `length`.
+- Keyframe any effect's numbers and colours, and reveal an element through a keyed mask: `effects`, `radius`, `dx`, `dy`, `color`, `opacity`, `x`, `y`, `width`, `height`, `amount`, `tolerance`, `softness`, `spill`, `levels`, `threshold`, `intensity`, `angle`, `length`, `blocks`, `center`, `height`, `contrast`, `fov`, `shift_x`, `shift_y`.
 
 **Time**
 
@@ -117,7 +119,7 @@ This is the capability map. Read it before you design, so the brief does not lea
 |---|---|
 | Graphics and text: launch spots, product and social ads, intros and outros, kinetic and typed text, logo reveals and loops, trailer effects | `montagent-motion` |
 | Recorded video: talking heads, green screen, captions, lower-thirds, picture-in-picture, music under a voice | `montagent-footage` |
-| A look the effects list lacks (distortions, mosaic, lens flare, a code-drawn pattern), drawn in code and brought in as footage | `montagent-prerender` |
+| A look the effects list lacks (lens flare, particles, a code-drawn pattern), drawn in code and brought in as footage | `montagent-prerender` |
 | A vector drawing (SVG), brought in as one image: rasterised once to a PNG and placed as an `image` | `montagent-prerender` |
 | A Lottie animation, brought in as footage: rendered frame by frame to lossless footage with alpha and placed as a `video` | `montagent-prerender` |
 | A character that moves or talks: rig, poses, lip sync, blinks | `montagent-character` |

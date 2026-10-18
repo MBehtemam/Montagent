@@ -557,8 +557,24 @@ impl Effect {
             Effect::DirectionalBlur { .. } => "directional_blur",
             Effect::Cdl { .. } => "cdl",
             Effect::Lut3d { .. } => "lut3d",
+            Effect::Mosaic { .. } => "mosaic",
+            Effect::RadialBlur { .. } => "radial_blur",
+            Effect::FindEdges { .. } => "find_edges",
+            Effect::Emboss { .. } => "emboss",
+            Effect::Sharpen { .. } => "sharpen",
+            Effect::Twirl { .. } => "twirl",
+            Effect::Bulge { .. } => "bulge",
+            Effect::OpticsCompensation { .. } => "optics_compensation",
+            Effect::Offset { .. } => "offset",
         }
     }
+}
+
+/// `radial_blur`'s mode (ADR-0225).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RadialBlurKind {
+    Zoom,
+    Spin,
 }
 
 /// One member of the closed `effects` vocabulary, already parsed.
@@ -655,6 +671,44 @@ pub enum Effect {
         size: u32,
         table: Vec<u8>,
         intensity: f64,
+    },
+    /// Pixelation into a `[cols, rows]` grid of uniform-colour cells (ADR-0225).
+    Mosaic { blocks: [f64; 2] },
+    /// Zoom or spin radial blur around a normalised `center` (ADR-0225).
+    RadialBlur {
+        kind: RadialBlurKind,
+        center: [f64; 2],
+        amount: f64,
+    },
+    /// 3×3 Sobel gradient magnitude edge detector (ADR-0225).
+    FindEdges { invert: bool },
+    /// Directional relief emboss blended onto the source at `contrast` (ADR-0225).
+    Emboss {
+        angle: f64,
+        height: f64,
+        contrast: f64,
+    },
+    /// Unsharp-mask sharpen against a 3×3 Gaussian neighbourhood (ADR-0225).
+    Sharpen { amount: f64 },
+    /// Quadratic falloff vortex twist inside `radius` around `center` (ADR-0225).
+    Twirl {
+        center: [f64; 2],
+        radius: f64,
+        angle: f64,
+    },
+    /// Smooth radial magnify or pinch inside `radius` around `center` (ADR-0225).
+    Bulge {
+        center: [f64; 2],
+        radius: f64,
+        height: f64,
+    },
+    /// Brown-Conrady radial lens distortion or compensation (ADR-0225).
+    OpticsCompensation { fov: f64, reverse: bool },
+    /// Pixel shift in `x` and `y` with periodic wrap or edge clamp (ADR-0225).
+    Offset {
+        shift_x: f64,
+        shift_y: f64,
+        wrap: bool,
     },
 }
 
@@ -982,7 +1036,7 @@ impl Effect {
     /// This effect as an image filter over whatever was painted before it, or `None` for
     /// [`Effect::Mask`] — which is a geometric restriction rather than a filter, and is
     /// applied by [`Canvas::in_element_space`] as a `DstIn` draw over its own layer.
-    fn filter(&self) -> Option<ImageFilter> {
+    fn filter(&self, extent: Extent) -> Option<ImageFilter> {
         match *self {
             // A `grain` is drawn over its own layer by [`Canvas::through`], as a mask is.
             Effect::Mask { .. } | Effect::Grain { .. } => None,
@@ -1040,6 +1094,45 @@ impl Effect {
                 intensity,
             } => named::glow(threshold, sigma(radius), intensity),
             Effect::DirectionalBlur { angle, length } => named::directional_blur(angle, length),
+            // ADR-0225's nine spatial and distortion filters, each sampling with edge-clamped
+            // coordinates in element space (`[0, width] × [0, height]`).
+            Effect::Mosaic { blocks } => named::mosaic(blocks, extent.width, extent.height),
+            Effect::RadialBlur {
+                kind,
+                center,
+                amount,
+            } => named::radial_blur(
+                matches!(kind, RadialBlurKind::Spin),
+                center,
+                amount,
+                extent.width,
+                extent.height,
+            ),
+            Effect::FindEdges { invert } => named::find_edges(invert, extent.width, extent.height),
+            Effect::Emboss {
+                angle,
+                height,
+                contrast,
+            } => named::emboss(angle, height, contrast, extent.width, extent.height),
+            Effect::Sharpen { amount } => named::sharpen(amount, extent.width, extent.height),
+            Effect::Twirl {
+                center,
+                radius,
+                angle,
+            } => named::twirl(center, radius, angle, extent.width, extent.height),
+            Effect::Bulge {
+                center,
+                radius,
+                height,
+            } => named::bulge(center, radius, height, extent.width, extent.height),
+            Effect::OpticsCompensation { fov, reverse } => {
+                named::optics_compensation(fov, reverse, extent.width, extent.height)
+            }
+            Effect::Offset {
+                shift_x,
+                shift_y,
+                wrap,
+            } => named::offset(shift_x, shift_y, wrap, extent.width, extent.height),
             // The one member with a threshold in it, so the one that is a runtime effect
             // rather than a matrix ([`KEYER`]).
             Effect::Chroma {
@@ -1191,6 +1284,15 @@ impl Effect {
             | Effect::Posterize { .. }
             | Effect::Glow { .. }
             | Effect::DirectionalBlur { .. }
+            | Effect::Mosaic { .. }
+            | Effect::RadialBlur { .. }
+            | Effect::FindEdges { .. }
+            | Effect::Emboss { .. }
+            | Effect::Sharpen { .. }
+            | Effect::Twirl { .. }
+            | Effect::Bulge { .. }
+            | Effect::OpticsCompensation { .. }
+            | Effect::Offset { .. }
             | Effect::Cdl { .. }
             | Effect::Lut3d { .. } => [
                 1.0, 0.0, 0.0, 0.0, 0.0, //
@@ -2076,7 +2178,8 @@ impl Canvas {
             .cloned()
             .collect();
         let effects = effects.as_slice();
-        let mut filters: Vec<Option<ImageFilter>> = effects.iter().map(|e| e.filter()).collect();
+        let mut filters: Vec<Option<ImageFilter>> =
+            effects.iter().map(|e| e.filter(extent)).collect();
         Canvas::crop_directional(canvas, effects, &mut filters, &draw);
         let bounds = layer_bound::hints(canvas, effects, &filters, &draw);
         let grains = grain::plan(canvas, effects, &filters, &draw);
@@ -3966,7 +4069,16 @@ mod tests {
         for effects in chains {
             for place in &places {
                 let hinted = same_bytes(&frame, place, effects);
-                let layers = effects.iter().filter(|e| e.filter().is_some()).count();
+                let layers = effects
+                    .iter()
+                    .filter(|e| {
+                        e.filter(Extent {
+                            width: 120.0,
+                            height: 80.0,
+                        })
+                        .is_some()
+                    })
+                    .count();
                 assert_eq!(hinted, layers, "every filter layer hinted: {effects:?}");
             }
         }

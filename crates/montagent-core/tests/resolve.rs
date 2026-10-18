@@ -507,8 +507,8 @@ fn the_published_schema_states_the_positional_rule_too() {
         }
     }
     assert_eq!(
-        seen, 42,
-        "twenty-one keyframe instantiations, first and non-first"
+        seen, 60,
+        "thirty keyframe instantiations, first and non-first"
     );
 }
 
@@ -583,10 +583,10 @@ fn every_animatable_property_the_schema_publishes_is_one_the_view_resolves() {
     let schema = montagent_core::schema::generate();
     let mut animatable: Vec<String> = Vec::new();
     collect_animatable(&schema, None, &mut animatable);
-    // A gradient's own parameters are printed inside their paint, never as properties of
-    // their own (ADR-0149 §6; `gradient_animate.rs` reads them there). `radius` stays: a
-    // `rect` has one of its own, and so does `angle`: `directional_blur` has one (ADR-0156).
-    animatable.retain(|name| !matches!(name.as_str(), "center" | "stops"));
+    // A gradient's `stops` and `focal` are printed inside its paint, never as properties of
+    // their own (ADR-0149 §6; `gradient_animate.rs` reads them there). `radius`, `angle`, and
+    // `center` stay: `rect`, `directional_blur`, and `radial_blur` / `twirl` / `bulge` have them.
+    animatable.retain(|name| !matches!(name.as_str(), "stops" | "focal"));
     animatable.sort();
     animatable.dedup();
     assert!(
@@ -620,7 +620,14 @@ fn every_animatable_property_the_schema_publishes_is_one_the_view_resolves() {
                                  {"name": "posterize", "levels": 8},
                                  {"name": "glow", "threshold": 0.5, "radius": 4,
                                   "intensity": 1},
-                                 {"name": "directional_blur", "angle": 30, "length": 6}]},
+                                 {"name": "directional_blur", "angle": 30, "length": 6},
+                                 {"name": "mosaic", "blocks": [8, 8]},
+                                 {"name": "radial_blur", "kind": "zoom",
+                                  "center": [0.5, 0.5], "amount": 0.5},
+                                 {"name": "emboss", "angle": 45, "height": 2,
+                                  "contrast": 1},
+                                 {"name": "optics_compensation", "fov": 60},
+                                 {"name": "offset", "shift_x": 4, "shift_y": 2}]},
                     {"id": "outline", "type": "path", "start": 0, "end": 1000,
                      "x": 300, "y": 2, "width": 10, "height": 10, "closed": false,
                      "stroke": "#FFFFFF", "stroke_width": 1,

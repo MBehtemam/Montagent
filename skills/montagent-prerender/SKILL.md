@@ -11,7 +11,7 @@ Montagent has no shader or script file ([ADR-0017](https://github.com/MBehtemam/
 
 ## When to reach for it
 
-Take the named route first. Read the `effects` list in `montagent://schema/index.json`: when a member makes the look (blur, shadow, tint, a `blend`, a keyed `mask`), use it. Pre-render only when no member, paint or blend composes the look: distortions, mosaic, lens flare, particles, a procedural pattern, or an external 3D model/scene.
+Take the named route first. Read the `effects` list in `montagent://schema/index.json`: when a member makes the look (blur, shadow, tint, mosaic, radial blur, sharpen, find edges, emboss, twirl, bulge, optics compensation, offset, a `blend`, a keyed `mask`), use it. Pre-render only when no member, paint or blend composes the look: lens flare, particles, a procedural pattern, or an external 3D model/scene.
 
 Reach for the SVG route when you are handed a vector drawing (a logo, an icon, an illustration) as an SVG file, or when a still is easiest to draw as SVG. No element accepts an SVG file ([ADR-0171](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0171-svg-and-lottie-do-not-enter-as-sources-and-each-is-pre-rendered-through-the-skill.md)). An SVG that animates (SMIL or CSS) is not this route: it rasterises as one still frame and the motion is lost. Key the placed image's own `scale`, `rotation` and `opacity` instead.
 
