@@ -112,6 +112,8 @@ fn subject(property: &str, records: Value) -> Value {
             let mut gradient = match parameter {
                 "center" | "radius" => json!({"gradient": "radial", "center": [0.5, 0.5],
                                               "radius": 1}),
+                "focal" => json!({"gradient": "two_point_conical", "center": [0.5, 0.5],
+                                  "radius": 1, "focal": [0.25, 0.25]}),
                 _ => json!({"gradient": "linear", "angle": 90}),
             };
             gradient["stops"] = values(Kind::Stops).0;
