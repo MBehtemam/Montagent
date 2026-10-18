@@ -1665,9 +1665,9 @@ fn a_transition_that_cannot_be_read_is_named_rather_than_silently_inert() {
         (codes, details)
     };
 
-    // A `kind` outside the vocabulary (ADR-0150: `crossfade`, `wipe`, `slide`, `push`).
+    // A `kind` outside the vocabulary (ADR-0150, ADR-0220).
     let (codes, details) = unusable(
-        r##"{"id":"fade","type":"transition","start":1000,"end":2000,"kind":"iris",
+        r##"{"id":"fade","type":"transition","start":1000,"end":2000,"kind":"star_wipe",
              "from":"first","to":"second"}"##,
     );
     assert!(
@@ -1675,7 +1675,7 @@ fn a_transition_that_cannot_be_read_is_named_rather_than_silently_inert() {
         "a deferred `kind` was silently inert: {codes:?}"
     );
     assert!(
-        details.iter().any(|detail| detail.contains("iris")),
+        details.iter().any(|detail| detail.contains("star_wipe")),
         "the finding did not name the `kind` it could not draw: {details:?}"
     );
 
