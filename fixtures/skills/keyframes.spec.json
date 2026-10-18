@@ -1,0 +1,69 @@
+{
+  "operations": [
+    {
+      "op": "wiggle",
+      "id": "card",
+      "property": "x",
+      "start": 0,
+      "end": 1000,
+      "freq": 4.0,
+      "amp": 18.0,
+      "octaves": 2,
+      "mult": 0.5,
+      "seed": 42,
+      "tol": 1.0
+    },
+    {
+      "op": "bounce",
+      "id": "card",
+      "property": "y",
+      "start": 300,
+      "end": 1500,
+      "freq": 3.0,
+      "decay": 5.0,
+      "tol": 1.0
+    },
+    {
+      "op": "loop",
+      "id": "card",
+      "property": "opacity",
+      "mode": "pingpong",
+      "start": 0,
+      "slice_end": 500,
+      "end": 2000
+    },
+    {
+      "op": "smooth",
+      "id": "card",
+      "property": "rotation",
+      "start": 0,
+      "end": 1000,
+      "window_ms": 120,
+      "tol": 0.2
+    },
+    {
+      "op": "exp_scale",
+      "id": "card",
+      "property": "scale",
+      "start": 0,
+      "end": 1000,
+      "from": 1.0,
+      "to": 2.25,
+      "tol": 0.01
+    },
+    {
+      "op": "audio",
+      "id": "card",
+      "property": "scale",
+      "audio_id": "beat",
+      "start": 1000,
+      "end": 2000,
+      "floor_db": -40.0,
+      "peak_db": -6.0,
+      "min_v": 2.25,
+      "max_v": 2.6,
+      "window_ms": 50,
+      "tol": 0.02
+    }
+  ]
+}
