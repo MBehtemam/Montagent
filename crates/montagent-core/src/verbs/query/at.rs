@@ -854,7 +854,7 @@ fn build(document: &Loose, instant: i64, mut session: Option<&mut Session>, deta
             transition: match (bridge.moves_or_cuts(), frame) {
                 (true, Some(frame)) => Some(Moved {
                     offset: [bridge.offset.0, bridge.offset.1],
-                    cut: bridge.cut,
+                    cut: bridge.cut.as_ref().map(crate::transition::Aperture::bounds),
                     visible: geometry::bridged_visible_rect(element, instant, frame, &bridge)
                         .and_then(Result::ok),
                 }),

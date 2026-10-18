@@ -60,20 +60,24 @@ number, and the ADR is right where the two disagree.
   Between two records the spacing passes only through the values between them; a bezier's
   overshoot past a record is not sampled. `measure` answers a keyed spacing at the largest
   value the list writes, and says which value it used in `asked.letter_spacing`.
-- **A `units` block staggers one text element** (ADR-0151): its letters, words or lines run
+- **A `units` block staggers one text element** (ADR-0151, ADR-0224): its letters, words or lines run
   the block's lists one after another. `by` is `letter` (a grapheme that is not whitespace),
   `word` (a word with its punctuation: punctuation goes to the word before it on its line,
   otherwise to the word after it) or `line` (a `\n` line with a letter). Units are counted in
   reading order over the whole text, ignoring runs; whitespace and empty lines take no step.
-  The lists `x`, `y`, `rotation`, `scale` and `opacity` are written **for the first unit** on
-  the absolute clock; unit *n* runs them late by its **delay**, its position in `order`
-  (`forward` or `reverse`) times `every` ms. `x`, `y` and `rotation` add to the unit's pose
-  and `scale` and `opacity` multiply it, in element pixels before the element's own
-  transform, so the element can still move as a whole. Each unit turns and scales about the
-  pivot `origin` picks in its box: its own advance without the spacing (a word's or line's
-  first grapheme to its last) by the line's slot. A unit below opacity 1 draws its stroke
-  and fill into one layer, between the element's stroke pass and its fill pass, so two
-  overlapping fading units stack whole. `effects`, `blend` and `opacity` apply after.
+  The lists `x`, `y`, `rotation`, `scale`, `opacity` and `blur` are written **for the first unit** on
+  the absolute clock; unit *n* runs them late by its **delay**, its step in `order`
+  (`forward`, `reverse`, `center_out` or `edges_in`) times `every` ms (`center_out` steps outward
+  from the middle unit or pair via $\lfloor(N - 1)/2\rfloor - \min(i, (N - 1) - i)$, and `edges_in`
+  steps inward from both ends via $\min(i, (N - 1) - i)$, so symmetric pairs share a step).
+  `x`, `y` and `rotation` add to the unit's pose, `scale` and `opacity` multiply it, and `blur`
+  applies a per-unit Gaussian blur in `[0, 500]` element-local pixels ($\sigma = \text{blur} / 2$)
+  before the element's own transform, so the element can still move as a whole. Each unit turns
+  and scales about the pivot `origin` picks in its box: its own advance without the spacing (a
+  word's or line's first grapheme to its last) by the line's slot. A unit below opacity 1 or with
+  `blur > 0` draws its stroke and fill into one layer (outset by $\lceil 3\sigma \rceil$ when
+  blurred), between the element's stroke pass and its fill pass, so two overlapping fading or
+  blurred units stack whole. `effects`, `blend` and `opacity` apply after.
 - **Joined letters move as one** (ADR-0153). Under `by: letter`, a joined piece of a joining
   script (`لسلا` in `السلام`) and letters shaping merges into one glyph move as one body, on
   the first one's timing; each still keeps its index and its step, so the next unit waits.
@@ -88,12 +92,13 @@ number, and the ADR is right where the two disagree.
 - **What the tools say about a stagger.** `query --at` gives `stagger` (`by`, `count`, and the
   `window` from the first list's start to the last's end, after delays and overrides) and a
   `units` row for every unit: delay, which lists a run overrides, `merged_with`, and the pose
-  it is drawn with. A staggered caption gets `N-CAPTION-SETTLES`, the instant its text is
-  readable. `shift` carries every unit list and keeps the delays, and refuses a cut inside the
-  window (`E-SHIFT-UNITS-WINDOW`). **Blind spots:** `R-OFF-CANVAS` widens the rect by the unit
-  `x` and `y` offsets but ignores unit `scale` and `rotation`, and says so; the contact sheet
-  shows change points for the first and last scheduled units and the overrides only, so read
-  every other unit in `query --at`.
+  it is drawn with (`x`, `y`, `rotation`, `scale`, `opacity`, `blur`). A staggered caption gets
+  `N-CAPTION-SETTLES`, the instant its text is readable. `shift` carries every unit list and keeps
+  the delays, and refuses a cut inside the window (`E-SHIFT-UNITS-WINDOW`). **Blind spots:**
+  `R-OFF-CANVAS` widens the rect by the unit `x` and `y` offsets and the Gaussian kernel skirt of
+  `blur` ($\lceil 3 \times (\max \text{blur} / 2) \rceil$) but ignores unit `scale` and `rotation`,
+  and says so; the contact sheet shows change points for the first and last scheduled steps and the
+  overrides only, so read every other unit in `query --at`.
 - **A stagger across elements is written out** (ADR-0148): each card carries literal `t`
   values. To retime it, edit each card's keyframes, and anchor every replace on the card's
   `id`, because a string such as `"t": 80` repeats across cards.

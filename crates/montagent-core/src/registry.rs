@@ -1096,6 +1096,46 @@ so `to` must paint above `from`.",
         sets: &[Document],
     },
     CheckSpec {
+        // ADR-0220 §4: `wipe` accepts either `direction` or `angle`, mutually exclusively.
+        // Refuse because the document does not say which parameter or value was meant.
+        code: "E-TRANSITION-DIRECTION-OR-ANGLE",
+        classes: &[Error],
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0220",
+        template: "{element}: a `wipe` transition takes either `direction` or `angle` \
+(mutually exclusive), and {problem}.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        // ADR-0220 §3, §5: each transition kind accepts its own closed parameter set.
+        // Refuse because the author may have meant a different `kind` or to drop the key.
+        code: "E-TRANSITION-UNSUPPORTED-KEY",
+        classes: &[Error],
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0220",
+        template: "{element}: `{key}` is not supported on a `{kind}` transition (ADR-0220).",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        // ADR-0220 §3, §5: `blinds.slats` must be >= 1.
+        code: "E-TRANSITION-SLATS-ZERO",
+        classes: &[Error],
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0220",
+        template: "{element}: `slats` on a `blinds` transition is {slats}; it must be at \
+least 1 (ADR-0220).",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
         // ADR-0176 §5. Refuse (ADR-0120): the fix forks — point the side at an element that
         // sounds, or drop the transition — and the document does not say which was meant. An
         // `audio_crossfade` exists to carry sound, so a side with none makes it a fade in

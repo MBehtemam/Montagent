@@ -106,9 +106,11 @@ two disagree.
   so `"width": [{"t": 0, "v": 0}, {"t": 600, "v": 400, "ease": "ease-out"}]` on a 400-wide
   element wipes it on from the left edge. One that hides every frame is
   `E-NOT-PAINTED-NO-EXTENT`, naming the mask; an inverted one of no size hides nothing.
-- **`blend` is how the finished element composites into what is below it** (ADR-0147). One
-  of five words: `normal`, `multiply`, `screen`, `overlay`, `add`. It sits beside `opacity`
-  on `rect`, `ellipse`, `text`, `image` and `video`; `audio` and `transition` refuse it.
+- **`blend` is how the finished element composites into what is below it** (ADR-0147, ADR-0221). One
+  of seventeen words: `normal`, `multiply`, `screen`, `overlay`, `add`, `darken`, `lighten`,
+  `color_dodge`, `color_burn`, `hard_light`, `soft_light`, `difference`, `exclusion`, `hue`,
+  `saturation`, `color`, `luminosity`. It sits beside `opacity`
+  on `rect`, `ellipse`, `path`, `text`, `image`, `video` and `nest`; `audio` and `transition` refuse it.
   Omitted means `normal`, and a written `"blend": "normal"` is legal and draws the same
   bytes. It is static and never keyframed: fade a blend in through `opacity`. The order is
   fixed: the element is drawn through its `effects` (masks and shadow included), `opacity`
@@ -243,8 +245,8 @@ two disagree.
 
 ## Named effects
 
-- **`posterize`, `glow` and `directional_blur` are `effects` members like `grain`**
-  (ADR-0156): applied in list order, each filtering the element's own pixels plus a reach it
+- **`posterize`, `glow`, `directional_blur`, `vibrance`, `hue_rotate` and `invert` are `effects` members like `grain`**
+  (ADR-0156, ADR-0221): applied in list order, each filtering the element's own pixels plus a reach it
   declares. Every key is required and every number is animatable; a value out of range is a
   schema error, in a static value and in every keyframe record.
 - **`posterize`: `{"levels": 2–256}`, an integer.** Per channel, on non-premultiplied sRGB
@@ -252,6 +254,15 @@ two disagree.
   `levels: 2` sends 0.49 to 0 and 0.5 to 1. Alpha is untouched, and `256` paints the same
   bytes as no member. A keyed `levels` resolves to a continuous value and is rounded half away
   from zero, as `shift` rounds.
+- **`vibrance`: `{"amount": -1–1}`, chroma-weighted saturation (ADR-0221).** Boosts or cuts
+  saturation weighted by `1 − (max(r,g,b) − min(r,g,b))` around Rec. 709 luma, so muted
+  colours shift while already-saturated colours and skin tones are protected from clipping.
+  `0` is the identity.
+- **`hue_rotate`: `{"angle": -180–180}`, hue rotation in degrees (ADR-0221).** Applies the
+  luminance-preserving Rec. 709 SVG/CSS hue-rotation matrix; `0` is the identity.
+- **`invert`: `{"amount": 0–1}`, linear channel inversion (ADR-0221).** Maps each RGB channel
+  by `c' = c × (1 − 2·amount) + amount`; `0` is the identity, `0.5` is flat mid-grey, and `1`
+  is full photographic inversion.
 - **`glow`: `{"threshold": 0–1, "radius": ≥ 0, "intensity": 0–4}`, a threshold bloom.** The
   bright-pass scales each pixel by `max(0, luma − threshold) / (1 − threshold)`, luma Rec.709
   on the non-premultiplied sRGB values, alpha with the colour. That bright part is blurred
@@ -270,6 +281,21 @@ two disagree.
 - **A keyed `length` steps the sample count**, since `ceil(length) + 1` is a whole number, and
   **a keyed `angle` interpolates literally**: `350 → 10` sweeps the long way round, through
   180. Write `350 → 370` for the short way.
+- **`matte`: `{"choke": -50–50, "feather": 0–100, "contrast": 0–10}`, standalone alpha-matte
+  refinement (ADR-0227).** All three keys are optional and animatable, defaulting to `choke: 0`,
+  `feather: 0`, and `contrast: 1` (`E-MATTE-BOUNDS`). Positive `choke` erodes (shrinks) the alpha
+  boundary inward by radius `choke`; negative `choke` dilates (expands) the alpha boundary outward
+  by `|choke|`. `feather` blurs the alpha channel with σ = `feather` / 2, and `contrast` scales
+  alpha linearly around midpoint `0.5` (`clamp((α − 0.5) × contrast + 0.5, 0, 1)`), maintaining
+  premultiplied RGB invariants throughout.
+- **`luma_key`: `{"threshold": 0–1, "tolerance": 0–1, "softness": 0–1, "invert": bool}`,
+  luminance keyer (ADR-0227).** `threshold` (default `0`), `tolerance` (default `0.1`), and
+  `softness` (default `0`) are optional and animatable (`E-LUMA-KEY-BOUNDS`); `invert` (default
+  `false`) is an optional static boolean. Evaluates Rec. 709 luminance
+  `Y = 0.2126 R + 0.7152 G + 0.0722 B` on non-premultiplied RGB, keys out pixels within
+  `|Y − threshold| ≤ tolerance`, ramps smoothly across `softness` (`m = clamp((|Y − threshold| −
+  tolerance) / softness, 0, 1)`), optionally inverts `m = 1 − m`, and multiplies both RGB and
+  alpha by `m`.
 - **The bound criterion** (ADR-0156): a member keeps the element's bounds when it stays inside
   the box or a reach it declares as a formula of its parameters. A colour filter that maps
   transparent black to transparent black keeps it, and `posterize` does. None of this is

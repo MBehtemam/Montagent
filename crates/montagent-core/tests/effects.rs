@@ -1665,9 +1665,9 @@ fn a_transition_that_cannot_be_read_is_named_rather_than_silently_inert() {
         (codes, details)
     };
 
-    // A `kind` outside the vocabulary (ADR-0150: `crossfade`, `wipe`, `slide`, `push`).
+    // A `kind` outside the vocabulary (ADR-0150, ADR-0220).
     let (codes, details) = unusable(
-        r##"{"id":"fade","type":"transition","start":1000,"end":2000,"kind":"iris",
+        r##"{"id":"fade","type":"transition","start":1000,"end":2000,"kind":"star_wipe",
              "from":"first","to":"second"}"##,
     );
     assert!(
@@ -1675,7 +1675,7 @@ fn a_transition_that_cannot_be_read_is_named_rather_than_silently_inert() {
         "a deferred `kind` was silently inert: {codes:?}"
     );
     assert!(
-        details.iter().any(|detail| detail.contains("iris")),
+        details.iter().any(|detail| detail.contains("star_wipe")),
         "the finding did not name the `kind` it could not draw: {details:?}"
     );
 
@@ -1842,3 +1842,389 @@ fn invert_sits_after_radius_in_the_canonical_key_order_and_a_written_false_is_ke
         false_kept
     );
 }
+
+// ---------------------------------------------------------------------------
+// ADR-0221: `vibrance`, `hue_rotate`, and `invert`
+// ---------------------------------------------------------------------------
+
+#[test]
+fn vibrance_boosts_muted_colours_more_than_saturated_ones_and_zero_is_identity() {
+    // Muted warm tone (#A08070: r=160, g=128, b=112, sat = 48/255 ≈ 0.188) vs
+    // already-saturated pure red (#FF0000: sat = 1.0).
+    const MUTED: &str = "#A08070";
+    const PURE_RED: &str = "#FF0000";
+
+    let bare_muted = painted(line!(), &coloured_square_with(MUTED, ""));
+    let zero_muted = painted(
+        line!(),
+        &coloured_square_with(MUTED, r##"{"name":"vibrance","amount":0}"##),
+    );
+    assert_eq!(
+        differing(&bare_muted, &zero_muted),
+        0,
+        "`vibrance` at `amount: 0` is the identity"
+    );
+
+    let boosted_muted = middle(&painted(
+        line!(),
+        &coloured_square_with(MUTED, r##"{"name":"vibrance","amount":1}"##),
+    ));
+    let plain_muted = middle(&bare_muted);
+    let plain_chroma = plain_muted[0] - plain_muted[2];
+    let boosted_chroma = boosted_muted[0] - boosted_muted[2];
+    assert!(
+        boosted_chroma > plain_chroma + 20,
+        "positive vibrance should strongly boost muted chroma: plain {plain_muted:?}, boosted {boosted_muted:?}"
+    );
+
+    // A fully saturated colour (sat = 1.0) has `scale = 1 + amount * (1 - 1) = 1`, so it is
+    // untouched by positive or negative vibrance.
+    let boosted_pure = middle(&painted(
+        line!(),
+        &coloured_square_with(PURE_RED, r##"{"name":"vibrance","amount":1}"##),
+    ));
+    assert_eq!(boosted_pure, [0xFF, 0x00, 0x00]);
+
+    // Negative vibrance desaturates muted colours toward Rec. 709 luma.
+    let cut_muted = middle(&painted(
+        line!(),
+        &coloured_square_with(MUTED, r##"{"name":"vibrance","amount":-1}"##),
+    ));
+    let cut_chroma = cut_muted[0].abs_diff(cut_muted[2]);
+    assert!(
+        cut_chroma < plain_chroma,
+        "negative vibrance should reduce muted chroma: plain {plain_muted:?}, cut {cut_muted:?}"
+    );
+
+    // Out-of-range values are rejected by the model's schema check.
+    for bad in [
+        r##"{"name":"vibrance","amount":1.5}"##,
+        r##"{"name":"vibrance","amount":-1.1}"##,
+        r##"{"name":"vibrance","amount":[{"t":0,"v":0},{"t":500,"v":2.0,"ease":"linear"}]}"##,
+    ] {
+        assert!(
+            serde_json::from_str::<montagent_core::model::Effect>(bad).is_err(),
+            "expected {bad} to fail range check"
+        );
+    }
+}
+
+#[test]
+fn hue_rotate_rotates_hues_preserves_greys_and_zero_is_identity() {
+    const RED_HEX: &str = "#FF0000";
+    const GREY_HEX: &str = "#808080";
+
+    let bare_red = painted(line!(), &coloured_square_with(RED_HEX, ""));
+    let zero_red = painted(
+        line!(),
+        &coloured_square_with(RED_HEX, r##"{"name":"hue_rotate","angle":0}"##),
+    );
+    assert_eq!(
+        differing(&bare_red, &zero_red),
+        0,
+        "`hue_rotate` at `angle: 0` is the identity"
+    );
+
+    // +120 degrees shifts primary red's dominant channel to green; -120 shifts it to blue.
+    let plus_120 = middle(&painted(
+        line!(),
+        &coloured_square_with(RED_HEX, r##"{"name":"hue_rotate","angle":120}"##),
+    ));
+    assert!(
+        plus_120[1] > plus_120[0] && plus_120[1] > plus_120[2],
+        "+120° from red should be predominantly green: {plus_120:?}"
+    );
+
+    let minus_120 = middle(&painted(
+        line!(),
+        &coloured_square_with(RED_HEX, r##"{"name":"hue_rotate","angle":-120}"##),
+    ));
+    assert!(
+        minus_120[2] > minus_120[0] && minus_120[2] > minus_120[1],
+        "-120° from red should be predominantly blue: {minus_120:?}"
+    );
+
+    // Neutral grey is invariant under hue rotation.
+    let rotated_grey = middle(&painted(
+        line!(),
+        &coloured_square_with(GREY_HEX, r##"{"name":"hue_rotate","angle":90}"##),
+    ));
+    for c in rotated_grey {
+        assert!(
+            c.abs_diff(0x80) <= 1,
+            "grey should stay neutral under hue_rotate: {rotated_grey:?}"
+        );
+    }
+
+    // Out-of-range angles are rejected.
+    for bad in [
+        r##"{"name":"hue_rotate","angle":181}"##,
+        r##"{"name":"hue_rotate","angle":-181}"##,
+        r##"{"name":"hue_rotate","angle":[{"t":0,"v":0},{"t":500,"v":360,"ease":"linear"}]}"##,
+    ] {
+        assert!(
+            serde_json::from_str::<montagent_core::model::Effect>(bad).is_err(),
+            "expected {bad} to fail range check"
+        );
+    }
+}
+
+#[test]
+fn invert_flips_channels_linearly_and_zero_is_identity() {
+    const COLOUR: &str = "#FF4000";
+
+    let bare = painted(line!(), &coloured_square_with(COLOUR, ""));
+    let zero = painted(
+        line!(),
+        &coloured_square_with(COLOUR, r##"{"name":"invert","amount":0}"##),
+    );
+    assert_eq!(
+        differing(&bare, &zero),
+        0,
+        "`invert` at `amount: 0` is the identity"
+    );
+
+    // Full inversion (`amount: 1`) maps (255, 64, 0) -> (0, 191, 255).
+    let full = middle(&painted(
+        line!(),
+        &coloured_square_with(COLOUR, r##"{"name":"invert","amount":1}"##),
+    ));
+    assert_eq!(full, [0, 191, 255]);
+
+    // Half inversion (`amount: 0.5`) maps every channel to mid-grey (0.5 -> 128).
+    let half = middle(&painted(
+        line!(),
+        &coloured_square_with(COLOUR, r##"{"name":"invert","amount":0.5}"##),
+    ));
+    for c in half {
+        assert!(c.abs_diff(128) <= 1, "invert 0.5 should be mid-grey: {half:?}");
+    }
+
+    // Keyframed `invert` interpolates across time.
+    let keyed = middle(&painted_at(
+        line!(),
+        &coloured_square_with(
+            COLOUR,
+            r##"{"name":"invert","amount":[{"t":0,"v":0},{"t":1000,"v":1,"ease":"linear"}]}"##,
+        ),
+        500,
+    ));
+    for c in keyed {
+        assert!(c.abs_diff(128) <= 1, "keyed invert at midpoint: {keyed:?}");
+    }
+
+    // Out-of-range amounts are rejected.
+    for bad in [
+        r##"{"name":"invert","amount":-0.1}"##,
+        r##"{"name":"invert","amount":1.1}"##,
+        r##"{"name":"invert","amount":[{"t":0,"v":0},{"t":500,"v":1.5,"ease":"linear"}]}"##,
+    ] {
+        assert!(
+            serde_json::from_str::<montagent_core::model::Effect>(bad).is_err(),
+            "expected {bad} to fail range check"
+        );
+    }
+}
+
+// ---------------------------------------------------------------------------
+// ADR-0227: `matte` and `luma_key`
+// ---------------------------------------------------------------------------
+
+#[test]
+fn matte_chokes_dilates_feathers_and_contrasts_alpha_and_validates_bounds() {
+    // A 100x100 white square centred at (200, 200) spans (150, 150)..(250, 250).
+    let bare = painted(line!(), &square_with(""));
+
+    // Identity: omitted parameters and explicit identity parameters produce the exact bare frame.
+    let omitted = painted(line!(), &square_with(r##"{"name":"matte"}"##));
+    let explicit = painted(
+        line!(),
+        &square_with(r##"{"name":"matte","choke":0,"feather":0,"contrast":1}"##),
+    );
+    assert_eq!(differing(&bare, &omitted), 0, "bare matte is identity");
+    assert_eq!(differing(&bare, &explicit), 0, "explicit default matte is identity");
+
+    // Positive choke (erode by 10px): shrinks the 100x100 square inward to (160, 160)..(240, 240).
+    let choked = painted(line!(), &square_with(r##"{"name":"matte","choke":10}"##));
+    assert_eq!(rgb(&bare, 155, 200), [0xFF, 0xFF, 0xFF], "bare has pixel at x=155");
+    assert_eq!(rgb(&choked, 155, 200), BLACK, "choke=10 erodes pixel at x=155");
+    assert_eq!(rgb(&choked, 165, 200), [0xFF, 0xFF, 0xFF], "interior at x=165 stays white");
+
+    // Negative choke (dilate by 10px): expands the 100x100 square outward to (140, 140)..(260, 260).
+    // Note: on a solid rect, transparent pixels outside (150..250) have RGB=0 unless blurred/keyed,
+    // so test dilation on a masked circle inside the 100x100 white square (where RGB is white across
+    // the whole 100x100 box and the circle mask sets alpha).
+    // Circle of radius 30 centred at (200, 200) spans x = 170..230 along y = 200.
+    let masked_circle = r##"{"name":"mask","shape":"circle","x":20,"y":20,"width":60,"height":60}"##;
+    let circle_bare = painted(line!(), &square_with(masked_circle));
+    let circle_dilated = painted(
+        line!(),
+        &square_with(&format!(r##"{masked_circle},{{"name":"matte","choke":-10}}"##)),
+    );
+    assert_eq!(rgb(&circle_bare, 165, 200), BLACK, "outside radius-30 circle at x=165");
+    assert_eq!(
+        rgb(&circle_dilated, 165, 200),
+        [0xFF, 0xFF, 0xFF],
+        "choke=-10 dilates the circle matte outward over the white square to x=165"
+    );
+
+    // Feather softens the hard edge into intermediate alpha values, and contrast > 1 tightens it back.
+    let feathered = painted(
+        line!(),
+        &square_with(&format!(r##"{masked_circle},{{"name":"matte","feather":16}}"##)),
+    );
+    let f_edge = rgb(&feathered, 166, 200)[0];
+    assert!(
+        f_edge > 10 && f_edge < 200,
+        "feathered matte should produce intermediate alpha just outside the edge, got {f_edge}"
+    );
+    let tightened = painted(
+        line!(),
+        &square_with(&format!(
+            r##"{masked_circle},{{"name":"matte","feather":16,"contrast":8}}"##
+        )),
+    );
+    let t_edge = rgb(&tightened, 166, 200)[0];
+    assert!(
+        t_edge < f_edge,
+        "high matte contrast should push alpha < 0.5 further toward 0: feathered={f_edge}, tightened={t_edge}"
+    );
+
+    // Schema bounds validation (`E-MATTE-BOUNDS`) for static and keyframed parameters.
+    let codes = |effect_json: &str| {
+        let dir = tempdir(line!());
+        let path = write_project(&dir, "p.montagent.json", &one_track(&square_with(effect_json)));
+        let document = montagent_core::parse::read(&path).expect("a Loose document");
+        let mut report =
+            montagent_core::report::Report::new("validate", Some(document.path().to_string()));
+        montagent_core::checks::schema::check(&document, &mut report);
+        report
+            .findings
+            .iter()
+            .map(|f| f.code.clone())
+            .collect::<Vec<_>>()
+    };
+    for bad in [
+        r##"{"name":"matte","choke":50.1}"##,
+        r##"{"name":"matte","choke":-50.1}"##,
+        r##"{"name":"matte","feather":-0.1}"##,
+        r##"{"name":"matte","feather":100.1}"##,
+        r##"{"name":"matte","contrast":-0.1}"##,
+        r##"{"name":"matte","contrast":10.1}"##,
+        r##"{"name":"matte","choke":[{"t":0,"v":0},{"t":500,"v":60,"ease":"linear"}]}"##,
+    ] {
+        assert_eq!(
+            codes(bad),
+            ["E-MATTE-BOUNDS"],
+            "expected E-MATTE-BOUNDS for {bad}"
+        );
+    }
+}
+
+#[test]
+fn luma_key_keys_by_rec709_luminance_ramps_softness_inverts_and_validates_bounds() {
+    // Background is red (#FF0000) so keyed-out pixels reveal red underneath.
+    let over_red = |fill: &str, effects: &str| {
+        canonical(&format!(
+            r##"{{"frame":{{"width":400,"height":400}},"fps":25,"background":"#FF0000",
+                "tracks":[{{"name":"only","layer":0,"elements":[
+                  {{"id":"sq","type":"rect","start":0,"end":1000,"x":200,"y":200,
+                    "origin":"center","width":100,"height":100,"fill":"{fill}",
+                    "effects":[{effects}]}}
+                ]}}]}}"##
+        ))
+    };
+
+    // Default `luma_key` (`threshold: 0, tolerance: 0.1, softness: 0, invert: false`) keys out
+    // near-black (`#050505`, Y ≈ 0.0196 <= 0.1) to reveal red, while keeping bright white (`#FFFFFF`).
+    let dark_keyed = middle(&frame_of(line!(), &over_red("#050505", r##"{"name":"luma_key"}"##), 500));
+    assert_eq!(dark_keyed, RED, "dark pixel within tolerance is keyed out to reveal red background");
+
+    let bright_kept = middle(&frame_of(line!(), &over_red("#FFFFFF", r##"{"name":"luma_key"}"##), 500));
+    assert_eq!(bright_kept, [0xFF, 0xFF, 0xFF], "bright pixel outside tolerance is kept opaque");
+
+    // `invert: true` flips the matte: near-black is kept and bright white is keyed out.
+    let dark_inverted = middle(&frame_of(
+        line!(),
+        &over_red("#050505", r##"{"name":"luma_key","invert":true}"##),
+        500,
+    ));
+    assert_eq!(dark_inverted, [0x05, 0x05, 0x05], "inverted luma_key keeps dark pixel");
+    let bright_inverted = middle(&frame_of(
+        line!(),
+        &over_red("#FFFFFF", r##"{"name":"luma_key","invert":true}"##),
+        500,
+    ));
+    assert_eq!(bright_inverted, RED, "inverted luma_key keys out bright pixel");
+
+    // `softness > 0`: mid-grey (`#808080`, Y ≈ 0.502) with `threshold: 0.0, tolerance: 0.1, softness: 0.8`
+    // has `m = (0.502 - 0.1) / 0.8 ≈ 0.5025`, blending half grey and half red background.
+    let soft = middle(&frame_of(
+        line!(),
+        &over_red(
+            "#808080",
+            r##"{"name":"luma_key","threshold":0.0,"tolerance":0.1,"softness":0.8}"##,
+        ),
+        500,
+    ));
+    assert!(
+        soft[0] > 160 && soft[1] > 40 && soft[1] < 90,
+        "softness ramp should partially key mid-grey over red: {soft:?}"
+    );
+
+    // Master `effects` stack: `luma_key` works at the top-level project `effects` list too.
+    // On a red background (#FF0000, Y = 0.2126), a white square (#FFFFFF, Y = 1.0) is keyed
+    // to transparent by a master `luma_key` with `threshold: 1.0, tolerance: 0.1`, while the
+    // red background outside the square stays opaque red.
+    let master_doc = canonical(
+        r##"{"frame":{"width":400,"height":400},"fps":25,"background":"#FF0000",
+            "effects":[{"name":"luma_key","threshold":1.0,"tolerance":0.1}],
+            "tracks":[{"name":"only","layer":0,"elements":[
+              {"id":"sq","type":"rect","start":0,"end":1000,"x":200,"y":200,
+               "origin":"center","width":100,"height":100,"fill":"#FFFFFF"}
+            ]}]}"##,
+    );
+    let master_painted = frame_of(line!(), &master_doc, 500);
+    assert_eq!(
+        rgb(&master_painted, 200, 200),
+        BLACK,
+        "master luma_key at threshold=1.0 keys white square out to black"
+    );
+    assert_eq!(
+        rgb(&master_painted, 50, 50),
+        RED,
+        "master luma_key at threshold=1.0 leaves red background intact"
+    );
+
+    // Schema bounds validation (`E-LUMA-KEY-BOUNDS`) for static and keyframed parameters.
+    let check_codes = |effect_json: &str| {
+        let dir = tempdir(line!());
+        let path = write_project(&dir, "p.montagent.json", &one_track(&square_with(effect_json)));
+        let document = montagent_core::parse::read(&path).expect("a Loose document");
+        let mut report =
+            montagent_core::report::Report::new("validate", Some(document.path().to_string()));
+        montagent_core::checks::schema::check(&document, &mut report);
+        report
+            .findings
+            .iter()
+            .map(|f| f.code.clone())
+            .collect::<Vec<_>>()
+    };
+    for bad in [
+        r##"{"name":"luma_key","threshold":-0.1}"##,
+        r##"{"name":"luma_key","threshold":1.1}"##,
+        r##"{"name":"luma_key","tolerance":-0.1}"##,
+        r##"{"name":"luma_key","tolerance":1.1}"##,
+        r##"{"name":"luma_key","softness":-0.1}"##,
+        r##"{"name":"luma_key","softness":1.1}"##,
+        r##"{"name":"luma_key","threshold":[{"t":0,"v":0},{"t":500,"v":1.5,"ease":"linear"}]}"##,
+    ] {
+        assert_eq!(
+            check_codes(bad),
+            ["E-LUMA-KEY-BOUNDS"],
+            "expected E-LUMA-KEY-BOUNDS for {bad}"
+        );
+    }
+}
+
+

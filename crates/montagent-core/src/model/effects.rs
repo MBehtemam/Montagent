@@ -225,6 +225,12 @@ pub enum Effect {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         intensity: Option<f64>,
     },
+    /// Chroma-weighted saturation adjustment (`amount` in `[-1, 1]`, identity `0`) (ADR-0221).
+    Vibrance { amount: Animatable<VibranceAmount> },
+    /// Hue rotation in degrees (`angle` in `[-180, 180]`, identity `0`) (ADR-0221).
+    HueRotate { angle: Animatable<HueAngle> },
+    /// Linear channel inversion (`amount` in `[0, 1]`, identity `0`, full invert `1`) (ADR-0221).
+    Invert { amount: Animatable<Fraction> },
     /// Alpha matte cleanup: morphological choke/spread, feathering, and alpha contrast
     /// (ADR-0227).
     Matte {
@@ -356,6 +362,26 @@ impl Smear {
     /// 4,097 (the prototype's cap, #722).
     pub const MAX: f64 = 4096.0;
 }
+
+bounded!(
+    /// `vibrance`'s `amount`: chroma-weighted saturation boost/cut, from -1 to 1 (ADR-0221).
+    VibranceAmount(f64),
+    "number",
+    -1.0,
+    Some(1.0),
+    "The chroma-weighted saturation adjustment, from `-1` to `1` in a static value and in \
+     every keyframe record. `0` is the identity (ADR-0221)."
+);
+
+bounded!(
+    /// `hue_rotate`'s `angle`: hue rotation in degrees, from -180 to 180 (ADR-0221).
+    HueAngle(f64),
+    "number",
+    -180.0,
+    Some(180.0),
+    "The hue rotation angle in degrees, from `-180` to `180` in a static value and in \
+     every keyframe record. `0` is the identity (ADR-0221)."
+);
 
 bounded!(
     /// `matte`'s `choke`: morphological erosion (`> 0`) or dilation (`< 0`) radius in
@@ -680,6 +706,45 @@ impl Effect {
                 return Err(format!(
                     "`{member}`'s `{parameter}` is {value}: it must be {range}, in a static \
                      value and in every keyframe record (ADR-0156)"
+                ));
+            }
+        }
+
+        // ADR-0221: `vibrance.amount`, `hue_rotate.angle` and `invert.amount` are bounded in
+        // a static value and in every keyframe record.
+        let adr0221: Vec<Ranged> = match &self {
+            Effect::Vibrance { amount } => vec![(
+                "vibrance",
+                "amount",
+                stated(amount).into_iter().map(|v| v.value()).collect(),
+                VibranceAmount::RANGE,
+            )],
+            Effect::HueRotate { angle } => vec![(
+                "hue_rotate",
+                "angle",
+                stated(angle).into_iter().map(|v| v.value()).collect(),
+                HueAngle::RANGE,
+            )],
+            Effect::Invert { amount } => vec![(
+                "invert",
+                "amount",
+                stated(amount).into_iter().map(|v| v.0).collect(),
+                (0.0, Some(1.0)),
+            )],
+            _ => Vec::new(),
+        };
+        for (member, parameter, values, (min, max)) in adr0221 {
+            if let Some(value) = values
+                .into_iter()
+                .find(|value| !(*value >= min && max.is_none_or(|max| *value <= max)))
+            {
+                let range = match max {
+                    Some(max) => format!("from `{min}` to `{max}`"),
+                    None => format!("at least `{min}`"),
+                };
+                return Err(format!(
+                    "`{member}`'s `{parameter}` is {value}: it must be {range}, in a static \
+                     value and in every keyframe record (ADR-0221)"
                 ));
             }
         }

@@ -185,16 +185,14 @@ fn publish_path_fill(schema: &mut Value) {
     *path = ordered;
 }
 
-/// Say ADR-0150's two relational rules about a transition's `direction` and `ease` in the
-/// schema, where the types can only say them in their deserializer
+/// Say ADR-0150's, ADR-0176's, and ADR-0220's relational rules about a transition's
+/// per-kind fields in the schema, where the types can only say them in their deserializer
 /// (`crate::model::Transition`'s `checked`).
 ///
-/// [`publish_mask_rect`]'s `radius` arrangement, for its reason: both fields are declared
-/// properties of the one transition shape, so `additionalProperties: false` cannot withdraw
-/// them under `crossfade`. One conditional says both halves: `then` refuses both on a
-/// crossfade, and `else` requires `direction` on the three motion kinds. ADR-0176's
-/// `audio_crossfade` is the one kind the `else` branches again on: it requires `audio`
-/// (`constant_power` or `constant_gain`) and refuses `direction` and `ease`.
+/// [`publish_mask_rect`]'s `radius` arrangement, for its reason: the optional geometry
+/// fields are declared properties of the one transition shape, so `additionalProperties:
+/// false` cannot withdraw them per `kind`. One conditional says the crossfade / audio_crossfade
+/// / geometric split, and `allOf` narrows each geometric kind to its supported parameters.
 fn publish_transition_fields(schema: &mut Value) {
     let Some(Value::Object(transition)) = schema
         .pointer_mut("/$defs/Element/oneOf")
@@ -209,6 +207,34 @@ fn publish_transition_fields(schema: &mut Value) {
         return;
     };
 
+    if let Some(Value::Object(slats)) = transition
+        .get_mut("properties")
+        .and_then(Value::as_object_mut)
+        .and_then(|props| props.get_mut("slats"))
+    {
+        let mut rebuilt = serde_json::Map::new();
+        for (k, v) in std::mem::take(slats) {
+            if k == "description" {
+                rebuilt.insert("minimum".into(), json!(1));
+            }
+            rebuilt.insert(k, v);
+        }
+        if !rebuilt.contains_key("minimum") {
+            rebuilt.insert("minimum".into(), json!(1));
+        }
+        *slats = rebuilt;
+    }
+
+    let geometry_and_ease = json!([
+        {"required": ["shape"]},
+        {"required": ["direction"]},
+        {"required": ["angle"]},
+        {"required": ["start_angle"]},
+        {"required": ["center"]},
+        {"required": ["slats"]},
+        {"required": ["ease"]},
+    ]);
+
     let mut ordered = serde_json::Map::new();
     for (key, value) in std::mem::take(transition) {
         ordered.insert(key.clone(), value);
@@ -220,10 +246,10 @@ fn publish_transition_fields(schema: &mut Value) {
             ordered.insert(
                 "then".into(),
                 json!({
-                    "not": {"anyOf": [{"required": ["direction"]}, {"required": ["ease"]}]},
+                    "not": {"anyOf": geometry_and_ease},
                     "description": "A crossfade travels nowhere and its ramp is linear, so \
-                                    `direction` and `ease` are fields of `wipe`, `slide` \
-                                    and `push` only (ADR-0150).",
+                                    geometry parameters and `ease` are fields of the geometric \
+                                    transition kinds only (ADR-0150, ADR-0220).",
                 }),
             );
             ordered.insert(
@@ -235,7 +261,7 @@ fn publish_transition_fields(schema: &mut Value) {
                     },
                     "then": {
                         "required": ["audio"],
-                        "not": {"anyOf": [{"required": ["direction"]}, {"required": ["ease"]}]},
+                        "not": {"anyOf": geometry_and_ease},
                         "if": {"properties": {"audio": {"const": "cut"}}, "required": ["audio"]},
                         "then": {
                             "not": {},
@@ -244,13 +270,100 @@ fn publish_transition_fields(schema: &mut Value) {
                         },
                         "description": "An `audio_crossfade` paints nothing and names its \
                                         curve: `audio` is required and is `constant_power` \
-                                        or `constant_gain`; `direction` and `ease` are not \
-                                        fields of it (ADR-0176).",
+                                        or `constant_gain`; geometry parameters and `ease` \
+                                        are not fields of it (ADR-0176, ADR-0220).",
                     },
                     "else": {
-                        "required": ["direction"],
-                        "description": "A `wipe`, `slide` or `push` names the way its motion \
-                                        travels (ADR-0150).",
+                        "allOf": [
+                            {
+                                "if": {"properties": {"kind": {"const": "wipe"}}, "required": ["kind"]},
+                                "then": {
+                                    "oneOf": [
+                                        {"required": ["direction"], "not": {"required": ["angle"]}},
+                                        {"required": ["angle"], "not": {"required": ["direction"]}},
+                                    ],
+                                    "not": {
+                                        "anyOf": [
+                                            {"required": ["shape"]},
+                                            {"required": ["start_angle"]},
+                                            {"required": ["center"]},
+                                            {"required": ["slats"]},
+                                        ],
+                                    },
+                                    "description": "A `wipe` names its sweep by either `direction` \
+                                                    (`left`, `right`, `up`, `down`) or `angle` in \
+                                                    degrees, never both (ADR-0150, ADR-0220).",
+                                },
+                            },
+                            {
+                                "if": {"properties": {"kind": {"enum": ["slide", "push"]}}, "required": ["kind"]},
+                                "then": {
+                                    "required": ["direction"],
+                                    "not": {
+                                        "anyOf": [
+                                            {"required": ["shape"]},
+                                            {"required": ["angle"]},
+                                            {"required": ["start_angle"]},
+                                            {"required": ["center"]},
+                                            {"required": ["slats"]},
+                                        ],
+                                    },
+                                    "description": "A `slide` or `push` names the way its motion \
+                                                    travels via `direction` (`left`, `right`, `up`, \
+                                                    `down`) (ADR-0150).",
+                                },
+                            },
+                            {
+                                "if": {"properties": {"kind": {"const": "iris"}}, "required": ["kind"]},
+                                "then": {
+                                    "not": {
+                                        "anyOf": [
+                                            {"required": ["angle"]},
+                                            {"required": ["start_angle"]},
+                                            {"required": ["slats"]},
+                                        ],
+                                    },
+                                    "description": "An `iris` takes optional `shape` (`circle` or \
+                                                    `rect`), `direction` (`out` or `in`), and \
+                                                    `center` `[x, y]` (ADR-0220).",
+                                },
+                            },
+                            {
+                                "if": {"properties": {"kind": {"const": "radial_wipe"}}, "required": ["kind"]},
+                                "then": {
+                                    "not": {
+                                        "anyOf": [
+                                            {"required": ["shape"]},
+                                            {"required": ["angle"]},
+                                            {"required": ["slats"]},
+                                        ],
+                                    },
+                                    "description": "A `radial_wipe` takes optional `direction` \
+                                                    (`clockwise` or `counter_clockwise`), \
+                                                    `start_angle`, and `center` `[x, y]` \
+                                                    (ADR-0220).",
+                                },
+                            },
+                            {
+                                "if": {"properties": {"kind": {"const": "blinds"}}, "required": ["kind"]},
+                                "then": {
+                                    "required": ["direction"],
+                                    "not": {
+                                        "anyOf": [
+                                            {"required": ["shape"]},
+                                            {"required": ["angle"]},
+                                            {"required": ["start_angle"]},
+                                            {"required": ["center"]},
+                                        ],
+                                    },
+                                    "description": "A `blinds` transition requires `direction` \
+                                                    (`left`, `right`, `up`, `down`) and takes \
+                                                    optional `slats` >= 1 (ADR-0220).",
+                                },
+                            },
+                        ],
+                        "description": "Each geometric transition kind accepts only its own \
+                                        parameters (ADR-0150, ADR-0220).",
                     },
                 }),
             );
