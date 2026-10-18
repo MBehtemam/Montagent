@@ -4,6 +4,8 @@ status: accepted
 
 # Montagent is a Rust MCP server
 
+> **Amended by [ADR-0203](./0203-prores-and-dnxhr-mezzanine-codecs-render-via-lgpl-encoders-and-alpha-flows-through-a-32-bit-pipe.md)**: ProRes and DNxHR mezzanine codecs render via LGPL encoders and alpha flows through a 32-bit pipe.
+
 > **Amended by [ADR-0077](./0077-the-nine-render-readings-are-ratified.md)**, which ratifies the encoder
 > settings the spawned `ffmpeg` is given — `libx264`, `yuv420p`, CRF 20, preset `medium`,
 > `+faststart`, AAC at 160 kb/s — and confirms the `libopenh264` escape route named below

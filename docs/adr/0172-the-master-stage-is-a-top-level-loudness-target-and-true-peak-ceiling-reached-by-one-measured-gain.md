@@ -5,6 +5,10 @@ amends: 0055 (clipping past the summed mix is no longer only "the renderer's doc
 
 # The master stage is a top-level loudness target and true-peak ceiling, reached by one measured gain
 
+> **Amended by [ADR-0207](./0207-parametric-eq-dynamics-processors-and-perceptual-scopes-provide-mixing-and-inspection.md)**: Parametric EQ, dynamics processors, and perceptual scopes provide mixing and inspection.
+
+> **Amended by [ADR-0204](./0204-audio-stems-are-role-partitioned-24-bit-broadcast-wav-files-dispatched-in-decoupled-passes.md)**: Audio stems are role-partitioned 24-bit broadcast WAV files dispatched in decoupled passes.
+
 > **Amended by [ADR-0173](0173-every-audio-capability-is-accepted-by-a-measured-repo-test-and-verify-checks-only-what-master-declares.md)**: sets `verify`'s tolerances. A miss against
 > `target_lufs` is a `review` beyond ±1.0 LU, and a miss against `ceiling_dbtp` beyond +0.5 dB on the
 > decoded AAC (provisional until ADR-0173 §7's measurement).

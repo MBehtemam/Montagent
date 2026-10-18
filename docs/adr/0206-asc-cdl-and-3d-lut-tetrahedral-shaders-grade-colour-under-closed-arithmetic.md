@@ -5,6 +5,8 @@ amends: 0049 (colour filter vocabulary), 0145 (four invariants)
 
 # ASC CDL and 3D LUT tetrahedral shaders grade colour under closed arithmetic
 
+> **Amended by [ADR-0221](./0221-vibrance-hue-rotate-and-invert-enter-effects-and-twelve-skblendmode-variants-enter-blend.md)**: Vibrance, hue_rotate, and invert enter effects[], and twelve SkBlendMode variants enter blend.
+
 [#981](https://github.com/MBehtemam/Montagent/issues/981), [#1018](https://github.com/MBehtemam/Montagent/issues/1018), [#1020](https://github.com/MBehtemam/Montagent/issues/1020).
 
 ## Context

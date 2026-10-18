@@ -5,6 +5,8 @@ amends: 0017 (confirms the closed project schema holds against templates, preset
 
 # Motion bakes and keyframe assistants enter in one `keyframes.py` script, auto-colour is refused, and a skill script with its `<spec>` is a template
 
+> **Amended by [ADR-0226](./0226-stroke-taper-boolean-paths-and-path-modifiers-are-write-time-scripts-and-trim-is-single-contour.md)**: Stroke taper, boolean paths, and path modifiers are write-time skill scripts, and trim remains single-contour.
+
 > **Amended by [ADR-0219](0219-smooth-pass-through-easing-enters-as-an-auto-bezier-pass-and-recipe-and-the-runtime-evaluator-stays-local.md)**: extends `skills/montagent-motion/scripts/keyframes.py` with an `auto_bezier` pass for monotonic cubic spline easing, alongside a slope-matching recipe in `skills/montagent-motion/SKILL.md` ([#1061](https://github.com/MBehtemam/Montagent/issues/1061)).
 
 [Which motion-bake, keyframe-assistant and measure-then-write skill scripts enter, and how do templates work?](https://github.com/MBehtemam/Montagent/issues/1059)

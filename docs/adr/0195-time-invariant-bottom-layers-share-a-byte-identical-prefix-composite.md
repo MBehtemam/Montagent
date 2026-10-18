@@ -5,6 +5,10 @@ amends: 0144 (§2/§6 by reference, §7's shared painter state), 0194 (decision 
 
 # Time-invariant bottom layers share a byte-identical prefix composite
 
+> **Amended by [ADR-0205](./0205-project-level-master-effects-filter-the-composite-at-the-device-boundary.md)**: Project-level master effects filter the composite at the device boundary.
+
+> **Amended by [ADR-0201](./0201-nested-sequences-are-bounded-containers-rendering-to-an-isolated-surface-on-an-absolute-timeline.md)**: Nested sequences are bounded containers rendering to an isolated surface on an absolute timeline.
+
 > **Amended by [ADR-0198](0198-an-element-that-draws-nothing-neither-joins-nor-ends-the-static-prefix.md):**
 > §1's run is computed with `audio` and `transition` elements passed over. They draw nothing,
 > so they neither join nor end the prefix, and they stay out of its key (#974).

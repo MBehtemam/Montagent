@@ -4,6 +4,8 @@ status: accepted
 
 # Time is absolute integer milliseconds, and structural edits belong to a tool
 
+> **Amended by [ADR-0199](./0199-fractional-and-ntsc-timebases-are-exact-rational-fractions-and-timeline-points-stay-integer-milliseconds.md)**: Fractional and NTSC timebases are exact rational fractions and timeline points stay integer milliseconds.
+
 > **Amended by [ADR-0020](./0020-speed-overrun-hold-loop.md).** The field this ADR named
 > `fill (hold / loop)` is renamed **`overrun`** — `fill` was since claimed as the shape-paint
 > field ([ADR-0014](./0014-stroke-is-paint-the-text-box-is-required.md)). `speed` and

@@ -1478,9 +1478,9 @@ fn cli_render_reports_while_it_works_and_the_file_moves_with_it() {
     std::fs::write(
         &project,
         r##"{"frame":{"width":1280,"height":720},"fps":25,"background":"#000000",
-  "duration":4800,"output":"out/p.mp4",
+  "duration":20000,"output":"out/p.mp4",
   "tracks":[{"name":"only","layer":0,"elements":[
-    {"id":"card","type":"rect","start":0,"end":4800,"x":640,"y":360,"width":400,
+    {"id":"card","type":"rect","start":0,"end":20000,"x":640,"y":360,"width":400,
      "height":300,"fill":"#FF0000"}]}]}
 "##,
     )
@@ -1495,7 +1495,7 @@ fn cli_render_reports_while_it_works_and_the_file_moves_with_it() {
             file.to_str().unwrap(),
         ])
         .env("MONTAGENT_PROGRESS_WRITE_MS", "50")
-        .env("MONTAGENT_PROGRESS_LINE_GAP_MS", "100")
+        .env("MONTAGENT_PROGRESS_LINE_GAP_MS", "1")
         .env(
             montagent_core::media::sidecar::CACHE_DIR_VAR,
             dir.join("cache"),
@@ -1529,7 +1529,7 @@ fn cli_render_reports_while_it_works_and_the_file_moves_with_it() {
         "frames_done went backwards: {counts:?}"
     );
     assert!(
-        counts.iter().any(|&done| done > 0 && done < 120),
+        counts.iter().any(|&done| done > 0 && done < 500),
         "the file never showed a run part-way: {counts:?}"
     );
     assert!(
@@ -1539,7 +1539,10 @@ fn cli_render_reports_while_it_works_and_the_file_moves_with_it() {
     );
     assert_eq!(read_json(&file)["state"], "done");
 
-    // More lines than the tenths alone would make, all of them naming a phase.
+    // More lines than the tenths alone would make, all of them naming a phase. The gap is
+    // 1 ms against a 50 ms ticker, so any tick between two tenths prints a line however fast
+    // the machine renders; a gap near the time between tenths passes only on a slow machine.
+    // 500 frames keep the run past several ticks even with the static card cached.
     let stderr = std::fs::read_to_string(&stderr_path).unwrap();
     let lines: Vec<&str> = stderr
         .lines()

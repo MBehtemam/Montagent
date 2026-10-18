@@ -5,6 +5,8 @@ amends: 0084 (`shape` gains `path`, and gates a second field, `points`, beside `
 
 # A mask takes a closed path inline, measured from its own rect
 
+> **Amended by [ADR-0226](./0226-stroke-taper-boolean-paths-and-path-modifiers-are-write-time-scripts-and-trim-is-single-contour.md)**: Stroke taper, boolean paths, and path modifiers are write-time skill scripts, and trim remains single-contour.
+
 > **Amended by [ADR-0165](0165-a-hard-edged-inverted-mask-is-the-complement-off-the-edge-and-a-feathered-pair-sums-within-one-level.md)**: §5's "`invert` keeps exactly the complement" holds only where
 > either mask keeps a pixel whole or erases it whole. On a hard antialiased edge the two may differ;
 > a feathered pair sums within one level of 255.

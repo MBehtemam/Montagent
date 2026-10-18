@@ -5,6 +5,8 @@ amends: 0005 (publishes the sampling rule the frame-alignment paragraph promised
 
 # Off-grid keyframe times stay legal; `validate` gains an unreached-target check, and `measure` gains the grid arithmetic
 
+> **Amended by [ADR-0199](./0199-fractional-and-ntsc-timebases-are-exact-rational-fractions-and-timeline-points-stay-integer-milliseconds.md)**: Fractional and NTSC timebases are exact rational fractions and timeline points stay integer milliseconds.
+
 > **Amended by [ADR-0077](./0077-the-nine-render-readings-are-ratified.md)**, which states which whole
 > millisecond of the grid below a frame is actually painted at: `⌊n × 1000 / fps⌋`, since
 > `n × 1000/fps` is not a whole millisecond at every rate. Presence is unaffected; an

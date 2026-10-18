@@ -5,6 +5,12 @@ supersedes: partially supersedes 0001
 
 # Elements live in tracks: constrained lanes with absolute times
 
+> **Amended by [ADR-0211](./0211-cmx-3600-edl-and-fcpxml-translate-via-smpte-timecode-and-lane-mapping.md)**: CMX 3600 EDL and FCPXML translate via SMPTE timecode and lane mapping.
+
+> **Amended by [ADR-0210](./0210-opentimelineio-translates-bi-directionally-via-rational-time-and-sequential-tracks.md)**: OpenTimelineIO translates bi-directionally via rational time and sequential tracks.
+
+> **Amended by [ADR-0209](./0209-timeline-interchange-is-a-decoupled-zero-renderer-conversion-engine.md)**: Timeline interchange is a decoupled zero-renderer conversion engine.
+
 > **Amended by [ADR-0076](./0076-the-four-structural-time-finding-codes-are-ratified.md)**,
 > which names the two findings this ADR's *"must distinguish overlap from gap"*
 > consequence requires — `E-TRACK-OVERLAP` (`error`, refuse-class) and `N-TRACK-GAP`

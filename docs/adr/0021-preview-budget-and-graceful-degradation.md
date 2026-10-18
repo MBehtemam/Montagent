@@ -5,6 +5,8 @@ amends: the performance budget stated in the map's Notes (never itself an ADR)
 
 # The performance budget splits in two, proxy-resolution previews get a fixed
 
+> **Amended by [ADR-0203](./0203-prores-and-dnxhr-mezzanine-codecs-render-via-lgpl-encoders-and-alpha-flows-through-a-32-bit-pipe.md)**: ProRes and DNxHR mezzanine codecs render via LGPL encoders and alpha flows through a 32-bit pipe.
+
 > **Amended by six later ADRs.** Read them before relying on anything below.
 >
 > - [ADR-0078](0078-preview-is-the-ninth-mcp-verb-and-its-unstated-readings-are-ratified.md)

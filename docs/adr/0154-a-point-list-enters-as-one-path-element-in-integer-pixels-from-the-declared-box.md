@@ -5,6 +5,8 @@ amends: 0014 (`line`, `polygon` and `path` are no longer rejected; one `path` el
 
 # A point list enters as one `path` element, in integer pixels from the declared box
 
+> **Amended by [ADR-0226](./0226-stroke-taper-boolean-paths-and-path-modifiers-are-write-time-scripts-and-trim-is-single-contour.md)**: Stroke taper, boolean paths, and path modifiers are write-time skill scripts, and trim remains single-contour.
+
 > **Amended by [ADR-0158](0158-a-path-chooses-its-stroke-join-and-cap-and-every-shape-takes-a-dash-pattern.md).** The round-join, butt-cap pin is lifted: a path
 > chooses `stroke_join` and `stroke_cap`, the inset of §4 widens to `ceil(k × w / 2)` by the
 > stroke's reach factor, and `E-PATH-OUTSIDE-BOX` names that factor.
