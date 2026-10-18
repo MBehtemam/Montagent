@@ -31,11 +31,7 @@ fn width(fonts: &mut Fonts, text: &str) -> f64 {
         &Spec {
             runs: &[Run {
                 text,
-                font: None,
-                size: None,
-                stroke_width: None,
-                dir: None,
-                annotation: None,
+                ..Run::default()
             }],
             font: "k",
             size: 100,
@@ -46,6 +42,7 @@ fn width(fonts: &mut Fonts, text: &str) -> f64 {
             align: Align::Start,
             letter_spacing: 0.0,
             optional_ligatures_off: false,
+            features: None,
         },
     )
     .unwrap_or_else(|e| panic!("measuring {text:?}: {e}"))
@@ -61,6 +58,7 @@ fn a_face_from_bytes_measures_as_the_same_face_from_its_file() {
             &[FontFile {
                 path: repo_path(OPEN_RUNDE),
                 index: None,
+                axes: Vec::new(),
             }],
         )
         .unwrap();

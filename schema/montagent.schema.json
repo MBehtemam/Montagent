@@ -1806,12 +1806,44 @@
           "format": "uint32",
           "minimum": 0,
           "description": "For `.ttc` collections. 49 of the fonts in a stock macOS `/System/Library/Fonts`\nare collections, so this is the normal case rather than an exotic one."
+        },
+        "axes": {
+          "description": "Static variable-font axis coordinates pinned on this face (ADR-0223 §1).",
+          "$ref": "#/$defs/FontAxes"
         }
       },
       "required": [
         "file"
       ],
       "description": "One entry in a font's ordered fallback chain: always a file path relative to the\nproject, never a system family name (ADR-0007)."
+    },
+    "FontAxes": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "wght": {
+          "type": "number",
+          "format": "double"
+        },
+        "wdth": {
+          "type": "number",
+          "format": "double"
+        },
+        "slnt": {
+          "type": "number",
+          "format": "double"
+        },
+        "ital": {
+          "type": "number",
+          "format": "double"
+        },
+        "opsz": {
+          "type": "number",
+          "format": "double"
+        }
+      },
+      "description": "Static variable-font axis coordinates pinned on a [`FontFile`] entry (ADR-0223 §1).",
+      "minProperties": 1
     },
     "FontAttestation": {
       "type": "object",
@@ -2242,8 +2274,49 @@
               "$ref": "#/$defs/AnimatableLength"
             },
             "letter_spacing": {
-              "description": "Space added after every grapheme of a line but the last, in **thousandths of an em**\nof the size of the run the grapheme sits in: `size × letter_spacing / 1000` pixels.\nNegative tightens. Default 0. Element-level only: a run cannot override it. None is\nadded between two letters of the same joining script, such as Arabic. An animatable\nproperty: keyframe values are integers, and the resolved value is never rounded.\nAny non-zero value or keyframe switches the optional ligatures `liga`, `clig` and\n`dlig` off for the whole element, outside the joining scripts (ADR-0151, ADR-0153).",
+              "description": "Space added after every grapheme of a line but the last, in **thousandths of an em**\nof the size of the run the grapheme sits in: `size × letter_spacing / 1000` pixels.\nNegative tightens. Default 0. A run may override it with a static value when element\n`letter_spacing` is omitted or static (ADR-0223 §4). None is added between two letters\nof the same joining script, such as Arabic. An animatable property: keyframe values are\nintegers, and the resolved value is never rounded. Any non-zero value or keyframe\nswitches the optional ligatures `liga`, `clig` and `dlig` off for the whole element,\noutside the joining scripts (ADR-0151, ADR-0153, ADR-0223).",
               "$ref": "#/$defs/Animatableint64"
+            },
+            "features": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/FontFeature"
+              },
+              "description": "Closed set of OpenType feature tags enabled across all runs that do not supply their\nown `features` list (ADR-0223 §2).",
+              "minItems": 1,
+              "uniqueItems": true,
+              "not": {
+                "anyOf": [
+                  {
+                    "allOf": [
+                      {
+                        "contains": {
+                          "const": "tnum"
+                        }
+                      },
+                      {
+                        "contains": {
+                          "const": "onum"
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "allOf": [
+                      {
+                        "contains": {
+                          "const": "sups"
+                        }
+                      },
+                      {
+                        "contains": {
+                          "const": "subs"
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }
             },
             "units": {
               "description": "A stagger over the element's letters, words or lines (ADR-0151 §2–§3): each unit runs\nthe block's lists late by its delay. A `by: letter` block switches the optional\nligatures off as a non-zero `letter_spacing` does.",
@@ -4268,6 +4341,60 @@
         "decoration": {
           "description": "Multi-line text range decoration rendered as per-line `SkRRect` fragments behind\nthe run's glyphs (ADR-0214).",
           "$ref": "#/$defs/Decoration"
+        },
+        "features": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/FontFeature"
+          },
+          "description": "Closed set of OpenType feature tags enabled on this run, overriding the element's\n`features` list when present (ADR-0223 §2).",
+          "minItems": 1,
+          "uniqueItems": true,
+          "not": {
+            "anyOf": [
+              {
+                "allOf": [
+                  {
+                    "contains": {
+                      "const": "tnum"
+                    }
+                  },
+                  {
+                    "contains": {
+                      "const": "onum"
+                    }
+                  }
+                ]
+              },
+              {
+                "allOf": [
+                  {
+                    "contains": {
+                      "const": "sups"
+                    }
+                  },
+                  {
+                    "contains": {
+                      "const": "subs"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        "baseline_shift": {
+          "type": "integer",
+          "format": "int64",
+          "description": "Vertical baseline offset in integer pixels (`> 0` raises glyphs toward `-Y`; `< 0`\nlowers glyphs toward `+Y`) without altering line slot height or shared `baseline_y`\n(ADR-0223 §3). Explicit `0` is forbidden (ADR-0030).",
+          "not": {
+            "const": 0
+          }
+        },
+        "letter_spacing": {
+          "type": "integer",
+          "format": "int64",
+          "description": "Static per-run tracking override in thousandths of an em of this run's resolved font\nsize (`0` explicitly resets element-level tracking across this run; ADR-0223 §4)."
         }
       },
       "required": [
@@ -4676,6 +4803,21 @@
         "end"
       ],
       "description": "Timed active window `[start, end)` on the project's absolute timeline for a run's\ndecoration, with optional linear fade-in and fade-out ramps (ADR-0214 §1, §3)."
+    },
+    "FontFeature": {
+      "type": "string",
+      "enum": [
+        "tnum",
+        "onum",
+        "zero",
+        "smcp",
+        "c2sc",
+        "sups",
+        "subs",
+        "frac",
+        "ordn"
+      ],
+      "description": "The closed set of OpenType feature tags an author may enable on a `text` element or `run`\n(ADR-0223 §2)."
     },
     "Units": {
       "type": "object",

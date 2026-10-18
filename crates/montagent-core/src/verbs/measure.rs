@@ -690,6 +690,7 @@ pub(crate) fn try_measure_element_at(
             align: align_of(element),
             letter_spacing: letter_spacing as f64,
             optional_ligatures_off: optional_ligatures_off(element),
+            features: features_of(element),
         },
     )
     // Unreachable while every key above registered, and reported rather than `expect`ed
@@ -994,6 +995,7 @@ fn populate_layout_and_ranges(
             align: align_of(element),
             letter_spacing: letter_spacing as f64,
             optional_ligatures_off: optional_ligatures_off(element),
+            features: features_of(element),
         },
     )
     .map_err(ElementError::Font)?;
@@ -1021,6 +1023,12 @@ fn populate_layout_and_ranges(
     let total_chars = char_to_byte.len();
     char_to_byte.push(full_text.len());
     let byte_to_char = |b: usize| -> usize { full_text[..b.min(full_text.len())].chars().count() };
+
+    let cluster_shift = |c: &montagent_text::Cluster| -> f64 {
+        runs.get(c.run)
+            .and_then(|r| r.baseline_shift)
+            .unwrap_or(0) as f64
+    };
 
     if layout {
         let seg = montagent_text::units::segment(&full_text, montagent_text::units::By::Word);
@@ -1062,8 +1070,14 @@ fn populate_layout_and_ranges(
                 .iter()
                 .map(|c| block_left + c.x + c.advance)
                 .fold(f64::NEG_INFINITY, f64::max);
-            let y0 = line_info.baseline_y - line_info.ascent;
-            let y1 = line_info.baseline_y + line_info.descent;
+            let y0 = matching
+                .iter()
+                .map(|c| line_info.baseline_y - cluster_shift(c) - line_info.ascent)
+                .fold(f64::INFINITY, f64::min);
+            let y1 = matching
+                .iter()
+                .map(|c| line_info.baseline_y - cluster_shift(c) + line_info.descent)
+                .fold(f64::NEG_INFINITY, f64::max);
             let ink_box = union_cluster_ink(&matching, block_left);
             words.push(LayoutWord {
                 text: full_text[w_start..w_end].to_string(),
@@ -1192,8 +1206,14 @@ fn populate_layout_and_ranges(
                     .iter()
                     .map(|c| block_left + c.x + c.advance)
                     .fold(f64::NEG_INFINITY, f64::max);
-                let y0 = line_info.baseline_y - line_info.ascent;
-                let y1 = line_info.baseline_y + line_info.descent;
+                let y0 = line_clusters
+                    .iter()
+                    .map(|c| line_info.baseline_y - cluster_shift(c) - line_info.ascent)
+                    .fold(f64::INFINITY, f64::min);
+                let y1 = line_clusters
+                    .iter()
+                    .map(|c| line_info.baseline_y - cluster_shift(c) + line_info.descent)
+                    .fold(f64::NEG_INFINITY, f64::max);
                 let ink_box = union_cluster_ink(&line_clusters, block_left);
                 boxes.push(LayoutBox {
                     line: line_idx,
@@ -1436,8 +1456,19 @@ pub(crate) fn runs_of(element: &Value) -> Vec<Run<'_>> {
                     gap: ann.get("gap").and_then(Value::as_i64),
                 })
             }),
+            features: features_of(run),
+            baseline_shift: run.get("baseline_shift").and_then(Value::as_i64),
+            letter_spacing: run.get("letter_spacing").and_then(Value::as_i64),
         })
         .collect()
+}
+
+/// The closed OpenType feature tags declared on an element or run (ADR-0223 §2).
+pub(crate) fn features_of(container: &Value) -> Option<Vec<&str>> {
+    container
+        .get("features")
+        .and_then(Value::as_array)
+        .map(|arr| arr.iter().filter_map(Value::as_str).collect())
 }
 
 /// `align` — how the lines sit against each other (ADR-0007), never how the box is placed.
@@ -1492,21 +1523,28 @@ pub(crate) fn written_letter_spacings(element: &Value) -> Vec<i64> {
     values
 }
 
-/// **The ligature rule** (ADR-0151 §1, ADR-0153 §3): whether the element is shaped with its
-/// optional ligatures off, outside the joining scripts.
+/// **The ligature rule** (ADR-0151 §1, ADR-0153 §3, ADR-0223 §4.4): whether the element is
+/// shaped with its optional ligatures off, outside the joining scripts.
 ///
 /// Read from the file, never from the instant: any non-zero `letter_spacing` value or
-/// keyframe switches them off for the element's whole range, so a spacing animation that
-/// passes through 0 never swaps glyphs mid-shot, and `validate` can say from the file how
-/// the element shapes. The second trigger ADR-0151 names — a `units` block with
-/// `by: letter` — is the other condition: a ligature would weld two letters' timings.
+/// keyframe (or any run with a non-zero `Run.letter_spacing`) switches them off for the
+/// element's whole range, so a spacing animation that passes through 0 never swaps glyphs
+/// mid-shot, and `validate` can say from the file how the element shapes. The second trigger
+/// ADR-0151 names — a `units` block with `by: letter` — is the other condition: a ligature
+/// would weld two letters' timings.
 pub(crate) fn optional_ligatures_off(element: &Value) -> bool {
     let by_letter = element
         .get("units")
         .and_then(|units| units.get("by"))
         .and_then(Value::as_str)
         == Some("letter");
+    let run_letter_spacing = runs_array(element).iter().any(|run| {
+        run.get("letter_spacing")
+            .and_then(Value::as_i64)
+            .is_some_and(|v| v != 0)
+    });
     by_letter
+        || run_letter_spacing
         || match element.get("letter_spacing") {
             Some(Value::Array(records)) => records.iter().any(|record| {
                 record
@@ -1554,7 +1592,15 @@ pub(crate) fn register(
         .filter_map(|entry| {
             let file = entry.get("file").and_then(Value::as_str)?;
             let index = entry.get("index").and_then(Value::as_u64).map(|i| i as u32);
-            Some(montagent_text::fonts::resolve(file, index, &base))
+            let mut font_file = montagent_text::fonts::resolve(file, index, &base);
+            if let Some(axes) = entry.get("axes").and_then(Value::as_object) {
+                for tag in ["wght", "wdth", "slnt", "ital", "opsz"] {
+                    if let Some(val) = axes.get(tag).and_then(Value::as_f64) {
+                        font_file.axes.push((tag.to_string(), val as f32));
+                    }
+                }
+            }
+            Some(font_file)
         })
         .collect();
 

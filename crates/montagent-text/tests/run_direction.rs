@@ -20,7 +20,14 @@ fn fonts() -> Fonts {
         .join(OPEN_RUNDE);
     let mut fonts = Fonts::new();
     fonts
-        .register("k", &[FontFile { path, index: None }])
+        .register(
+            "k",
+            &[FontFile {
+                path,
+                index: None,
+                axes: Vec::new(),
+            }],
+        )
         .expect("the fixture's face registers");
     fonts
 }
@@ -37,6 +44,7 @@ fn spec<'a>(runs: &'a [Run<'a>], align: Align) -> Spec<'a> {
         align,
         letter_spacing: 0.0,
         optional_ligatures_off: false,
+        features: None,
     }
 }
 

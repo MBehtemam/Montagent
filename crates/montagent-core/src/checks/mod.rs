@@ -86,10 +86,11 @@ pub(crate) fn project_dir(document: &crate::permissive::Loose) -> std::path::Pat
         .to_path_buf()
 }
 
-/// One run of a `text` element: its own text, and the `font` delta it states over the
-/// element's base style (ADR-0007).
+/// One run of a `text` element: its own text, and the `font` and `features` deltas it states
+/// over the element's base style (ADR-0007, ADR-0223).
 pub(crate) struct StyledRun {
     pub(crate) font: Option<String>,
+    pub(crate) features: Option<Vec<String>>,
     pub(crate) text: String,
 }
 
@@ -109,6 +110,8 @@ pub(crate) struct StyledText {
     /// The element's base `font`, where it states one readably. A run with no delta of its
     /// own is set in this.
     pub(crate) font: Option<String>,
+    /// The element's base `features` list, where it states one readably (ADR-0223 §2).
+    pub(crate) features: Option<Vec<String>>,
     pub(crate) runs: Vec<StyledRun>,
 }
 
@@ -118,6 +121,18 @@ impl StyledText {
     pub(crate) fn joined(&self) -> String {
         self.runs.iter().map(|run| run.text.as_str()).collect()
     }
+}
+
+fn feature_list(container: &serde_json::Value) -> Option<Vec<String>> {
+    container
+        .get("features")
+        .and_then(serde_json::Value::as_array)
+        .map(|arr| {
+            arr.iter()
+                .filter_map(serde_json::Value::as_str)
+                .map(str::to_string)
+                .collect()
+        })
 }
 
 /// Every `text` element, in document order.
@@ -138,6 +153,7 @@ pub(crate) fn styled_text(document: &crate::permissive::Loose) -> Vec<StyledText
                 .get("font")
                 .and_then(Value::as_str)
                 .map(str::to_string),
+            features: feature_list(element),
             runs: element
                 .get("runs")
                 .and_then(Value::as_array)
@@ -146,6 +162,7 @@ pub(crate) fn styled_text(document: &crate::permissive::Loose) -> Vec<StyledText
                 .iter()
                 .map(|run| StyledRun {
                     font: run.get("font").and_then(Value::as_str).map(str::to_string),
+                    features: feature_list(run),
                     text: run
                         .get("text")
                         .and_then(Value::as_str)

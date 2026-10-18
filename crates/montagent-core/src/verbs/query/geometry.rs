@@ -502,6 +502,7 @@ pub fn ink_box(
             // The spaced line at this instant (ADR-0151): the ink box measures it.
             letter_spacing: crate::verbs::measure::letter_spacing_at(element, instant),
             optional_ligatures_off: crate::verbs::measure::optional_ligatures_off(element),
+            features: crate::verbs::measure::features_of(element),
         },
     )
     .map_err(|e| e.to_string())?;
@@ -530,8 +531,8 @@ pub fn ink_box(
         let right = left + line.extent_width;
         ink_left = ink_left.min(left);
         ink_right = ink_right.max(right);
-        ink_top = ink_top.min(line.baseline_y - line.ascent - stroke);
-        ink_bottom = ink_bottom.max(line.baseline_y + line.descent + stroke);
+        ink_top = ink_top.min(line.baseline_y - line.shifted_ascent - stroke);
+        ink_bottom = ink_bottom.max(line.baseline_y + line.shifted_descent + stroke);
     }
     for ann in &measured.annotations {
         let left = block_left + ann.x;

@@ -59,8 +59,8 @@ pub use stroke::{DashPattern, MiterLimit, StrokeCap, StrokeJoin, TrimFraction};
 pub use text::{
     Align, Annotation, AnnotationAlign, AnnotationOverhang, AnnotationOverhangMode,
     AnnotationPosition, Decoration, DecorationBreak, DecorationKind, DecorationPadding,
-    DecorationWindow, Dir, EdgePadding, Highlight, Run, SymmetricPadding, UnitBy, UnitOrder,
-    UnitOverride, Units,
+    DecorationWindow, Dir, EdgePadding, FontFeature, Highlight, Run, SymmetricPadding, UnitBy,
+    UnitOrder, UnitOverride, Units,
 };
 
 /// `[sx, sy]`, never a bare number.
@@ -363,6 +363,84 @@ pub struct FontFile {
     /// are collections, so this is the normal case rather than an exotic one.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub index: Option<u32>,
+    /// Static variable-font axis coordinates pinned on this face (ADR-0223 §1).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub axes: Option<FontAxes>,
+}
+
+/// Static variable-font axis coordinates pinned on a [`FontFile`] entry (ADR-0223 §1).
+#[derive(Debug, Clone, PartialEq, Serialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct FontAxes {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub wght: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub wdth: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub slnt: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ital: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub opsz: Option<f64>,
+}
+
+impl Eq for FontAxes {}
+
+impl FontAxes {
+    /// The pinned `(tag, value)` pairs in canonical axis order.
+    pub fn iter(&self) -> impl Iterator<Item = (&'static str, f64)> {
+        [
+            ("wght", self.wght),
+            ("wdth", self.wdth),
+            ("slnt", self.slnt),
+            ("ital", self.ital),
+            ("opsz", self.opsz),
+        ]
+        .into_iter()
+        .filter_map(|(tag, value)| value.map(|v| (tag, v)))
+    }
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct FontAxesWritten {
+    #[serde(default)]
+    wght: Option<f64>,
+    #[serde(default)]
+    wdth: Option<f64>,
+    #[serde(default)]
+    slnt: Option<f64>,
+    #[serde(default)]
+    ital: Option<f64>,
+    #[serde(default)]
+    opsz: Option<f64>,
+}
+
+impl<'de> Deserialize<'de> for FontAxes {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let w = FontAxesWritten::deserialize(deserializer)?;
+        let axes = FontAxes {
+            wght: w.wght,
+            wdth: w.wdth,
+            slnt: w.slnt,
+            ital: w.ital,
+            opsz: w.opsz,
+        };
+        if axes.iter().next().is_none() {
+            return Err(D::Error::custom(
+                "a font's `axes` is empty: name at least one of `wght`, `wdth`, `slnt`, `ital`, \
+                 or `opsz`, or omit `axes` (ADR-0030, ADR-0223)",
+            ));
+        }
+        for (tag, value) in axes.iter() {
+            if !value.is_finite() {
+                return Err(D::Error::custom(format!(
+                    "a font's `axes.{tag}` must be a finite number (ADR-0223)"
+                )));
+            }
+        }
+        Ok(axes)
+    }
 }
 
 /// What `fonts vendor` learned about one font file, keyed by that file's path.
@@ -847,13 +925,18 @@ pub struct TextElement {
     pub stroke_width: Option<Animatable<Length>>,
     /// Space added after every grapheme of a line but the last, in **thousandths of an em**
     /// of the size of the run the grapheme sits in: `size × letter_spacing / 1000` pixels.
-    /// Negative tightens. Default 0. Element-level only: a run cannot override it. None is
-    /// added between two letters of the same joining script, such as Arabic. An animatable
-    /// property: keyframe values are integers, and the resolved value is never rounded.
-    /// Any non-zero value or keyframe switches the optional ligatures `liga`, `clig` and
-    /// `dlig` off for the whole element, outside the joining scripts (ADR-0151, ADR-0153).
+    /// Negative tightens. Default 0. A run may override it with a static value when element
+    /// `letter_spacing` is omitted or static (ADR-0223 §4). None is added between two letters
+    /// of the same joining script, such as Arabic. An animatable property: keyframe values are
+    /// integers, and the resolved value is never rounded. Any non-zero value or keyframe
+    /// switches the optional ligatures `liga`, `clig` and `dlig` off for the whole element,
+    /// outside the joining scripts (ADR-0151, ADR-0153, ADR-0223).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub letter_spacing: Option<Animatable<i64>>,
+    /// Closed set of OpenType feature tags enabled across all runs that do not supply their
+    /// own `features` list (ADR-0223 §2).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub features: Option<Vec<FontFeature>>,
     /// A stagger over the element's letters, words or lines (ADR-0151 §2–§3): each unit runs
     /// the block's lists late by its delay. A `by: letter` block switches the optional
     /// ligatures off as a non-zero `letter_spacing` does.
@@ -909,8 +992,11 @@ pub struct TextElement {
 impl TextElement {
     /// ADR-0164 §1's range, which [`PathOffset`] states in the schema and a bare number here
     /// cannot enforce: `path_offset` runs from −1 to 2, in a static value and in every
-    /// keyframe record.
+    /// keyframe record. Also validates ADR-0223 §2's `features` rules.
     fn checked(self) -> Result<Self, String> {
+        if let Some(ref features) = self.features {
+            text::validate_features(features, "a `text` element")?;
+        }
         let stated: Vec<f64> = match &self.path_offset {
             None => Vec::new(),
             Some(Animatable::Static(PathOffset(value))) => vec![*value],

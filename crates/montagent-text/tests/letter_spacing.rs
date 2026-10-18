@@ -27,6 +27,7 @@ fn fonts() -> Fonts {
             &[FontFile {
                 path: workspace(OPEN_RUNDE),
                 index: None,
+                axes: Vec::new(),
             }],
         )
         .expect("the fixture's face registers");
@@ -45,6 +46,7 @@ fn spec<'a>(runs: &'a [Run<'a>], letter_spacing: f64) -> Spec<'a> {
         align: Align::Start,
         letter_spacing,
         optional_ligatures_off: letter_spacing != 0.0,
+        features: None,
     }
 }
 
@@ -160,10 +162,12 @@ fn mixed_fonts() -> Fonts {
                 FontFile {
                     path: workspace(OSWALD),
                     index: None,
+                    axes: Vec::new(),
                 },
                 FontFile {
                     path: workspace(NASKH),
                     index: None,
+                    axes: Vec::new(),
                 },
             ],
         )

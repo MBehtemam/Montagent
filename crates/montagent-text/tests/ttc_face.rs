@@ -124,6 +124,7 @@ fn width(path: &Path, index: Option<u32>) -> f64 {
             &[FontFile {
                 path: path.to_path_buf(),
                 index,
+                axes: Vec::new(),
             }],
         )
         .unwrap_or_else(|e| panic!("registering {path:?} index {index:?}: {e}"));
@@ -132,11 +133,7 @@ fn width(path: &Path, index: Option<u32>) -> f64 {
         &Spec {
             runs: &[Run {
                 text: "Handgloves",
-                font: None,
-                size: None,
-                stroke_width: None,
-                dir: None,
-                annotation: None,
+                ..Run::default()
             }],
             font: "k",
             size: 100,
@@ -147,6 +144,7 @@ fn width(path: &Path, index: Option<u32>) -> f64 {
             align: Align::Start,
             letter_spacing: 0.0,
             optional_ligatures_off: false,
+            features: None,
         },
     )
     .unwrap_or_else(|e| panic!("measuring in {path:?} index {index:?}: {e}"))
@@ -267,6 +265,7 @@ fn an_index_past_the_end_names_no_face_and_says_how_many_there_are() {
             &[FontFile {
                 path: built.collection.clone(),
                 index: Some(3),
+                axes: Vec::new(),
             }],
         )
         .expect_err("face 3 of a three-face collection does not exist");
@@ -296,6 +295,7 @@ fn a_single_face_file_takes_index_zero_and_refuses_any_other() {
             &[FontFile {
                 path: built.faces[0].clone(),
                 index: Some(1),
+                axes: Vec::new(),
             }],
         )
         .expect_err("a single-face file has no face 1");
@@ -313,6 +313,7 @@ fn a_file_that_is_not_a_font_is_refused_as_one() {
             &[FontFile {
                 path: path.clone(),
                 index: None,
+                axes: Vec::new(),
             }],
         )
         .expect_err("prose is not a font");

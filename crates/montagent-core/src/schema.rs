@@ -30,7 +30,57 @@ pub fn generate() -> Value {
     publish_video_source(&mut schema);
     publish_projection(&mut schema);
     publish_decoration_rules(&mut schema);
+    publish_typography_rules(&mut schema);
     header_first(schema)
+}
+
+/// Say ADR-0223's structural rules in the published schema where the types enforce them in
+/// their deserializers: `FontAxes` names at least one axis, `Run.baseline_shift` is non-zero,
+/// and `features` on a `text` element or `run` is non-empty, unique, and does not combine
+/// `tnum` with `onum` or `sups` with `subs`.
+fn publish_typography_rules(schema: &mut Value) {
+    if let Some(Value::Object(axes)) = schema.pointer_mut("/$defs/FontAxes") {
+        axes.insert("minProperties".into(), json!(1));
+    }
+
+    if let Some(Value::Object(shift)) =
+        schema.pointer_mut("/$defs/Run/properties/baseline_shift")
+    {
+        shift.insert("not".into(), json!({"const": 0}));
+    }
+
+    let feature_rules = |prop: &mut serde_json::Map<String, Value>| {
+        prop.insert("minItems".into(), json!(1));
+        prop.insert("uniqueItems".into(), json!(true));
+        prop.insert(
+            "not".into(),
+            json!({
+                "anyOf": [
+                    {"allOf": [{"contains": {"const": "tnum"}}, {"contains": {"const": "onum"}}]},
+                    {"allOf": [{"contains": {"const": "sups"}}, {"contains": {"const": "subs"}}]},
+                ]
+            }),
+        );
+    };
+
+    if let Some(Value::Object(run_features)) =
+        schema.pointer_mut("/$defs/Run/properties/features")
+    {
+        feature_rules(run_features);
+    }
+
+    if let Some(Value::Object(text_features)) = schema
+        .pointer_mut("/$defs/Element/oneOf")
+        .and_then(Value::as_array_mut)
+        .and_then(|branches| {
+            branches.iter_mut().find(|branch| {
+                branch.pointer("/properties/type/const") == Some(&Value::String("text".into()))
+            })
+        })
+        .and_then(|branch| branch.pointer_mut("/properties/features"))
+    {
+        feature_rules(text_features);
+    }
 }
 
 /// Say ADR-0214 §1's relational rules about a run's `decoration` in the schema, where the

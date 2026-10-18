@@ -60,10 +60,12 @@ use crate::report::Report;
 /// check reads only the document and the files it names.
 pub fn check(document: &Loose, cache: Option<&Path>, report: &mut Report) {
     attestation(document, report);
+    axis_bounds(document, report);
 
     let elements = crate::checks::styled_text(document);
     let usage = font_usage(&elements);
     glyph_coverage(document, &usage, report);
+    feature_support(document, &elements, report);
     font_census(document, &usage, report);
     font_swap(document, cache, &usage, report);
 }
@@ -399,13 +401,21 @@ struct Chains<'a> {
 /// set per face that could be read.
 struct Chain {
     files: Vec<String>,
-    faces: Vec<Charmap>,
+    faces: Vec<(String, Charmap)>,
 }
 
 impl Chain {
     /// ADR-0007: *"Fallback walks the chain and stops."*
     fn covers(&self, c: char) -> bool {
-        self.faces.iter().any(|face| face.covers(c))
+        self.faces.iter().any(|(_, face)| face.covers(c))
+    }
+
+    /// The first face in the chain that covers `c`, or the primary face if none does.
+    fn resolve(&self, c: char) -> Option<&(String, Charmap)> {
+        self.faces
+            .iter()
+            .find(|(_, face)| face.covers(c))
+            .or_else(|| self.faces.first())
     }
 }
 
@@ -453,11 +463,156 @@ impl<'a> Chains<'a> {
             };
             let index = entry.get("index").and_then(Value::as_u64).map(|i| i as u32);
             if let Ok(charmap) = Charmap::of(&bytes, index) {
-                faces.push(charmap);
+                faces.push((file.to_string(), charmap));
             }
         }
 
         (!faces.is_empty()).then_some(Chain { files, faces })
+    }
+}
+
+const KNOWN_AXES: [&str; 5] = ["wght", "wdth", "slnt", "ital", "opsz"];
+const KNOWN_FEATURES: [&str; 9] = [
+    "tnum", "onum", "zero", "smcp", "c2sc", "sups", "subs", "frac", "ordn",
+];
+
+/// ADR-0223 §1.3: every axis tag on a `FontFile.axes` entry must exist in the face's
+/// `fvar` table and its coordinate must fall within the axis's `[min_value, max_value]`
+/// range.
+fn axis_bounds(document: &Loose, report: &mut Report) {
+    let Some(fonts) = document.value().get("fonts").and_then(Value::as_object) else {
+        return;
+    };
+    let base = crate::checks::project_dir(document);
+
+    for (key, chain) in fonts {
+        let Some(entries) = chain.as_array() else {
+            continue;
+        };
+        for entry in entries {
+            let Some(file) = entry.get("file").and_then(Value::as_str) else {
+                continue;
+            };
+            let Some(axes) = entry.get("axes").and_then(Value::as_object) else {
+                continue;
+            };
+            if axes.is_empty() {
+                continue;
+            }
+            let Ok(bytes) = std::fs::read(base.join(file)) else {
+                continue;
+            };
+            let index = entry.get("index").and_then(Value::as_u64).map(|i| i as u32);
+            let Ok(charmap) = Charmap::of(&bytes, index) else {
+                continue;
+            };
+
+            for tag in KNOWN_AXES {
+                let Some(val) = axes.get(tag).and_then(Value::as_f64) else {
+                    continue;
+                };
+                if !val.is_finite() {
+                    continue;
+                }
+                match charmap.axis_range(tag) {
+                    None => {
+                        report.push(
+                            Finding::new("E-FONT-AXIS")
+                                .at_file(document.path())
+                                .field("font", json!(key))
+                                .field("file", json!(file))
+                                .field("axis", json!(tag))
+                                .field(
+                                    "detail",
+                                    json!("is not exposed in the face's `fvar` table"),
+                                ),
+                        );
+                    }
+                    Some((min, max)) => {
+                        let coord = val as f32;
+                        if coord < min || coord > max {
+                            report.push(
+                                Finding::new("E-FONT-AXIS")
+                                    .at_file(document.path())
+                                    .field("font", json!(key))
+                                    .field("file", json!(file))
+                                    .field("axis", json!(tag))
+                                    .field("value", json!(val))
+                                    .field("min", json!(min))
+                                    .field("max", json!(max))
+                                    .field(
+                                        "detail",
+                                        json!(format!(
+                                            "is {val}, outside the face's `fvar` range [{min}, {max}]"
+                                        )),
+                                    ),
+                            );
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// ADR-0223 §2.3: every face used to shape a run must declare every active OpenType
+/// feature tag on that run in its `GSUB` or `GPOS` table.
+fn feature_support(document: &Loose, elements: &[StyledText], report: &mut Report) {
+    let mut chains = Chains::of(document);
+
+    for element in elements {
+        let mut reported: BTreeSet<(String, String, String)> = BTreeSet::new();
+        for run in &element.runs {
+            let Some(features) = run.features.as_ref().or(element.features.as_ref()) else {
+                continue;
+            };
+            if features.is_empty() {
+                continue;
+            }
+            let Some(key) = run.font.as_deref().or(element.font.as_deref()) else {
+                continue;
+            };
+            let Some(chain) = chains.get(key) else {
+                continue;
+            };
+
+            let mut used_faces: Vec<&(String, Charmap)> = Vec::new();
+            for c in run.text.chars().filter(|&c| !drawn_by_no_font(c)) {
+                if let Some(resolved) = chain.resolve(c)
+                    && !used_faces.iter().any(|(f, _)| f == &resolved.0)
+                {
+                    used_faces.push(resolved);
+                }
+            }
+            if used_faces.is_empty()
+                && let Some(first) = chain.faces.first()
+            {
+                used_faces.push(first);
+            }
+
+            for (file, charmap) in used_faces {
+                for feature in features {
+                    if !KNOWN_FEATURES.contains(&feature.as_str()) {
+                        continue;
+                    }
+                    if !charmap.has_feature(feature)
+                        && reported.insert((key.to_string(), file.clone(), feature.clone()))
+                    {
+                        let mut finding = Finding::new("E-FONT-FEATURE")
+                            .at_file(document.path())
+                            .at_element(element.subject.clone())
+                            .field("element", json!(element.subject))
+                            .field("font", json!(key))
+                            .field("file", json!(file))
+                            .field("feature", json!(feature));
+                        if let Some(track) = &element.track {
+                            finding = finding.at_track(track.clone());
+                        }
+                        report.push(finding);
+                    }
+                }
+            }
+        }
     }
 }
 

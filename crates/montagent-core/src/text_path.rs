@@ -243,7 +243,8 @@ pub(crate) fn place(
     t: (i128, i128),
 ) -> Result<Placement, String> {
     use crate::verbs::measure::{
-        Measurable, align_of, letter_spacing_read, optional_ligatures_off, register, runs_of,
+        Measurable, align_of, features_of, letter_spacing_read, optional_ligatures_off, register,
+        runs_of,
     };
     let style = Measurable::of(element)?;
     let mut fonts = montagent_text::Fonts::new();
@@ -264,6 +265,7 @@ pub(crate) fn place(
             align: align_of(element),
             letter_spacing: letter_spacing_read(element, t),
             optional_ligatures_off: optional_ligatures_off(element),
+            features: features_of(element),
         },
     )
     .map_err(|e| e.to_string())
