@@ -557,6 +557,8 @@ impl Effect {
             Effect::DirectionalBlur { .. } => "directional_blur",
             Effect::Cdl { .. } => "cdl",
             Effect::Lut3d { .. } => "lut3d",
+            Effect::Matte { .. } => "matte",
+            Effect::LumaKey { .. } => "luma_key",
         }
     }
 }
@@ -655,6 +657,19 @@ pub enum Effect {
         size: u32,
         table: Vec<u8>,
         intensity: f64,
+    },
+    /// Standalone matte refinement (`choke`, `feather`, `contrast`) on the alpha channel (ADR-0227 §1).
+    Matte {
+        choke: f64,
+        feather: f64,
+        contrast: f64,
+    },
+    /// Luminance keyer (`threshold`, `tolerance`, `softness`, `invert`) on Rec.709 luma (ADR-0227 §2).
+    LumaKey {
+        threshold: f64,
+        tolerance: f64,
+        softness: f64,
+        invert: bool,
     },
 }
 
@@ -1079,6 +1094,17 @@ impl Effect {
                 let cf = lut3d::lut3d_filter(size, table, intensity)?;
                 image_filters::color_filter(cf, None, None)
             }
+            Effect::Matte {
+                choke,
+                feather,
+                contrast,
+            } => named::matte(choke, feather, contrast),
+            Effect::LumaKey {
+                threshold,
+                tolerance,
+                softness,
+                invert,
+            } => named::luma_key(threshold, tolerance, softness, invert),
         }
     }
 
@@ -1192,7 +1218,9 @@ impl Effect {
             | Effect::Glow { .. }
             | Effect::DirectionalBlur { .. }
             | Effect::Cdl { .. }
-            | Effect::Lut3d { .. } => [
+            | Effect::Lut3d { .. }
+            | Effect::Matte { .. }
+            | Effect::LumaKey { .. } => [
                 1.0, 0.0, 0.0, 0.0, 0.0, //
                 0.0, 1.0, 0.0, 0.0, 0.0, //
                 0.0, 0.0, 1.0, 0.0, 0.0, //

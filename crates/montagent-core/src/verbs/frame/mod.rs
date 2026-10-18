@@ -3249,6 +3249,44 @@ pub(crate) fn effect_of(
                 intensity: intensity.unwrap_or(1.0),
             }
         }
+        model::Effect::Matte {
+            choke,
+            feather,
+            contrast,
+        } => Effect::Matte {
+            choke: match choke {
+                Some(_) => number("choke")?,
+                None => 0.0,
+            },
+            feather: match feather {
+                Some(_) => number("feather")?,
+                None => 0.0,
+            },
+            contrast: match contrast {
+                Some(_) => number("contrast")?,
+                None => 1.0,
+            },
+        },
+        model::Effect::LumaKey {
+            threshold,
+            tolerance,
+            softness,
+            invert,
+        } => Effect::LumaKey {
+            threshold: match threshold {
+                Some(_) => number("threshold")?,
+                None => 0.0,
+            },
+            tolerance: match tolerance {
+                Some(_) => number("tolerance")?,
+                None => 0.1,
+            },
+            softness: match softness {
+                Some(_) => number("softness")?,
+                None => 0.0,
+            },
+            invert: invert.unwrap_or(false),
+        },
     })
 }
 
