@@ -508,6 +508,9 @@ fn every_numeric_and_colour_effect_parameter_is_in_the_list() {
             ("vibrance", vec!["amount"]),
             ("hue_rotate", vec!["angle"]),
             ("invert", vec!["amount"]),
+            ("outline", vec!["width", "color", "opacity"]),
+            ("color_overlay", vec!["color", "opacity"]),
+            ("inner_shadow", vec!["dx", "dy", "radius", "color", "opacity"]),
         ]
     );
     let (_, chroma) = animatable::effect_members()

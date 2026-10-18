@@ -3289,6 +3289,28 @@ pub(crate) fn effect_of(
         model::Effect::Invert { .. } => Effect::Invert {
             amount: number("amount")?,
         },
+        model::Effect::Outline { opacity, .. } => Effect::Outline {
+            width: number("width")?,
+            colour: colour("color")?,
+            opacity: match opacity {
+                Some(_) => number("opacity")?,
+                None => 1.0,
+            },
+        },
+        model::Effect::ColorOverlay { opacity, .. } => Effect::ColorOverlay {
+            colour: colour("color")?,
+            opacity: match opacity {
+                Some(_) => number("opacity")?,
+                None => 1.0,
+            },
+        },
+        model::Effect::InnerShadow { .. } => Effect::InnerShadow {
+            dx: number("dx")?,
+            dy: number("dy")?,
+            radius: number("radius")?,
+            colour: colour("color")?,
+            opacity: number("opacity")?,
+        },
     })
 }
 

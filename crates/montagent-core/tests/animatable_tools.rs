@@ -199,6 +199,12 @@ fn effect(name: &str) -> Value {
         "glow" => json!({"name": "glow", "threshold": 0.5, "radius": 10, "intensity": 1}),
         "directional_blur" => json!({"name": "directional_blur", "angle": 30, "length": 12}),
         "hue_rotate" => json!({"name": "hue_rotate", "angle": 45}),
+        "outline" => json!({"name": "outline", "width": 4, "color": "#FFFFFF", "opacity": 0.5}),
+        "color_overlay" => json!({"name": "color_overlay", "color": "#FF0000", "opacity": 0.5}),
+        "inner_shadow" => {
+            json!({"name": "inner_shadow", "dx": 4, "dy": 4, "radius": 6, "color": "#000000",
+                   "opacity": 0.5})
+        }
         other => panic!("no static `{other}` for this test to key a parameter of"),
     }
 }
