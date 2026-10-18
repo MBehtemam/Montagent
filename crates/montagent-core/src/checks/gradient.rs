@@ -75,7 +75,10 @@ fn one_colour(element: &Value, name: &str, written: &Value, fps: i64) -> Option<
         .map(|stop| stop.color.as_str().to_string())
         .unwrap_or_default();
     let cause = match &gradient {
-        crate::model::ResolvedGradient::Radial { radius, .. } if radius.fraction() <= 0.0 => {
+        crate::model::ResolvedGradient::Radial { radius, .. }
+        | crate::model::ResolvedGradient::TwoPointConical { radius, .. }
+            if radius.fraction() <= 0.0 =>
+        {
             "its `radius` is 0, which paints the last stop's colour over the box"
         }
         _ => "every stop has that colour",
@@ -94,7 +97,7 @@ fn one_colour(element: &Value, name: &str, written: &Value, fps: i64) -> Option<
 /// none.
 fn instants(element: &Value, gradient: &Value, fps: i64) -> Vec<i64> {
     let start = element.get("start").and_then(Value::as_i64).unwrap_or(0);
-    let keyed = ["angle", "center", "radius", "stops"]
+    let keyed = ["angle", "center", "radius", "focal", "stops"]
         .iter()
         .any(|key| gradient.get(key).is_some_and(is_keyframe_list));
     let end = element.get("end").and_then(Value::as_i64);

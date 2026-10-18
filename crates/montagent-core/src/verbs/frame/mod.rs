@@ -2518,7 +2518,7 @@ impl<'a> Painter<'a> {
     }
 }
 
-/// `blend`, as the canvas's mode (ADR-0147). Omitted, or not one of the five words, is
+/// `blend`, as the canvas's mode (ADR-0147, ADR-0221). Omitted, or not a valid blend word, is
 /// `normal`: a bad value is the schema check's error and never reaches a render.
 fn blend_of(element: &Value) -> montagent_render::canvas::Blend {
     use montagent_render::canvas::Blend as Paint;
@@ -2531,6 +2531,18 @@ fn blend_of(element: &Value) -> montagent_render::canvas::Blend {
         model::Blend::Screen => Paint::Screen,
         model::Blend::Overlay => Paint::Overlay,
         model::Blend::Add => Paint::Add,
+        model::Blend::Darken => Paint::Darken,
+        model::Blend::Lighten => Paint::Lighten,
+        model::Blend::ColorDodge => Paint::ColorDodge,
+        model::Blend::ColorBurn => Paint::ColorBurn,
+        model::Blend::HardLight => Paint::HardLight,
+        model::Blend::SoftLight => Paint::SoftLight,
+        model::Blend::Difference => Paint::Difference,
+        model::Blend::Exclusion => Paint::Exclusion,
+        model::Blend::Hue => Paint::Hue,
+        model::Blend::Saturation => Paint::Saturation,
+        model::Blend::Color => Paint::Color,
+        model::Blend::Luminosity => Paint::Luminosity,
     }
 }
 
@@ -3267,6 +3279,15 @@ pub(crate) fn effect_of(
                 intensity: intensity.unwrap_or(1.0),
             }
         }
+        model::Effect::Vibrance { .. } => Effect::Vibrance {
+            amount: number("amount")?,
+        },
+        model::Effect::HueRotate { .. } => Effect::HueRotate {
+            angle: number("angle")?,
+        },
+        model::Effect::Invert { .. } => Effect::Invert {
+            amount: number("amount")?,
+        },
     })
 }
 

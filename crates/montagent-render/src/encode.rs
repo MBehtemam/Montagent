@@ -243,18 +243,20 @@ impl Spec {
             args.push(script.display().to_string());
         }
         args.extend(["-map".to_string(), "0:v".to_string()]);
-        if let Some(Encoded { width, height }) = encoded {
+        const BT709_FILTER: &str = "scale=in_range=pc:out_color_matrix=bt709:out_range=tv,\
+            setparams=colorspace=bt709:color_primaries=bt709:color_trc=bt709:range=tv";
+        let vf = if let Some(Encoded { width, height }) = encoded {
             let pad_color = if self.alpha {
                 "0x00000000".to_string()
             } else {
                 let Rgba([r, g, b, _]) = self.background;
                 format!("0x{r:02X}{g:02X}{b:02X}")
             };
-            args.extend([
-                "-vf".to_string(),
-                format!("pad={width}:{height}:0:0:color={pad_color}"),
-            ]);
-        }
+            format!("pad={width}:{height}:0:0:color={pad_color},{BT709_FILTER}")
+        } else {
+            BT709_FILTER.to_string()
+        };
+        args.extend(["-vf".to_string(), vf]);
 
         let video_codec = self.video_codec.as_deref().unwrap_or("h264");
         match video_codec {
@@ -324,6 +326,16 @@ impl Spec {
                 ]);
             }
         }
+        args.extend([
+            "-colorspace".to_string(),
+            "bt709".to_string(),
+            "-color_primaries".to_string(),
+            "bt709".to_string(),
+            "-color_trc".to_string(),
+            "bt709".to_string(),
+            "-color_range".to_string(),
+            "tv".to_string(),
+        ]);
 
         if self.audio.is_some() {
             args.extend(["-map".to_string(), "[mix]".to_string()]);
@@ -1264,5 +1276,125 @@ mod tests {
         assert_eq!(res.path, target);
         assert!(res.bytes > 0);
         assert!(target.exists());
+    }
+
+    fn find_ffprobe() -> Option<PathBuf> {
+        std::env::var_os("PATH").and_then(|path| {
+            std::env::split_paths(&path)
+                .map(|dir| dir.join("ffprobe"))
+                .find(|candidate| candidate.is_file())
+        })
+    }
+
+    #[test]
+    fn encode_converts_and_tags_bt709_across_h264_prores_and_dnxhr() {
+        const EXPECTED_VF: &str = "scale=in_range=pc:out_color_matrix=bt709:out_range=tv,\
+            setparams=colorspace=bt709:color_primaries=bt709:color_trc=bt709:range=tv";
+
+        // Odd-dimension padding chains before the BT.709 scale+setparams filter in one `-vf`.
+        let padded_spec = Spec::new(15, 15, 25.into(), Rgba([0xDC, 0x3C, 0x28, 0xFF]));
+        let padded_args = padded_spec.ffmpeg_args(
+            Path::new("out.mp4"),
+            Path::new(".out.mp4.tmp"),
+            Some(Encoded {
+                width: 16,
+                height: 16,
+            }),
+            None,
+        );
+        let vf_indices: Vec<usize> = padded_args
+            .iter()
+            .enumerate()
+            .filter_map(|(i, a)| (a == "-vf").then_some(i))
+            .collect();
+        assert_eq!(
+            vf_indices.len(),
+            1,
+            "exactly one -vf argument so pad and scale do not overwrite each other: {padded_args:?}"
+        );
+        assert_eq!(
+            padded_args[vf_indices[0] + 1],
+            format!("pad=16:16:0:0:color=0xDC3C28,{EXPECTED_VF}")
+        );
+
+        let Some(ffmpeg) = find_ffmpeg() else {
+            eprintln!("skipping: no ffmpeg on PATH");
+            return;
+        };
+        let Some(ffprobe) = find_ffprobe() else {
+            eprintln!("skipping: no ffprobe on PATH");
+            return;
+        };
+
+        let dir = scratch("bt709-tags");
+        let cases: &[(&str, Option<&str>, Option<&str>)] = &[
+            ("h264.mp4", Some("h264"), None),
+            ("h264.mov", Some("h264"), None),
+            ("prores.mov", Some("prores"), Some("standard")),
+            ("dnxhr.mov", Some("dnxhr"), Some("dnxhr_hq")),
+            ("dnxhr.mxf", Some("dnxhr"), Some("dnxhr_hq")),
+        ];
+
+        // 256x128 frame of #DC3C28 (RGB 220, 60, 40) — meets DNxHR's 256x120 minimum.
+        let (w, h) = (256u32, 128u32);
+        let frame: Vec<u8> = [220u8, 60, 40].repeat((w * h) as usize);
+
+        for &(filename, codec, profile) in cases {
+            let target = dir.join(filename);
+            let spec = Spec {
+                video_codec: codec.map(str::to_string),
+                video_profile: profile.map(str::to_string),
+                ..Spec::new(w, h, 25.into(), Rgba::BLACK)
+            };
+            let args = spec.ffmpeg_args(&target, Path::new(".tmp"), None, None);
+            let flag = |name: &str| -> Option<&str> {
+                args.iter()
+                    .rposition(|a| a == name)
+                    .map(|i| args[i + 1].as_str())
+            };
+            assert_eq!(flag("-vf"), Some(EXPECTED_VF), "{filename}: {args:?}");
+            assert_eq!(flag("-colorspace"), Some("bt709"), "{filename}");
+            assert_eq!(flag("-color_primaries"), Some("bt709"), "{filename}");
+            assert_eq!(flag("-color_trc"), Some("bt709"), "{filename}");
+            assert_eq!(flag("-color_range"), Some("tv"), "{filename}");
+
+            let mut encoder = Encoder::start(&ffmpeg, &target, &spec).expect("spawned");
+            encoder.push(&frame).expect("pushed frame");
+            encoder.finish().expect("encoded");
+
+            let output = Command::new(&ffprobe)
+                .args([
+                    "-v",
+                    "quiet",
+                    "-select_streams",
+                    "v:0",
+                    "-show_entries",
+                    "stream=color_space,color_primaries,color_transfer,color_range",
+                    "-of",
+                    "default=noprint_wrappers=1",
+                ])
+                .arg(&target)
+                .output()
+                .expect("ffprobe ran");
+            assert!(output.status.success(), "{filename}: ffprobe failed");
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            let field = |key: &str| -> Option<&str> {
+                stdout
+                    .lines()
+                    .find_map(|line| line.strip_prefix(&format!("{key}=")))
+            };
+            assert_eq!(field("color_space"), Some("bt709"), "{filename}: {stdout}");
+            assert_eq!(
+                field("color_primaries"),
+                Some("bt709"),
+                "{filename}: {stdout}"
+            );
+            assert_eq!(
+                field("color_transfer"),
+                Some("bt709"),
+                "{filename}: {stdout}"
+            );
+            assert_eq!(field("color_range"), Some("tv"), "{filename}: {stdout}");
+        }
     }
 }

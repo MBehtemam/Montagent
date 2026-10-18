@@ -55,8 +55,8 @@ impl<'de> Deserialize<'de> for Paint {
         if holds_a_gradient {
             return Err(D::Error::custom(
                 "a paint's keyframe list holds colours, never a gradient: write the gradient \
-                 object itself as the field's value and key its `angle`, `center`, `radius` or \
-                 `stops` (ADR-0149)",
+                 object itself as the field's value and key its `angle`, `center`, `radius`, \
+                 `focal` or `stops` (ADR-0149)",
             ));
         }
         serde_json::from_value(value)
@@ -77,19 +77,19 @@ impl JsonSchema for Paint {
             "anyOf": [flat, gradient],
             "description": "A paint: a colour, a keyframe list of colours, or a gradient \
                             object. A keyframe list never holds a gradient; a gradient's \
-                            `angle`, `center`, `radius` and `stops` may each be keyed \
-                            (ADR-0149).",
+                            `angle`, `center`, `radius`, `focal` and `stops` may each be keyed \
+                            (ADR-0149, ADR-0222).",
         }))
         .expect("an object literal is a schema")
     }
 }
 
-/// A `linear` or `radial` gradient, measured against the element's declared box (ADR-0149
-/// §1, §2). Every parameter is required: a wrong direction, centre or size gives a frame that
-/// looks plausible, so none of them may default. Each takes a literal or a keyframe list
-/// (§3); the kind is fixed.
+/// A `linear`, `radial`, `sweep`, or `two_point_conical` gradient, measured against the
+/// element's declared box (ADR-0149 §1, §2; ADR-0222 §1.1). Every parameter is required: a
+/// wrong direction, centre, focal point or size gives a frame that looks plausible, so none of
+/// them may default. Each takes a literal or a keyframe list (§3); the kind is fixed.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
-#[serde(tag = "gradient", rename_all = "lowercase", deny_unknown_fields)]
+#[serde(tag = "gradient", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Gradient {
     /// Along a line through the box's centre.
     Linear {
@@ -108,6 +108,31 @@ pub enum Gradient {
         /// fractions: `1` just reaches it. At or below `0` paints the last stop's colour
         /// over the box.
         radius: Animatable<Radius>,
+        stops: Animatable<Stops>,
+    },
+    /// Around a centre in box fractions, starting at `angle` (`0` at 12 o'clock) and sweeping
+    /// `360°` clockwise (ADR-0222 §1.1).
+    Sweep {
+        /// `[fx, fy]`, fractions of the box from its top-left corner. Any numbers.
+        center: Animatable<Center>,
+        /// Degrees, CSS `conic-gradient` convention: `0` starts at 12 o'clock (top) and sweeps
+        /// clockwise. Any number.
+        angle: Animatable<Angle>,
+        stops: Animatable<Stops>,
+    },
+    /// From a focal point of radius `0` (stop offset `0`) out to the outer circle around
+    /// `center` of radius `radius × farthest_corner(center)` (stop offset `1`) in box
+    /// fractions (ADR-0222 §1.1).
+    TwoPointConical {
+        /// `[fx, fy]`, fractions of the box from its top-left corner. Any numbers.
+        center: Animatable<Center>,
+        /// A fraction of the distance from `center` to the box's farthest corner, in box
+        /// fractions: `1` just reaches it. At or below `0` paints the last stop's colour
+        /// over the box.
+        radius: Animatable<Radius>,
+        /// `[fx, fy]`, the inner focal point (offset `0`, radius `0`) in box fractions.
+        /// Clamped inside the outer circle at render time so the whole plane stays painted.
+        focal: Animatable<Center>,
         stops: Animatable<Stops>,
     },
 }
@@ -150,6 +175,41 @@ impl Gradient {
                     stops: settled(stops)?,
                 }
             }
+            Gradient::Sweep {
+                center,
+                angle,
+                stops,
+            } => {
+                let [fx, fy] = resolve::at_instant(center, numerator, denominator)?;
+                ResolvedGradient::Sweep {
+                    center: Center([number_of(fx), number_of(fy)]),
+                    angle: Angle(number_of(resolve::at_instant(
+                        angle,
+                        numerator,
+                        denominator,
+                    )?)),
+                    stops: settled(stops)?,
+                }
+            }
+            Gradient::TwoPointConical {
+                center,
+                radius,
+                focal,
+                stops,
+            } => {
+                let [cx, cy] = resolve::at_instant(center, numerator, denominator)?;
+                let [fx, fy] = resolve::at_instant(focal, numerator, denominator)?;
+                ResolvedGradient::TwoPointConical {
+                    center: Center([number_of(cx), number_of(cy)]),
+                    radius: Radius(number_of(resolve::at_instant(
+                        radius,
+                        numerator,
+                        denominator,
+                    )?)),
+                    focal: Center([number_of(fx), number_of(fy)]),
+                    stops: settled(stops)?,
+                }
+            }
         })
     }
 }
@@ -157,7 +217,7 @@ impl Gradient {
 /// A gradient at one instant: every parameter a literal, the stops fixed by §4. Serialized as
 /// the document would write it, so it pastes back.
 #[derive(Debug, Clone, PartialEq, Serialize)]
-#[serde(tag = "gradient", rename_all = "lowercase")]
+#[serde(tag = "gradient", rename_all = "snake_case")]
 pub enum ResolvedGradient {
     Linear {
         angle: Angle,
@@ -168,29 +228,45 @@ pub enum ResolvedGradient {
         radius: Radius,
         stops: Stops,
     },
+    Sweep {
+        center: Center,
+        angle: Angle,
+        stops: Stops,
+    },
+    TwoPointConical {
+        center: Center,
+        radius: Radius,
+        focal: Center,
+        stops: Stops,
+    },
 }
 
 impl ResolvedGradient {
-    /// `linear` or `radial`, as the document spells it.
+    /// `linear`, `radial`, `sweep`, or `two_point_conical`, as the document spells it.
     pub fn kind(&self) -> &'static str {
         match self {
             ResolvedGradient::Linear { .. } => "linear",
             ResolvedGradient::Radial { .. } => "radial",
+            ResolvedGradient::Sweep { .. } => "sweep",
+            ResolvedGradient::TwoPointConical { .. } => "two_point_conical",
         }
     }
 
     pub fn stops(&self) -> &[Stop] {
         match self {
-            ResolvedGradient::Linear { stops, .. } | ResolvedGradient::Radial { stops, .. } => {
-                &stops.0
-            }
+            ResolvedGradient::Linear { stops, .. }
+            | ResolvedGradient::Radial { stops, .. }
+            | ResolvedGradient::Sweep { stops, .. }
+            | ResolvedGradient::TwoPointConical { stops, .. } => &stops.0,
         }
     }
 
     /// Whether this gradient paints a single colour over the whole box: its stops share one
-    /// colour, or it is a radial whose `radius` is at or below 0 (ADR-0149 §4, §5).
+    /// colour, or it is a `radial` or `two_point_conical` whose `radius` is at or below 0
+    /// (ADR-0149 §4, §5; ADR-0222 §1.1).
     pub fn one_colour(&self) -> bool {
-        if let ResolvedGradient::Radial { radius, .. } = self
+        if let ResolvedGradient::Radial { radius, .. }
+        | ResolvedGradient::TwoPointConical { radius, .. } = self
             && radius.fraction() <= 0.0
         {
             return true;
