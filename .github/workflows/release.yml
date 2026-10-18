@@ -35,8 +35,21 @@ permissions:
   contents: write
 
 jobs:
+  check-honesty:
+    name: check release honesty
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify release honesty and tag alignment
+        run: |
+          tag="${{ inputs.tag || github.ref_name }}"
+          bash ci/check_release_honesty.sh "$tag"
+
   build:
     name: build ${{ matrix.target }}
+    needs: check-honesty
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
