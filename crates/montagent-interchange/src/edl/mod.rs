@@ -171,6 +171,7 @@ pub fn edl_to_project(edl_text: &str, fps: FrameRate) -> Result<Project, EdlErro
                     source_time: None,
                     x: None,
                     y: None,
+                    motion_path: None,
                     origin: None,
                     width: 1920,
                     height: 1080,

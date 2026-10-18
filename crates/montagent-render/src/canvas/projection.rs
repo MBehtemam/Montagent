@@ -145,6 +145,11 @@ pub fn reach_box(extent: Extent, effects: &[Effect]) -> (f64, f64, f64, f64) {
                 let w = width.ceil();
                 (l, t, r, b) = (l - w, t - w, r + w, b + w);
             }
+            Effect::Matte { choke, feather, .. } => {
+                let dilate = if choke < 0.0 { (-choke).ceil() } else { 0.0 };
+                let k = dilate + if feather > 0.0 { spread(feather) } else { 0.0 };
+                (l, t, r, b) = (l - k, t - k, r + k, b + k);
+            }
             _ => {}
         }
     }

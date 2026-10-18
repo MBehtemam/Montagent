@@ -511,6 +511,8 @@ fn every_numeric_and_colour_effect_parameter_is_in_the_list() {
             ("outline", vec!["width", "color", "opacity"]),
             ("color_overlay", vec!["color", "opacity"]),
             ("inner_shadow", vec!["dx", "dy", "radius", "color", "opacity"]),
+            ("matte", vec!["choke", "feather", "contrast"]),
+            ("luma_key", vec!["threshold", "tolerance", "softness"]),
         ]
     );
     let (_, chroma) = animatable::effect_members()

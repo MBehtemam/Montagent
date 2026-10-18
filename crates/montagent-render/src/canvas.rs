@@ -720,6 +720,8 @@ impl Effect {
             Effect::Outline { .. } => "outline",
             Effect::ColorOverlay { .. } => "color_overlay",
             Effect::InnerShadow { .. } => "inner_shadow",
+            Effect::Matte { .. } => "matte",
+            Effect::LumaKey { .. } => "luma_key",
         }
     }
 }
@@ -840,6 +842,19 @@ pub enum Effect {
         radius: f64,
         colour: Rgba,
         opacity: f64,
+    },
+    /// Standalone matte refinement (`choke`, `feather`, `contrast`) on the alpha channel (ADR-0227 §1).
+    Matte {
+        choke: f64,
+        feather: f64,
+        contrast: f64,
+    },
+    /// Luminance keyer (`threshold`, `tolerance`, `softness`, `invert`) on Rec.709 luma (ADR-0227 §2).
+    LumaKey {
+        threshold: f64,
+        tolerance: f64,
+        softness: f64,
+        invert: bool,
     },
 }
 
@@ -1326,6 +1341,17 @@ impl Effect {
                 let shadow = image_filters::color_filter(tint, Some(cut), None)?;
                 image_filters::merge([None, Some(shadow)], None)
             }
+            Effect::Matte {
+                choke,
+                feather,
+                contrast,
+            } => named::matte(choke, feather, contrast),
+            Effect::LumaKey {
+                threshold,
+                tolerance,
+                softness,
+                invert,
+            } => named::luma_key(threshold, tolerance, softness, invert),
         }
     }
 
@@ -1481,7 +1507,9 @@ impl Effect {
             | Effect::Lut3d { .. }
             | Effect::Outline { .. }
             | Effect::ColorOverlay { .. }
-            | Effect::InnerShadow { .. } => [
+            | Effect::InnerShadow { .. }
+            | Effect::Matte { .. }
+            | Effect::LumaKey { .. } => [
                 1.0, 0.0, 0.0, 0.0, 0.0, //
                 0.0, 1.0, 0.0, 0.0, 0.0, //
                 0.0, 0.0, 1.0, 0.0, 0.0, //

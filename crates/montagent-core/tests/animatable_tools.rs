@@ -205,6 +205,11 @@ fn effect(name: &str) -> Value {
             json!({"name": "inner_shadow", "dx": 4, "dy": 4, "radius": 6, "color": "#000000",
                    "opacity": 0.5})
         }
+        "matte" => json!({"name": "matte", "choke": 0.0, "feather": 0.0, "contrast": 1.0}),
+        "luma_key" => {
+            json!({"name": "luma_key", "threshold": 0.0, "tolerance": 0.1, "softness": 0.0,
+                   "invert": false})
+        }
         other => panic!("no static `{other}` for this test to key a parameter of"),
     }
 }

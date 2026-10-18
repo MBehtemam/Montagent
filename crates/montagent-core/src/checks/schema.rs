@@ -192,7 +192,14 @@ impl Fault {
                 if here().any(|named| named.value.as_str().is_some_and(|v| reason.contains(v))) {
                     return None;
                 }
-                Finding::new("E-SCHEMA").field("reason", json!(reason))
+                let code = if reason.starts_with("`matte`'s ") {
+                    "E-MATTE-BOUNDS"
+                } else if reason.starts_with("`luma_key`'s ") {
+                    "E-LUMA-KEY-BOUNDS"
+                } else {
+                    "E-SCHEMA"
+                };
+                Finding::new(code).field("reason", json!(reason))
             }
         };
 

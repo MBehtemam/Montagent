@@ -281,6 +281,21 @@ two disagree.
 - **A keyed `length` steps the sample count**, since `ceil(length) + 1` is a whole number, and
   **a keyed `angle` interpolates literally**: `350 → 10` sweeps the long way round, through
   180. Write `350 → 370` for the short way.
+- **`matte`: `{"choke": -50–50, "feather": 0–100, "contrast": 0–10}`, standalone alpha-matte
+  refinement (ADR-0227).** All three keys are optional and animatable, defaulting to `choke: 0`,
+  `feather: 0`, and `contrast: 1` (`E-MATTE-BOUNDS`). Positive `choke` erodes (shrinks) the alpha
+  boundary inward by radius `choke`; negative `choke` dilates (expands) the alpha boundary outward
+  by `|choke|`. `feather` blurs the alpha channel with σ = `feather` / 2, and `contrast` scales
+  alpha linearly around midpoint `0.5` (`clamp((α − 0.5) × contrast + 0.5, 0, 1)`), maintaining
+  premultiplied RGB invariants throughout.
+- **`luma_key`: `{"threshold": 0–1, "tolerance": 0–1, "softness": 0–1, "invert": bool}`,
+  luminance keyer (ADR-0227).** `threshold` (default `0`), `tolerance` (default `0.1`), and
+  `softness` (default `0`) are optional and animatable (`E-LUMA-KEY-BOUNDS`); `invert` (default
+  `false`) is an optional static boolean. Evaluates Rec. 709 luminance
+  `Y = 0.2126 R + 0.7152 G + 0.0722 B` on non-premultiplied RGB, keys out pixels within
+  `|Y − threshold| ≤ tolerance`, ramps smoothly across `softness` (`m = clamp((|Y − threshold| −
+  tolerance) / softness, 0, 1)`), optionally inverts `m = 1 − m`, and multiplies both RGB and
+  alpha by `m`.
 - **The bound criterion** (ADR-0156): a member keeps the element's bounds when it stays inside
   the box or a reach it declares as a reach formula of its parameters. A colour filter that maps
   transparent black to transparent black keeps it, and `posterize` does. None of this is

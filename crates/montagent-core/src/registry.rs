@@ -3932,6 +3932,29 @@ is {value}, outside `[0.0, 1.0]` on an open motion path (`closed: false`).",
         census: None,
         sets: &[Document],
     },
+    // ---- Standalone `matte` and `luma_key` bounds (ADR-0227). ------------------------------
+    CheckSpec {
+        code: "E-MATTE-BOUNDS",
+        classes: &[Error],
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0227",
+        template: "{subject} does not fit the published schema: {reason}.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        code: "E-LUMA-KEY-BOUNDS",
+        classes: &[Error],
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0227",
+        template: "{subject} does not fit the published schema: {reason}.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
 ];
 
 impl CheckSpec {

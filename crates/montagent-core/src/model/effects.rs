@@ -265,6 +265,27 @@ pub enum Effect {
         color: Animatable<Colour>,
         opacity: Animatable<Fraction>,
     },
+    /// Alpha matte cleanup: morphological choke/spread, feathering, and alpha contrast
+    /// (ADR-0227).
+    Matte {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        choke: Option<Animatable<Choke>>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        feather: Option<Animatable<MatteFeather>>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        contrast: Option<Animatable<MatteContrast>>,
+    },
+    /// Rec.709 luminance keyer: extracts alpha transparency from pixel luminance (ADR-0227).
+    LumaKey {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        threshold: Option<Animatable<Fraction>>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        tolerance: Option<Animatable<Fraction>>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        softness: Option<Animatable<Fraction>>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        invert: Option<bool>,
+    },
 }
 
 /// Declares a bounded number type for one named-effect parameter (ADR-0156 §4), the way
@@ -394,6 +415,40 @@ bounded!(
     Some(180.0),
     "The hue rotation angle in degrees, from `-180` to `180` in a static value and in \
      every keyframe record. `0` is the identity (ADR-0221)."
+);
+
+bounded!(
+    /// `matte`'s `choke`: morphological erosion (`> 0`) or dilation (`< 0`) radius in
+    /// element pixels, from -50 to 50 (ADR-0227).
+    Choke(f64),
+    "number",
+    -50.0,
+    Some(50.0),
+    "Alpha erosion (`> 0`) or dilation (`< 0`) radius in element pixels, from `-50` to `50` \
+     in a static value and in every keyframe record. `0` is the identity (ADR-0227)."
+);
+
+bounded!(
+    /// `matte`'s `feather`: Gaussian blur radius applied to the alpha matte in element
+    /// pixels, from 0 to 100 (ADR-0227).
+    MatteFeather(f64),
+    "number",
+    0.0,
+    Some(100.0),
+    "Gaussian blur radius applied to the alpha matte in element pixels, from `0` to `100` \
+     in a static value and in every keyframe record (σ = feather / 2). `0` is the identity \
+     (ADR-0227)."
+);
+
+bounded!(
+    /// `matte`'s `contrast`: alpha-curve steepening multiplier around midpoint `0.5`, from
+    /// 0 to 10 (ADR-0227).
+    MatteContrast(f64),
+    "number",
+    0.0,
+    Some(10.0),
+    "Alpha-curve steepening multiplier around midpoint `0.5`, from `0` to `10` in a static \
+     value and in every keyframe record. `1` is the identity (ADR-0227)."
 );
 
 /// `grain`'s `seed`: an integer from `0` to `2³¹ − 1`, never keyed (ADR-0156 §4).
@@ -726,6 +781,83 @@ impl Effect {
                      value and in every keyframe record (ADR-0221)"
                 ));
             }
+        }
+
+        if let Effect::Matte {
+            choke,
+            feather,
+            contrast,
+        } = &self
+        {
+            let mut checks: Vec<Ranged> = Vec::new();
+            if let Some(choke) = choke {
+                checks.push((
+                    "matte",
+                    "choke",
+                    stated(choke).into_iter().map(|v| v.value()).collect(),
+                    Choke::RANGE,
+                ));
+            }
+            if let Some(feather) = feather {
+                checks.push((
+                    "matte",
+                    "feather",
+                    stated(feather).into_iter().map(|v| v.value()).collect(),
+                    MatteFeather::RANGE,
+                ));
+            }
+            if let Some(contrast) = contrast {
+                checks.push((
+                    "matte",
+                    "contrast",
+                    stated(contrast).into_iter().map(|v| v.value()).collect(),
+                    MatteContrast::RANGE,
+                ));
+            }
+            for (member, parameter, values, (min, max)) in checks {
+                if let Some(value) = values
+                    .into_iter()
+                    .find(|value| !(*value >= min && max.is_none_or(|max| *value <= max)))
+                {
+                    let max = max.expect("all matte parameters have an upper bound");
+                    return Err(format!(
+                        "`{member}`'s `{parameter}` is {value}: it must be from `{min}` to `{max}`, \
+                         in a static value and in every keyframe record (ADR-0227)"
+                    ));
+                }
+            }
+            return Ok(self);
+        }
+
+        if let Effect::LumaKey {
+            threshold,
+            tolerance,
+            softness,
+            invert: _,
+        } = &self
+        {
+            let mut fields = Vec::new();
+            if let Some(threshold) = threshold {
+                fields.push(("threshold", threshold));
+            }
+            if let Some(tolerance) = tolerance {
+                fields.push(("tolerance", tolerance));
+            }
+            if let Some(softness) = softness {
+                fields.push(("softness", softness));
+            }
+            for (parameter, property) in fields {
+                if let Some(Fraction(value)) = stated(property)
+                    .into_iter()
+                    .find(|Fraction(value)| !(0.0..=1.0).contains(value))
+                {
+                    return Err(format!(
+                        "`luma_key`'s `{parameter}` is {value}: it must be from `0` to `1`, \
+                         in a static value and in every keyframe record (ADR-0227)"
+                    ));
+                }
+            }
+            return Ok(self);
         }
 
         if let Effect::Chroma {
