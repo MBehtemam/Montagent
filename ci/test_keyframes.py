@@ -431,6 +431,170 @@ class TestKeyframesScript(unittest.TestCase):
             self.assertEqual(res2.returncode, 0, msg=res2.stderr)
             self.assertEqual(json.loads(res2.stdout), updated)
 
+    def test_auto_bezier_c1_velocity_continuity_and_handles(self):
+        mod = load_module()
+        proj = base_project()
+        card = get_element(proj, "card")
+        # 4 keyframes (3 monotonic segments) with unequal durations and secants
+        card["x"] = [
+            {"t": 0, "v": 100},
+            {"t": 400, "v": 260, "ease": "ease-in-out"},
+            {"t": 1000, "v": 740, "ease": "ease-in-out"},
+            {"t": 1800, "v": 1060, "ease": "ease-in-out"},
+        ]
+        spec = {
+            "operations": [
+                {
+                    "op": "auto_bezier",
+                    "id": "card",
+                    "property": "x",
+                    "start": 0,
+                    "end": 1800,
+                }
+            ]
+        }
+        out = mod.apply_spec(proj, spec)
+        kfs = get_element(out, "card")["x"]
+        self.assertEqual(len(kfs), 4)
+        self.assertNotIn("ease", kfs[0])
+
+        for j in range(1, len(kfs)):
+            ease = kfs[j]["ease"]
+            self.assertIsInstance(ease, list)
+            self.assertEqual(len(ease), 4)
+            self.assertAlmostEqual(ease[0], round(1.0 / 3.0, 6), places=6)
+            self.assertAlmostEqual(ease[2], round(2.0 / 3.0, 6), places=6)
+            for coord in ease:
+                self.assertEqual(coord, round(coord, 6))
+
+        # Default boundary slopes m_0 = 0 -> y1 = 0 on first segment; m_n = 0 -> y2 = 1 on last segment
+        self.assertAlmostEqual(kfs[1]["ease"][1], 0.0, places=6)
+        self.assertAlmostEqual(kfs[-1]["ease"][3], 1.0, places=6)
+
+        # Verify C^1 physical velocity continuity across every interior keyframe k_i
+        for i in range(1, len(kfs) - 1):
+            dt_in = kfs[i]["t"] - kfs[i - 1]["t"]
+            dv_in = kfs[i]["v"] - kfs[i - 1]["v"]
+            x1_in, y1_in, x2_in, y2_in = kfs[i]["ease"]
+            v_in = ((1.0 - y2_in) / (1.0 - x2_in)) * (dv_in / dt_in)
+
+            dt_out = kfs[i + 1]["t"] - kfs[i]["t"]
+            dv_out = kfs[i + 1]["v"] - kfs[i]["v"]
+            x1_out, y1_out, x2_out, y2_out = kfs[i + 1]["ease"]
+            v_out = (y1_out / x1_out) * (dv_out / dt_out)
+
+            self.assertGreater(v_in, 0.0, "interior monotonic keyframe must not pause at 0 velocity")
+            self.assertAlmostEqual(v_in, v_out, places=4)
+
+            # Verify Fritsch-Carlson weighted harmonic mean value
+            sec_in = dv_in / dt_in
+            sec_out = dv_out / dt_out
+            w1 = 2.0 * dt_out + dt_in
+            w2 = dt_out + 2.0 * dt_in
+            expected_m = (w1 + w2) / (w1 / sec_in + w2 / sec_out)
+            self.assertAlmostEqual(v_in, expected_m, places=4)
+
+    def test_auto_bezier_monotonicity_at_extrema_and_steep_secants(self):
+        mod = load_module()
+        proj = base_project()
+        card = get_element(proj, "card")
+        # Includes a local maximum at t=400 (v=500), local minimum at t=800 (v=200),
+        # and a shallow-to-steep monotonic pass-through at t=1200 (v=220 -> 800)
+        card["x"] = [
+            {"t": 0, "v": 100},
+            {"t": 400, "v": 500, "ease": "linear"},
+            {"t": 800, "v": 200, "ease": "linear"},
+            {"t": 1200, "v": 220, "ease": "linear"},
+            {"t": 1600, "v": 800, "ease": "linear"},
+        ]
+        spec = {
+            "operations": [
+                {
+                    "op": "auto_bezier",
+                    "id": "card",
+                    "property": "x",
+                    "start": 0,
+                    "end": 1600,
+                }
+            ]
+        }
+        out = mod.apply_spec(proj, spec)
+        kfs = get_element(out, "card")["x"]
+
+        # Local maximum at k_1 (t=400) and local minimum at k_2 (t=800) must clamp m_i = 0:
+        # incoming y2 == 1.0, outgoing y1 == 0.0
+        self.assertAlmostEqual(kfs[1]["ease"][3], 1.0, places=6)
+        self.assertAlmostEqual(kfs[2]["ease"][1], 0.0, places=6)
+        self.assertAlmostEqual(kfs[2]["ease"][3], 1.0, places=6)
+        self.assertAlmostEqual(kfs[3]["ease"][1], 0.0, places=6)
+
+        # Sample every segment at 1ms resolution and verify strict monotonicity & no overshoot
+        for j in range(1, len(kfs)):
+            t_start, v_start = kfs[j - 1]["t"], float(kfs[j - 1]["v"])
+            t_end, v_end = kfs[j]["t"], float(kfs[j]["v"])
+            lo_v, hi_v = min(v_start, v_end), max(v_start, v_end)
+            prev_val = v_start
+            for t in range(t_start, t_end + 1):
+                val = mod.eval_keyframes(kfs, float(t))
+                self.assertGreaterEqual(val, lo_v - 1e-6, f"undershoot at t={t} on seg {j}")
+                self.assertLessEqual(val, hi_v + 1e-6, f"overshoot at t={t} on seg {j}")
+                if v_end >= v_start:
+                    self.assertGreaterEqual(val, prev_val - 1e-6, f"non-monotonic rise at t={t}")
+                else:
+                    self.assertLessEqual(val, prev_val + 1e-6, f"non-monotonic fall at t={t}")
+                prev_val = val
+
+    def test_auto_bezier_cli_validate_and_idempotence(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            shutil.copytree(FIXTURES / "media", tmp_path / "media")
+            proj = base_project()
+            card = get_element(proj, "card")
+            card["x"] = [
+                {"t": 0, "v": 100},
+                {"t": 500, "v": 300, "ease": "ease-in-out"},
+                {"t": 1000, "v": 900, "ease": "ease-in-out"},
+            ]
+            proj_path = tmp_path / "project.montagent.json"
+            spec_path = tmp_path / "keyframes.spec.json"
+            proj_path.write_text(json.dumps(proj, indent=2) + "\n")
+            spec = {
+                "operations": [
+                    {
+                        "op": "auto_bezier",
+                        "id": "card",
+                        "property": "x",
+                        "start": 0,
+                        "end": 1000,
+                    }
+                ]
+            }
+            spec_path.write_text(json.dumps(spec, indent=2) + "\n")
+
+            chk_before = self.run_cli(proj_path, spec_path, "--check")
+            self.assertEqual(chk_before.returncode, 1)
+
+            res = self.run_cli(proj_path, spec_path)
+            self.assertEqual(res.returncode, 0, msg=res.stderr)
+            updated = json.loads(res.stdout)
+            kfs = get_element(updated, "card")["x"]
+            self.assertEqual(
+                kfs,
+                [
+                    {"t": 0, "v": 100},
+                    {"t": 500, "v": 300, "ease": [0.333333, 0.0, 0.666667, 0.5]},
+                    {"t": 1000, "v": 900, "ease": [0.333333, 0.166667, 0.666667, 1.0]},
+                ],
+            )
+
+            proj_path.write_text(res.stdout)
+            chk_after = self.run_cli(proj_path, spec_path, "--check")
+            self.assertEqual(chk_after.returncode, 0, msg=chk_after.stderr)
+
+            res2 = self.run_cli(proj_path, spec_path)
+            self.assertEqual(res2.returncode, 0, msg=res2.stderr)
+            self.assertEqual(json.loads(res2.stdout), updated)
+
 
 if __name__ == "__main__":
     unittest.main()

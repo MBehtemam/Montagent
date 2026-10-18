@@ -26,29 +26,34 @@
       "elements": [
         {
           "id": "card",
-          "type": "shape",
+          "type": "rect",
           "start": 0,
           "end": 2000,
-          "shape": "rect",
           "x": 640,
           "y": [
             {"t": 0, "v": -100},
             {"t": 300, "v": 360, "ease": "linear"}
           ],
+          "origin": "center",
           "width": 320,
           "height": 180,
           "fill": "#FF5A36",
-          "opacity": [
-            {"t": 0, "v": 0.4},
-            {"t": 500, "v": 1.0, "ease": {"cubic-bezier": [0.25, 0.1, 0.25, 1.0]}}
+          "radius": [
+            {"t": 0, "v": 0},
+            {"t": 600, "v": 16, "ease": "linear"},
+            {"t": 1200, "v": 48, "ease": "linear"}
           ],
-          "scale": 1.0,
+          "scale": [1.0, 1.0],
           "rotation": [
             {"t": 0, "v": -6.0},
             {"t": 200, "v": 6.0, "ease": "linear"},
             {"t": 400, "v": -5.0, "ease": "linear"},
             {"t": 600, "v": 4.0, "ease": "linear"},
             {"t": 1000, "v": 0.0, "ease": "linear"}
+          ],
+          "opacity": [
+            {"t": 0, "v": 0.4},
+            {"t": 500, "v": 1.0, "ease": [0.25, 0.1, 0.25, 1.0]}
           ]
         }
       ]
