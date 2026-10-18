@@ -18,6 +18,7 @@ licence attestation.
 | `media/beat.wav` | 8 s of drums at 100 BPM whose first downbeat is at 300 ms, each bar's first kick louder: a track with a known beat grid. |
 | `media/clip.mp4` | 30 s, 320×180, 25 fps green screen with a moving subject and a tone. |
 | `type_on.montagent.json`, `type_on.spec.json` | A project with only a font, and a spec that types a name onto it with a cursor: the input to `montagent-motion`'s `type_on.py`. |
+| `paths.montagent.json`, `paths.spec.json` | An empty project and a spec that bakes a tapered swish, a boolean union badge, a puckered sparkle, a smooth zig-zag wave and arc-length-staggered sequential trim strokes: the input to `montagent-motion`'s `paths.py`. |
 | `beat_grid.spec.json` | A spec that lays `media/beat.wav` into `type_on.montagent.json` with no tempo given, so `montagent-craft`'s `beat_grid.py` has to find it. |
 | `media/pulse.mov`, `prerender.spec.json` | 12 frames of `montagent-prerender`'s sample piece (160×120, 25 fps, PNG in MOV with alpha), and a placing spec for it: the input to that skill's `prerender.py place`. |
 | `media/mark.png` | `montagent-prerender`'s sample SVG (`references/sample_art.svg`: shapes, a gradient and Inter Bold text) rasterised at 480×270 by `resvg` 0.48.1 through that skill's `prerender.py build`: the PNG its SVG route places as an `image`. |
