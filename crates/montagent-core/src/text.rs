@@ -106,6 +106,32 @@ impl std::error::Error for RenderError {}
 
 /// Render a canonical report JSON as the prose form.
 pub fn render(report: &Value, options: Options) -> Result<String, RenderError> {
+    if report["tool"] == "fmt"
+        && report["fmt_written"] == true
+        && report["summary"]["error"].as_u64().unwrap_or(0) == 0
+    {
+        let project = report["project"].as_str().unwrap_or("project");
+        let findings = report["findings"].as_array();
+        let n = findings.map(|f| f.len()).unwrap_or(0);
+        if n == 0 {
+            return Ok(format!("montagent fmt: 0 changes applied to {project}\n"));
+        }
+        let mut distinct_codes = std::collections::BTreeSet::new();
+        if let Some(f_arr) = findings {
+            for f in f_arr {
+                if let Some(code) = f["code"].as_str() {
+                    distinct_codes.insert(code);
+                }
+            }
+        }
+        let m = distinct_codes.len();
+        let change_str = if n == 1 { "change" } else { "changes" };
+        let rule_str = if m == 1 { "rule" } else { "rules" };
+        return Ok(format!(
+            "montagent fmt: {n} {change_str} applied ({m} {rule_str}) to {project}\n"
+        ));
+    }
+
     let mut out = String::new();
 
     out.push_str(&summary_line(report)?);

@@ -93,6 +93,9 @@ pub fn fmt(path: &Path, mode: Mode) -> Report {
     if written == canonical {
         // The comparison above is the layout check, and it found nothing (ADR-0112).
         report.record(CheckSet::Layout);
+        if mode == Mode::Write {
+            report.fmt_written = true;
+        }
         return report;
     }
 
@@ -104,10 +107,15 @@ pub fn fmt(path: &Path, mode: Mode) -> Report {
 
     // On success the findings stay in the report — they are what the run changed, and an
     // agent that asked for a rewrite is owed the list.
-    if mode == Mode::Write
-        && let Err(e) = write::atomically(path, &canonical)
-    {
-        report.could_not_write(document.path(), &e);
+    if mode == Mode::Write {
+        match write::atomically(path, &canonical) {
+            Ok(()) => {
+                report.fmt_written = true;
+            }
+            Err(e) => {
+                report.could_not_write(document.path(), &e);
+            }
+        }
     }
 
     report

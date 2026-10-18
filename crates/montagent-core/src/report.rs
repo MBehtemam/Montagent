@@ -116,6 +116,7 @@ pub struct Report {
     /// absent from the JSON, as `not_checked_also` is on every verb with nothing to add.
     not_checked_also: Vec<String>,
     terminal: Option<Terminal>,
+    pub fmt_written: bool,
 }
 
 impl Report {
@@ -129,6 +130,7 @@ impl Report {
             check_sets: Vec::new(),
             not_checked_also: Vec::new(),
             terminal: None,
+            fmt_written: false,
         }
     }
 
@@ -145,6 +147,7 @@ impl Report {
             check_sets: Vec::new(),
             not_checked_also: Vec::new(),
             terminal: Some(Terminal::Unparseable),
+            fmt_written: false,
         }
     }
 
@@ -165,6 +168,7 @@ impl Report {
             check_sets: Vec::new(),
             not_checked_also: Vec::new(),
             terminal: Some(Terminal::BadInvocation),
+            fmt_written: false,
         }
     }
 
@@ -247,6 +251,7 @@ impl Report {
             check_sets: Vec::new(),
             not_checked_also: Vec::new(),
             terminal: Some(Terminal::Internal),
+            fmt_written: false,
         }
     }
 
@@ -270,6 +275,7 @@ impl Report {
             // Same exit code as `E-INTERNAL` (ADR-0011, unchanged by ADR-0091): the run
             // did not finish either way.
             terminal: Some(Terminal::Internal),
+            fmt_written: false,
         }
     }
 
@@ -456,6 +462,9 @@ impl Report {
         if !self.not_checked_also.is_empty() {
             let lines: Vec<&str> = self.not_checked_also.iter().map(String::as_str).collect();
             extend_boundary(&mut json, &lines);
+        }
+        if self.fmt_written {
+            json["fmt_written"] = json!(true);
         }
         json
     }

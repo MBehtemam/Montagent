@@ -93,10 +93,17 @@ fn cli_fmt_writes_and_exits_0() {
     let out = montagent(&["fmt", project.to_str().unwrap()]);
 
     assert_eq!(out.code, Some(0), "{}{}", out.stdout, out.stderr);
+    assert!(out.stdout.contains("montagent fmt: 1 change applied (1 rule) to"), "{}", out.stdout);
+    assert!(!out.stdout.contains("Run montagent fmt"), "{}", out.stdout);
+    assert!(!out.stdout.contains("NOT CHECKED"), "{}", out.stdout);
     assert_eq!(
         std::fs::read_to_string(&project).unwrap(),
         "{\n  \"frame\": {\"width\": 1080, \"height\": 1920},\n  \"fps\": 25,\n  \"tracks\": []\n}\n"
     );
+
+    let out2 = montagent(&["fmt", project.to_str().unwrap()]);
+    assert_eq!(out2.code, Some(0), "{}{}", out2.stdout, out2.stderr);
+    assert!(out2.stdout.contains("montagent fmt: 0 changes applied to"), "{}", out2.stdout);
 }
 
 #[test]
