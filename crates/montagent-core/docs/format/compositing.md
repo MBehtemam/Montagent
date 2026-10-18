@@ -271,12 +271,20 @@ two disagree.
   **a keyed `angle` interpolates literally**: `350 → 10` sweeps the long way round, through
   180. Write `350 → 370` for the short way.
 - **The bound criterion** (ADR-0156): a member keeps the element's bounds when it stays inside
-  the box or a reach it declares as a formula of its parameters. A colour filter that maps
+  the box or a reach it declares as a reach formula of its parameters. A colour filter that maps
   transparent black to transparent black keeps it, and `posterize` does. None of this is
   visible: the frame is the same bytes either way.
 - **Cost**: `directional_blur` reads `ceil(length) + 1` pixels for every pixel it paints, so a
   long smear over a full-frame element is slow; `glow` costs more than a `blur` of the same
   radius.
+- **Layer styles (`outline`, `color_overlay`, `inner_shadow`)** (ADR-0231):
+  - **`outline`: `{"width": >= 0, "color": colour, "opacity": 0–1 (optional)}`, an outer alpha-contour stroke.**
+    `width` is in unscaled element units (`>= 0`); `color` is a `#RRGGBB` or `#RRGGBBAA` colour; `opacity` (`0..=1`, optional, defaults to `1` when omitted) multiplies `color`'s own alpha (`a = round(a_color × opacity)`). Dilates the input layer by `(width, width)` (`image_filters::dilate`), tints to `(r, g, b, a)` via `BlendMode::SrcIn`, and composites the original input layer over the dilated contour (`BlendMode::SrcOver`), expanding reach by `ceil(width)` on every side. `width: 0` or `a == 0` is an identity no-op.
+  - **`color_overlay`: `{"color": colour, "opacity": 0–1 (optional)}`, an alpha-preserving solid colour fill.**
+    Blends non-premultiplied RGB toward `(r, g, b)` by `t = (a_color / 255) × opacity` while keeping pixel alpha `α_in` (`R_out = (1 − t)·R_in + t·(r/255)·α_in`, etc. in premultiplied space). Zero reach; `t == 0` is an identity no-op.
+  - **`inner_shadow`: `{"dx": number, "dy": number, "radius": >= 0, "color": colour, "opacity": 0–1}`, an inset shadow inside the alpha silhouette.**
+    All five keys are required, mirroring `shadow` (ADR-0040). Shifts input alpha by `(dx, dy)` in element space, blurs by `σ = radius / 2` with `TileMode::Decal` so exterior transparency bleeds inward, inverts alpha (`1 − α_blurred`), tints to `(r, g, b, a)` (`a = round(a_color × opacity)`), clips to the original element silhouette (`BlendMode::DstIn`), and composites `SrcOver` over the input layer. Zero reach beyond the silhouette; `a == 0` or `(dx == 0 && dy == 0 && radius == 0)` is an identity no-op.
+  - **`bevel_emboss` and `gradient_overlay` are refused** (ADR-0231): a gradient fill on shapes or text uses native `Paint::Gradient` (`fill` / `color`), a gradient wash over footage uses a masked or `blend`-moded gradient `rect`, and 3D bevel/emboss lighting is pre-rendered with `montagent-prerender` or approximated by stacking a dark `inner_shadow` and a light `inner_shadow` at opposite `(dx, dy)` offsets.
 
 ## Motion blur
 

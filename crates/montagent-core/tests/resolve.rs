@@ -584,9 +584,10 @@ fn every_animatable_property_the_schema_publishes_is_one_the_view_resolves() {
     let mut animatable: Vec<String> = Vec::new();
     collect_animatable(&schema, None, &mut animatable);
     // A gradient's own parameters are printed inside their paint, never as properties of
-    // their own (ADR-0149 §6; `gradient_animate.rs` reads them there). `radius` stays: a
-    // `rect` has one of its own, and so does `angle`: `directional_blur` has one (ADR-0156).
-    animatable.retain(|name| !matches!(name.as_str(), "center" | "stops"));
+    // their own (ADR-0149 §6, ADR-0222; `gradient_animate.rs` reads them there). `radius`
+    // stays: a `rect` has one of its own, and so does `angle`: `directional_blur` has one
+    // (ADR-0156).
+    animatable.retain(|name| !matches!(name.as_str(), "center" | "focal" | "stops"));
     animatable.sort();
     animatable.dedup();
     assert!(
@@ -620,7 +621,13 @@ fn every_animatable_property_the_schema_publishes_is_one_the_view_resolves() {
                                  {"name": "posterize", "levels": 8},
                                  {"name": "glow", "threshold": 0.5, "radius": 4,
                                   "intensity": 1},
-                                 {"name": "directional_blur", "angle": 30, "length": 6}]},
+                                 {"name": "directional_blur", "angle": 30, "length": 6},
+                                 {"name": "outline", "width": 2, "color": "#FFFFFF",
+                                  "opacity": 1.0},
+                                 {"name": "color_overlay", "color": "#FF0000",
+                                  "opacity": 0.5},
+                                 {"name": "inner_shadow", "dx": 1, "dy": 1, "radius": 2,
+                                  "color": "#000000", "opacity": 0.5}]},
                     {"id": "outline", "type": "path", "start": 0, "end": 1000,
                      "x": 300, "y": 2, "width": 10, "height": 10, "closed": false,
                      "stroke": "#FFFFFF", "stroke_width": 1,

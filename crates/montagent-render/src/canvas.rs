@@ -71,7 +71,7 @@ use skia_safe::{
     AlphaType, BlendMode, Color, Color4f, ColorFilter, ColorType, CubicResampler, Data,
     EncodedImageFormat, ISize, Image, ImageFilter, ImageInfo, Matrix, Paint as SkPaint, PaintStyle,
     Path, PathBuilder, PathFillType, RRect, Rect, RuntimeEffect, SamplingOptions, Surface,
-    canvas::SaveLayerRec, color_filters, image_filters, images, surfaces,
+    TileMode, canvas::SaveLayerRec, color_filters, image_filters, images, surfaces,
 };
 
 mod gradient;
@@ -557,6 +557,9 @@ impl Effect {
             Effect::DirectionalBlur { .. } => "directional_blur",
             Effect::Cdl { .. } => "cdl",
             Effect::Lut3d { .. } => "lut3d",
+            Effect::Outline { .. } => "outline",
+            Effect::ColorOverlay { .. } => "color_overlay",
+            Effect::InnerShadow { .. } => "inner_shadow",
         }
     }
 }
@@ -655,6 +658,22 @@ pub enum Effect {
         size: u32,
         table: Vec<u8>,
         intensity: f64,
+    },
+    /// Morphological silhouette outline composited behind the element (ADR-0231).
+    Outline {
+        width: f64,
+        colour: Rgba,
+        opacity: f64,
+    },
+    /// Alpha-locked solid colour fill over the element's silhouette (ADR-0231).
+    ColorOverlay { colour: Rgba, opacity: f64 },
+    /// Inverted, shifted, blurred silhouette shadow clipped to the element's interior (ADR-0231).
+    InnerShadow {
+        dx: f64,
+        dy: f64,
+        radius: f64,
+        colour: Rgba,
+        opacity: f64,
     },
 }
 
@@ -1079,6 +1098,64 @@ impl Effect {
                 let cf = lut3d::lut3d_filter(size, table, intensity)?;
                 image_filters::color_filter(cf, None, None)
             }
+            Effect::Outline {
+                width,
+                colour,
+                opacity,
+            } => {
+                let [r, g, b, ca] = colour.0;
+                let a = (f64::from(ca) * opacity.clamp(0.0, 1.0))
+                    .round()
+                    .clamp(0.0, 255.0) as u8;
+                if width <= 0.0 || a == 0 {
+                    return None;
+                }
+                let w = width as f32;
+                let dilated = image_filters::dilate((w, w), None, None)?;
+                let tint = color_filters::blend(Color::from_argb(a, r, g, b), BlendMode::SrcIn)?;
+                let ring = image_filters::color_filter(tint, Some(dilated), None)?;
+                image_filters::merge([Some(ring), None], None)
+            }
+            Effect::ColorOverlay { colour, opacity } => {
+                let [r, g, b, ca] = colour.0;
+                let t = ((f64::from(ca) / 255.0) * opacity.clamp(0.0, 1.0)) as f32;
+                if t <= 0.0 {
+                    return None;
+                }
+                let tint = color_filters::blend(Color::from_rgb(r, g, b), BlendMode::SrcIn)?;
+                let solid = image_filters::color_filter(tint, None, None)?;
+                if (t - 1.0).abs() <= f32::EPSILON {
+                    Some(solid)
+                } else {
+                    image_filters::arithmetic(0.0, t, 1.0 - t, 0.0, true, None, Some(solid), None)
+                }
+            }
+            Effect::InnerShadow {
+                dx,
+                dy,
+                radius,
+                colour,
+                opacity,
+            } => {
+                let [r, g, b, ca] = colour.0;
+                let a = (f64::from(ca) * opacity.clamp(0.0, 1.0))
+                    .round()
+                    .clamp(0.0, 255.0) as u8;
+                if a == 0 || (dx == 0.0 && dy == 0.0 && radius <= 0.0) {
+                    return None;
+                }
+                let blurred = if radius > 0.0 {
+                    let s = sigma(radius);
+                    Some(image_filters::blur((s, s), TileMode::Decal, None, None)?)
+                } else {
+                    None
+                };
+                let shifted = image_filters::offset((dx as f32, dy as f32), blurred, None)?;
+                let cut = image_filters::blend(BlendMode::DstOut, None, Some(shifted), None)?;
+                let tint = color_filters::blend(Color::from_argb(a, r, g, b), BlendMode::SrcIn)?;
+                let shadow = image_filters::color_filter(tint, Some(cut), None)?;
+                image_filters::merge([None, Some(shadow)], None)
+            }
         }
     }
 
@@ -1192,7 +1269,10 @@ impl Effect {
             | Effect::Glow { .. }
             | Effect::DirectionalBlur { .. }
             | Effect::Cdl { .. }
-            | Effect::Lut3d { .. } => [
+            | Effect::Lut3d { .. }
+            | Effect::Outline { .. }
+            | Effect::ColorOverlay { .. }
+            | Effect::InnerShadow { .. } => [
                 1.0, 0.0, 0.0, 0.0, 0.0, //
                 0.0, 1.0, 0.0, 0.0, 0.0, //
                 0.0, 0.0, 1.0, 0.0, 0.0, //

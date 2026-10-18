@@ -112,6 +112,8 @@ fn subject(property: &str, records: Value) -> Value {
             let mut gradient = match parameter {
                 "center" | "radius" => json!({"gradient": "radial", "center": [0.5, 0.5],
                                               "radius": 1}),
+                "focal" => json!({"gradient": "two_point_conical", "center": [0.5, 0.5],
+                                  "radius": 1, "focal": [0.25, 0.25]}),
                 _ => json!({"gradient": "linear", "angle": 90}),
             };
             gradient["stops"] = values(Kind::Stops).0;
@@ -183,6 +185,12 @@ fn effect(name: &str) -> Value {
         "posterize" => json!({"name": "posterize", "levels": 8}),
         "glow" => json!({"name": "glow", "threshold": 0.5, "radius": 10, "intensity": 1}),
         "directional_blur" => json!({"name": "directional_blur", "angle": 30, "length": 12}),
+        "outline" => json!({"name": "outline", "width": 4, "color": "#FFFFFF", "opacity": 0.5}),
+        "color_overlay" => json!({"name": "color_overlay", "color": "#FF0000", "opacity": 0.5}),
+        "inner_shadow" => {
+            json!({"name": "inner_shadow", "dx": 4, "dy": 4, "radius": 6, "color": "#000000",
+                   "opacity": 0.5})
+        }
         other => panic!("no static `{other}` for this test to key a parameter of"),
     }
 }

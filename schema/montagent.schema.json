@@ -731,6 +731,86 @@
             "source"
           ],
           "description": "3D LUT (.cube) tetrahedral interpolation grading (ADR-0206)."
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "width": {
+              "$ref": "#/$defs/AnimatableReach"
+            },
+            "color": {
+              "$ref": "#/$defs/AnimatableColour"
+            },
+            "opacity": {
+              "$ref": "#/$defs/AnimatableFraction"
+            },
+            "name": {
+              "type": "string",
+              "const": "outline"
+            }
+          },
+          "required": [
+            "name",
+            "width",
+            "color"
+          ],
+          "description": "An outer stroke around the element's combined alpha silhouette (ADR-0231 §1).\n\nEvaluated via morphological dilation of the element's alpha channel and composited\nbehind the original element with `color` and `opacity` (default `1.0`). `width: 0` is\nthe identity."
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "color": {
+              "$ref": "#/$defs/AnimatableColour"
+            },
+            "opacity": {
+              "$ref": "#/$defs/AnimatableFraction"
+            },
+            "name": {
+              "type": "string",
+              "const": "color_overlay"
+            }
+          },
+          "required": [
+            "name",
+            "color"
+          ],
+          "description": "Flood-fill the element's alpha silhouette with a solid `color` at `opacity`\n(default `1.0`, identity `0.0`) (ADR-0231 §2)."
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "dx": {
+              "$ref": "#/$defs/Animatabledouble"
+            },
+            "dy": {
+              "$ref": "#/$defs/Animatabledouble"
+            },
+            "radius": {
+              "$ref": "#/$defs/AnimatableReach"
+            },
+            "color": {
+              "$ref": "#/$defs/AnimatableColour"
+            },
+            "opacity": {
+              "$ref": "#/$defs/AnimatableFraction"
+            },
+            "name": {
+              "type": "string",
+              "const": "inner_shadow"
+            }
+          },
+          "required": [
+            "name",
+            "dx",
+            "dy",
+            "radius",
+            "color",
+            "opacity"
+          ],
+          "description": "An inner shadow cast inward from the element's alpha boundary (ADR-0231 §3).\n\nMirrors `shadow` (ADR-0040): the element's alpha channel is inverted, offset by\n`(dx, dy)`, blurred by `radius` (σ = `radius` / 2), clipped strictly to the element's\ninterior alpha mask, and composited over the element with `color` and `opacity`\n(`opacity: 0` is the identity)."
         }
       ],
       "description": "One member of the closed vocabulary, discriminated by `name`.\n\nTwo effects of the same name are ordinary rather than forbidden (ADR-0040) — the\ncontainer is a list precisely so a second shadow has somewhere to go."
