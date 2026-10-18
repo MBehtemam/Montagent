@@ -223,6 +223,135 @@ impl Region {
     }
 }
 
+/// A non-rectangular geometric clip contour in frame space (ADR-0220 §5).
+#[derive(Debug, Clone, PartialEq)]
+pub enum AperturePath {
+    /// A circle centered at `center` with `radius`, for `iris` with `shape: "circle"`.
+    Circle { center: (f64, f64), radius: f64 },
+    /// A circular sector centered at `center` with `radius`, sweeping from `start_angle_deg`
+    /// (in Skia degrees, where 0° is +x and 90° is +y) by `sweep_deg`, for `radial_wipe`.
+    Sector {
+        center: (f64, f64),
+        radius: f64,
+        start_angle_deg: f64,
+        sweep_deg: f64,
+    },
+    /// A closed polygon in frame space, for `wipe` at an arbitrary `angle`.
+    Polygon { points: Vec<(f64, f64)> },
+}
+
+impl AperturePath {
+    fn to_skia_path(&self) -> Path {
+        let mut builder = PathBuilder::new();
+        match self {
+            AperturePath::Circle {
+                center: (cx, cy),
+                radius,
+            } => {
+                if *radius > 0.0 {
+                    let cx = *cx as f32;
+                    let cy = *cy as f32;
+                    let r = *radius as f32;
+                    builder.add_oval(Rect::from_ltrb(cx - r, cy - r, cx + r, cy + r), None, None);
+                }
+            }
+            AperturePath::Sector {
+                center: (cx, cy),
+                radius,
+                start_angle_deg,
+                sweep_deg,
+            } => {
+                if *radius > 0.0 && *sweep_deg != 0.0 {
+                    let cx = *cx as f32;
+                    let cy = *cy as f32;
+                    let r = *radius as f32;
+                    let oval = Rect::from_ltrb(cx - r, cy - r, cx + r, cy + r);
+                    builder.move_to((cx, cy));
+                    builder.arc_to(oval, *start_angle_deg as f32, *sweep_deg as f32, false);
+                    builder.close();
+                }
+            }
+            AperturePath::Polygon { points } => {
+                if let Some(&(x0, y0)) = points.first() {
+                    builder.move_to((x0 as f32, y0 as f32));
+                    for &(x, y) in &points[1..] {
+                        builder.line_to((x as f32, y as f32));
+                    }
+                    builder.close();
+                }
+            }
+        }
+        builder.detach()
+    }
+}
+
+/// The frame-space aperture an element is clipped through (ADR-0025, ADR-0150, ADR-0220 §5).
+#[derive(Debug, Clone, PartialEq)]
+pub enum Aperture {
+    /// A single axis-aligned integer rectangle (`clip`, cardinal `wipe`, or rectangular `iris`).
+    Rect(Region),
+    /// A union of axis-aligned integer rectangles (`blinds` slats, or the complement of a
+    /// rectangular `iris`).
+    MultiRect(Vec<Region>),
+    /// A geometric path clipped with hard aliasing (`aa: false`), bounded by `bounds`.
+    /// When `invert` is `true`, the path's fill rule is inverted (`InverseWinding`) so that
+    /// the incoming and outgoing elements of a transition share the exact same contour and
+    /// partition the canvas into bit-exact complements ($A \cap B = \emptyset$, $A \cup B = \text{Frame}$).
+    Path {
+        bounds: Region,
+        shape: AperturePath,
+        invert: bool,
+    },
+}
+
+impl From<Region> for Aperture {
+    fn from(region: Region) -> Self {
+        Aperture::Rect(region)
+    }
+}
+
+impl Aperture {
+    fn apply(&self, canvas: &skia_safe::Canvas) {
+        match self {
+            Aperture::Rect(region) => {
+                canvas.clip_rect(region.rect(), skia_safe::ClipOp::Intersect, false);
+            }
+            Aperture::MultiRect(regions) => {
+                let mut builder = PathBuilder::new();
+                let mut any = false;
+                for region in regions {
+                    if region.width > 0 && region.height > 0 {
+                        builder.add_rect(region.rect(), None, None);
+                        any = true;
+                    }
+                }
+                if any {
+                    let path = builder.detach();
+                    canvas.clip_path(&path, skia_safe::ClipOp::Intersect, false);
+                } else {
+                    canvas.clip_rect(Rect::new_empty(), skia_safe::ClipOp::Intersect, false);
+                }
+            }
+            Aperture::Path {
+                bounds,
+                shape,
+                invert,
+            } => {
+                canvas.clip_rect(bounds.rect(), skia_safe::ClipOp::Intersect, false);
+                if bounds.width > 0 && bounds.height > 0 {
+                    let mut path = shape.to_skia_path();
+                    path.set_fill_type(if *invert {
+                        PathFillType::InverseWinding
+                    } else {
+                        PathFillType::Winding
+                    });
+                    canvas.clip_path(&path, skia_safe::ClipOp::Intersect, false);
+                }
+            }
+        }
+    }
+}
+
 /// The two shapes ADR-0014 admits. An ellipse inscribes its declared rect, which is
 /// exactly what distinguishes it from the point-list shapes that ADR rejected.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -1789,7 +1918,7 @@ impl Canvas {
         paint: &Fill,
         dash: Option<&Dash>,
         trim: Option<Trim>,
-        clip: Option<Region>,
+        clip: Option<Aperture>,
         effects: &[Effect],
     ) {
         if paint.fill.is_none() && paint.stroke.is_none() {
@@ -1892,7 +2021,7 @@ impl Canvas {
         transform: &Transform,
         paint: &Fill,
         style: StrokeStyle,
-        clip: Option<Region>,
+        clip: Option<Aperture>,
         effects: &[Effect],
     ) {
         if paint.fill.is_none() && paint.stroke.is_none() {
@@ -1944,7 +2073,7 @@ impl Canvas {
         source: &Raster,
         extent: Extent,
         transform: &Transform,
-        clip: Option<Region>,
+        clip: Option<Aperture>,
         effects: &[Effect],
     ) {
         let fidelity = self.fidelity;
@@ -1996,7 +2125,7 @@ impl Canvas {
         decorations: &[TextDecoration],
         extent: Extent,
         transform: &Transform,
-        clip: Option<Region>,
+        clip: Option<Aperture>,
         effects: &[Effect],
     ) {
         if glyphs.is_empty() && decorations.is_empty() {
@@ -2066,7 +2195,7 @@ impl Canvas {
         &mut self,
         extent: Extent,
         transform: &Transform,
-        clip: Option<Region>,
+        clip: Option<Aperture>,
         effects: &[Effect],
         draw: impl Fn(&skia_safe::Canvas),
     ) {
@@ -2087,7 +2216,7 @@ impl Canvas {
         let canvas = self.surface.canvas();
         canvas.save();
         if let Some(clip) = clip {
-            canvas.clip_rect(clip.rect(), None, Some(true));
+            clip.apply(canvas);
         }
         // One layer for the whole element rather than alpha on each paint: a fill and an
         // inside stroke overlap, and two alphas would blend the overlap twice.
