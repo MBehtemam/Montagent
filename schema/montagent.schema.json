@@ -715,7 +715,7 @@
             "offset",
             "power"
           ],
-          "description": "ASC CDL (American Society of Cinematographers Color Decision List) color grading (ADR-0206)."
+          "description": "ASC CDL (American Society of Cinematographers Color Decision List) colour grading (ADR-0206)."
         },
         {
           "type": "object",
@@ -1005,7 +1005,7 @@
             "angle",
             "height"
           ],
-          "description": "Directional relief emboss blended onto the source at `contrast` (ADR-0225)."
+          "description": "Directional relief emboss centred on neutral mid-grey at `contrast` (ADR-0225)."
         },
         {
           "type": "object",
@@ -1023,7 +1023,7 @@
             "name",
             "amount"
           ],
-          "description": "Unsharp-mask sharpen against a 3×3 Gaussian neighbourhood (ADR-0225)."
+          "description": "Unsharp-mask sharpen against a 3×3 box-blurred neighbourhood (ADR-0225)."
         },
         {
           "type": "object",
@@ -3096,7 +3096,7 @@
       "type": "number",
       "format": "double",
       "exclusiveMinimum": 0.0,
-      "description": "Distortion radius in element pixels, strictly greater than `0.0`, in a static value and in every keyframe record (ADR-0225)."
+      "description": "Distortion radius as a fraction of `max(width, height)`, strictly greater than `0.0`, in a static value and in every keyframe record (ADR-0225)."
     },
     "FirstKeyframeDistortionRadius": {
       "type": "object",

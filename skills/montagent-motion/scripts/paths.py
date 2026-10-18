@@ -5,7 +5,7 @@ Requires Python >= 3.9
 drift-guard: paths.montagent.json paths.spec.json
 
 Usage:
-    python3 skills/montagent-motion/scripts/paths.py <project.json> <spec.json>
+    python3 skills/montagent-motion/scripts/paths.py <project.json> <spec.json> [--check]
 
 Implements ADR-0226 write-time path operations:
 - taper: variable-width / wave stroke baked into a closed filled path outline
@@ -1252,23 +1252,39 @@ def _build_base_element(op_spec: Dict[str, Any], default_closed: bool) -> Dict[s
     return el
 
 
+def _resolve_op_element(
+    project: Dict[str, Any], op_spec: Dict[str, Any], default_closed: bool
+) -> Tuple[Dict[str, Any], bool, Bounds, Any, bool]:
+    target_id = op_spec.get("target") or op_spec.get("id")
+    target_el = _find_element(project, target_id) if target_id else None
+    el = target_el if target_el is not None else _build_base_element(op_spec, default_closed=default_closed)
+    closed = bool(op_spec.get("closed", el.get("closed", default_closed)))
+    el["closed"] = closed
+    sw = float(el.get("stroke_width", 0.0)) if "stroke" in el else 0.0
+    b = _element_bounds(el, sw, float(el.get("stroke_miter_limit", 4.0)))
+    pts = op_spec.get("points") or el.get("points")
+    return el, closed, b, pts, target_el is None
+
+
+def _append_if_new(project: Dict[str, Any], op_spec: Dict[str, Any], el: Dict[str, Any], is_new: bool) -> None:
+    if is_new:
+        track = _find_or_create_track(project, op_spec.get("track", "paths"), int(op_spec.get("layer", 10)))
+        track["elements"].append(el)
+
+
 def _apply_operation(project: Dict[str, Any], op_spec: Dict[str, Any]) -> None:
     op = op_spec.get("op")
     if not op:
         raise ValueError(f"Operation spec missing 'op': {op_spec!r}")
 
-    target_id = op_spec.get("target")
-    target_el = _find_element(project, target_id) if target_id else None
-
     if op == "taper":
-        el = target_el or _build_base_element(op_spec, default_closed=True)
+        el, _, _, pts, is_new = _resolve_op_element(project, op_spec, default_closed=True)
         el["closed"] = True
         if "fill" not in el and "stroke" in el:
             el["fill"] = el.pop("stroke")
         el.pop("stroke", None)
         el.pop("stroke_width", None)
         b = _element_bounds(el, 0.0)
-        pts = op_spec.get("points") or el.get("points")
         el["points"] = taper(
             pts,
             start_width=op_spec.get("start_width"),
@@ -1286,22 +1302,18 @@ def _apply_operation(project: Dict[str, Any], op_spec: Dict[str, Any]) -> None:
             samples=op_spec.get("samples"),
             bounds=b,
         )
-        if target_el is None:
-            track = _find_or_create_track(project, op_spec.get("track", "paths"), int(op_spec.get("layer", 10)))
-            track["elements"].append(el)
+        _append_if_new(project, op_spec, el, is_new)
 
     elif op == "boolean":
-        el = target_el or _build_base_element(op_spec, default_closed=True)
+        el, _, b, _, is_new = _resolve_op_element(project, op_spec, default_closed=True)
         el["closed"] = True
-        sw = float(el.get("stroke_width", 0.0)) if "stroke" in el else 0.0
-        b = _element_bounds(el, sw, float(el.get("stroke_miter_limit", 4.0)))
         mode = str(op_spec.get("mode", "union"))
         contours = boolean_contours(op_spec["paths"], op=mode, bounds=b)
         if not contours:
             raise ValueError(f"Boolean operation {mode!r} produced an empty contour")
         if op_spec.get("holes_as_mask", False) and len(contours) > 1:
             el["points"] = contours[0]
-            effects = list(el.get("effects", []))
+            effects = list(op_spec.get("effects", []))
             for hole in contours[1:]:
                 effects.append(
                     {
@@ -1314,17 +1326,10 @@ def _apply_operation(project: Dict[str, Any], op_spec: Dict[str, Any]) -> None:
             el["effects"] = effects
         else:
             el["points"] = boolean(op_spec["paths"], op=mode, bounds=b)
-        if target_el is None:
-            track = _find_or_create_track(project, op_spec.get("track", "paths"), int(op_spec.get("layer", 10)))
-            track["elements"].append(el)
+        _append_if_new(project, op_spec, el, is_new)
 
     elif op == "offset":
-        el = target_el or _build_base_element(op_spec, default_closed=True)
-        closed = bool(op_spec.get("closed", el.get("closed", True)))
-        el["closed"] = closed
-        sw = float(el.get("stroke_width", 0.0)) if "stroke" in el else 0.0
-        b = _element_bounds(el, sw, float(el.get("stroke_miter_limit", 4.0)))
-        pts = op_spec.get("points") or el.get("points")
+        el, closed, b, pts, is_new = _resolve_op_element(project, op_spec, default_closed=True)
         el["points"] = offset(
             pts,
             float(op_spec.get("distance", 10.0)),
@@ -1333,17 +1338,10 @@ def _apply_operation(project: Dict[str, Any], op_spec: Dict[str, Any]) -> None:
             closed=closed,
             bounds=b,
         )
-        if target_el is None:
-            track = _find_or_create_track(project, op_spec.get("track", "paths"), int(op_spec.get("layer", 10)))
-            track["elements"].append(el)
+        _append_if_new(project, op_spec, el, is_new)
 
     elif op == "pucker_bloat":
-        el = target_el or _build_base_element(op_spec, default_closed=True)
-        closed = bool(op_spec.get("closed", el.get("closed", True)))
-        el["closed"] = closed
-        sw = float(el.get("stroke_width", 0.0)) if "stroke" in el else 0.0
-        b = _element_bounds(el, sw, float(el.get("stroke_miter_limit", 4.0)))
-        pts = op_spec.get("points") or el.get("points")
+        el, closed, b, pts, is_new = _resolve_op_element(project, op_spec, default_closed=True)
         center = tuple(op_spec["center"]) if "center" in op_spec and op_spec["center"] is not None else None
         el["points"] = pucker_bloat(
             pts,
@@ -1352,17 +1350,10 @@ def _apply_operation(project: Dict[str, Any], op_spec: Dict[str, Any]) -> None:
             closed=closed,
             bounds=b,
         )
-        if target_el is None:
-            track = _find_or_create_track(project, op_spec.get("track", "paths"), int(op_spec.get("layer", 10)))
-            track["elements"].append(el)
+        _append_if_new(project, op_spec, el, is_new)
 
     elif op == "twist":
-        el = target_el or _build_base_element(op_spec, default_closed=True)
-        closed = bool(op_spec.get("closed", el.get("closed", True)))
-        el["closed"] = closed
-        sw = float(el.get("stroke_width", 0.0)) if "stroke" in el else 0.0
-        b = _element_bounds(el, sw, float(el.get("stroke_miter_limit", 4.0)))
-        pts = op_spec.get("points") or el.get("points")
+        el, closed, b, pts, is_new = _resolve_op_element(project, op_spec, default_closed=True)
         center = tuple(op_spec["center"]) if "center" in op_spec and op_spec["center"] is not None else None
         el["points"] = twist(
             pts,
@@ -1372,17 +1363,10 @@ def _apply_operation(project: Dict[str, Any], op_spec: Dict[str, Any]) -> None:
             closed=closed,
             bounds=b,
         )
-        if target_el is None:
-            track = _find_or_create_track(project, op_spec.get("track", "paths"), int(op_spec.get("layer", 10)))
-            track["elements"].append(el)
+        _append_if_new(project, op_spec, el, is_new)
 
     elif op == "zig_zag":
-        el = target_el or _build_base_element(op_spec, default_closed=False)
-        closed = bool(op_spec.get("closed", el.get("closed", False)))
-        el["closed"] = closed
-        sw = float(el.get("stroke_width", 0.0)) if "stroke" in el else 0.0
-        b = _element_bounds(el, sw, float(el.get("stroke_miter_limit", 4.0)))
-        pts = op_spec.get("points") or el.get("points")
+        el, closed, b, pts, is_new = _resolve_op_element(project, op_spec, default_closed=False)
         el["points"] = zig_zag(
             pts,
             ridges=int(op_spec.get("ridges", 4)),
@@ -1391,17 +1375,10 @@ def _apply_operation(project: Dict[str, Any], op_spec: Dict[str, Any]) -> None:
             closed=closed,
             bounds=b,
         )
-        if target_el is None:
-            track = _find_or_create_track(project, op_spec.get("track", "paths"), int(op_spec.get("layer", 10)))
-            track["elements"].append(el)
+        _append_if_new(project, op_spec, el, is_new)
 
     elif op == "wiggle":
-        el = target_el or _build_base_element(op_spec, default_closed=True)
-        closed = bool(op_spec.get("closed", el.get("closed", True)))
-        el["closed"] = closed
-        sw = float(el.get("stroke_width", 0.0)) if "stroke" in el else 0.0
-        b = _element_bounds(el, sw, float(el.get("stroke_miter_limit", 4.0)))
-        pts = op_spec.get("points") or el.get("points")
+        el, closed, b, pts, is_new = _resolve_op_element(project, op_spec, default_closed=True)
         animate = bool(op_spec.get("animate", False))
         wiggle_start = int(op_spec.get("wiggle_start", 0))
         fps_int = max(1, int(project.get("fps", 30)))
@@ -1422,9 +1399,7 @@ def _apply_operation(project: Dict[str, Any], op_spec: Dict[str, Any]) -> None:
             closed=closed,
             bounds=b,
         )
-        if target_el is None:
-            track = _find_or_create_track(project, op_spec.get("track", "paths"), int(op_spec.get("layer", 10)))
-            track["elements"].append(el)
+        _append_if_new(project, op_spec, el, is_new)
 
     elif op == "trim_sequential":
         items = op_spec.get("paths", [])
@@ -1446,11 +1421,13 @@ def _apply_operation(project: Dict[str, Any], op_spec: Dict[str, Any]) -> None:
                 el["trim_start"] = sched["trim_start"]
                 el["trim_end"] = sched["trim_end"]
             else:
+                seg_id = item.get("id", f"{op_spec.get('id', 'trim_seg')}_{idx + 1}") if isinstance(item, dict) else f"{op_spec.get('id', 'trim_seg')}_{idx + 1}"
+                existing = _find_element(project, seg_id)
                 merged = dict(op_spec)
                 if isinstance(item, dict):
                     merged.update(item)
-                merged["id"] = item.get("id", f"{op_spec.get('id', 'trim_seg')}_{idx + 1}")
-                el = _build_base_element(merged, default_closed=bool(merged.get("closed", False)))
+                merged["id"] = seg_id
+                el = existing if existing is not None else _build_base_element(merged, default_closed=bool(merged.get("closed", False)))
                 el["points"] = _extract_vertices(item)
                 for v in el["points"]:
                     v["at"] = [int(round(v["at"][0])), int(round(v["at"][1]))]
@@ -1460,10 +1437,11 @@ def _apply_operation(project: Dict[str, Any], op_spec: Dict[str, Any]) -> None:
                         v["out"] = [int(round(v["out"][0])), int(round(v["out"][1]))]
                 el["trim_start"] = sched["trim_start"]
                 el["trim_end"] = sched["trim_end"]
-                track_name = item.get("track", f"{base_track_name}_{idx + 1}" if len(items) > 1 else base_track_name)
-                layer = int(item.get("layer", base_layer + idx))
-                track = _find_or_create_track(project, track_name, layer)
-                track["elements"].append(el)
+                if existing is None:
+                    track_name = item.get("track", f"{base_track_name}_{idx + 1}" if len(items) > 1 else base_track_name) if isinstance(item, dict) else (f"{base_track_name}_{idx + 1}" if len(items) > 1 else base_track_name)
+                    layer = int(item.get("layer", base_layer + idx)) if isinstance(item, dict) else base_layer + idx
+                    track = _find_or_create_track(project, track_name, layer)
+                    track["elements"].append(el)
     else:
         raise ValueError(f"Unknown path operation: {op!r}")
 
@@ -1507,16 +1485,36 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     if not args or "-h" in args or "--help" in args:
         print(__doc__.strip())
         return 0 if args else 2
-    if len(args) != 2:
-        sys.stderr.write("Usage: paths.py <project.json> <spec.json>\n")
+
+    check_only = False
+    positional = []
+    for arg in args:
+        if arg == "--check":
+            check_only = True
+        elif arg.startswith("-"):
+            sys.stderr.write(f"Unknown option: {arg}\n")
+            return 2
+        else:
+            positional.append(arg)
+
+    if len(positional) != 2:
+        sys.stderr.write("Usage: paths.py <project.json> <spec.json> [--check]\n")
         return 2
 
-    project_path = Path(args[0]).resolve()
-    spec_path = Path(args[1]).resolve()
+    project_path = Path(positional[0]).resolve()
+    spec_path = Path(positional[1]).resolve()
     project = json.loads(project_path.read_text(encoding="utf-8"))
     spec = json.loads(spec_path.read_text(encoding="utf-8"))
 
     updated = apply_spec(project, spec)
+    if check_only:
+        if updated != project:
+            sys.stderr.write(
+                f"{project_path.name}: paths have drifted from {spec_path.name}\n"
+            )
+            return 1
+        return 0
+
     _validate_project_if_available(updated, project_path.parent)
     sys.stdout.write(json.dumps(updated, indent=2) + "\n")
     return 0

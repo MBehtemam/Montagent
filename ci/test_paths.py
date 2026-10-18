@@ -253,6 +253,28 @@ class TestPathsFunctions(unittest.TestCase):
         self.assertIn("tracks", project)
         self.assertGreaterEqual(len(project["tracks"]), 5)
 
+        unbaked_check = subprocess.run(
+            [sys.executable, str(script), "--check", str(project_path), str(spec_path)],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(unbaked_check.returncode, 1)
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".montagent.json", delete=False) as tmp:
+            tmp_baked = Path(tmp.name)
+            tmp.write(proc.stdout)
+        try:
+            baked_check = subprocess.run(
+                [sys.executable, str(script), "--check", str(tmp_baked), str(spec_path)],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(baked_check.returncode, 0, msg=f"stderr: {baked_check.stderr}")
+        finally:
+            tmp_baked.unlink(missing_ok=True)
+
     def test_cli_all_operations_validate(self):
         script = SCRIPTS_DIR / "paths.py"
         fixtures = REPO_ROOT / "fixtures" / "skills"

@@ -220,7 +220,7 @@ ffmpeg -i master_prores.mov \
 
 ### OpenEXR sequences and cinema raw conform
 
-OpenEXR (`.exr`) frame sequences and proprietary camera raw formats (`.braw`, `.r3d`, `.arri`, `.xocn`) are refused as native sources ([ADR-0002](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0002-video-ingest-container-and-codec-whitelist.md), [ADR-0171](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0171-svg-and-lottie-do-not-enter-as-sources-and-each-is-pre-rendered-through-the-skill.md), [ADR-0238](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0238-openexr-sequences-and-cinema-raw-formats-are-refused-and-conform-upstream-to-prores-4444.md)). Conform them upstream into a 10-bit ProRes 4444 or DNxHR HQX `.mov` file with Rec.709 color tags:
+OpenEXR (`.exr`) frame sequences and proprietary camera raw formats (`.braw`, `.r3d`, `.arri`, `.xocn`) are refused as native sources ([ADR-0002](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0002-video-ingest-container-and-codec-whitelist.md), [ADR-0171](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0171-svg-and-lottie-do-not-enter-as-sources-and-each-is-pre-rendered-through-the-skill.md), [ADR-0238](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0238-openexr-sequences-and-cinema-raw-formats-are-refused-and-conform-upstream-to-prores-4444.md)). Conform them upstream into a 10-bit ProRes 4444 or DNxHR HQX `.mov` file with Rec.709 colour tags:
 
 ```bash
 # Conform an EXR image sequence to 10-bit ProRes 4444 MOV with BT.709 tagging

@@ -445,8 +445,8 @@ half4 main(float2 p) {
 ";
 
 /// `emboss` (ADR-0225 §3): directional relief along `angle` at sample offset `height` pixels,
-/// blended with source at `contrast` (identity at `height == 0` or `contrast == 0`), with
-/// edge-clamped coordinates (`TileMode::Clamp`).
+/// centred on neutral mid-grey `(0.5, 0.5, 0.5)` at `contrast` (identity at `height == 0` or
+/// `contrast == 0`), with edge-clamped coordinates (`TileMode::Clamp`).
 const EMBOSS: &str = r"
 uniform shader source;
 uniform float2 size;
@@ -468,20 +468,16 @@ half4 main(float2 p) {
     float a = float(centre.a);
     if (a <= 0.0) { return centre; }
 
-    float3 base = clamp(float3(centre.rgb) / a, 0.0, 1.0);
     float3 pos = rgb_at(p + offset_px);
     float3 neg = rgb_at(p - offset_px);
-    float3 diff = (pos - neg) * contrast;
-    float3 relief = clamp(float3(0.5) + diff, 0.0, 1.0);
-    float blend = clamp(contrast, 0.0, 1.0);
-    float3 out_rgb = clamp(mix(base, relief, blend) + diff * max(0.0, contrast - 1.0), 0.0, 1.0);
+    float3 out_rgb = clamp(float3(0.5) + (pos - neg) * contrast, 0.0, 1.0);
     return half4(half3(out_rgb * a), centre.a);
 }
 ";
 
 /// `sharpen` (ADR-0225 §4): unsharp mask `out = clamp(src + amount * (src - blurred), 0, 1)`
-/// against a 3×3 Gaussian-weighted neighbourhood `[1,2,1; 2,4,2; 1,2,1] / 16` with edge-clamped
-/// coordinates (`TileMode::Clamp`), preserving alpha.
+/// against a uniform 3×3 box-blurred neighbourhood `/ 9` with edge-clamped coordinates
+/// (`TileMode::Clamp`), preserving alpha.
 const SHARPEN: &str = r"
 uniform shader source;
 uniform float2 size;
@@ -512,7 +508,7 @@ half4 main(float2 p) {
     float3 bc = rgb_at(p + float2( 0.0,  1.0));
     float3 br = rgb_at(p + float2( 1.0,  1.0));
 
-    float3 blurred = (tl + 2.0 * tc + tr + 2.0 * ml + 4.0 * cc + 2.0 * mr + bl + 2.0 * bc + br) / 16.0;
+    float3 blurred = (tl + tc + tr + ml + cc + mr + bl + bc + br) / 9.0;
     float3 out_rgb = clamp(cc + amount * (cc - blurred), 0.0, 1.0);
     return half4(half3(out_rgb * a), centre.a);
 }

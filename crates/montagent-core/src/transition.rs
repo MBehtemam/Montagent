@@ -319,13 +319,6 @@ pub(crate) fn bridge_of(running: &[Running], id: &str) -> Bridge {
         .fold(Bridge::default(), Bridge::then)
 }
 
-fn is_cardinal(direction: Direction) -> bool {
-    matches!(
-        direction,
-        Direction::Left | Direction::Right | Direction::Up | Direction::Down
-    )
-}
-
 fn read_center(element: &Value, frame: (i64, i64)) -> Option<[i64; 2]> {
     match element.get("center") {
         None => Some([frame.0 / 2, frame.1 / 2]),
@@ -356,7 +349,7 @@ fn running(
             let dir = element
                 .get("direction")
                 .and_then(|value| serde_json::from_value::<Direction>(value.clone()).ok())
-                .filter(|&d| is_cardinal(d))
+                .filter(|d| d.is_cardinal())
                 .ok_or(Unusable::Direction(kind.as_str()))?;
             (Some(dir), Params::Linear { direction: dir })
         }
@@ -368,7 +361,7 @@ fn running(
                     let dir = element
                         .get("direction")
                         .and_then(|value| serde_json::from_value::<Direction>(value.clone()).ok())
-                        .filter(|&d| is_cardinal(d))
+                        .filter(|d| d.is_cardinal())
                         .ok_or(Unusable::Direction(kind.as_str()))?;
                     (Some(dir), Params::Linear { direction: dir })
                 }
@@ -388,7 +381,7 @@ fn running(
                 None => Direction::Out,
                 Some(value) => serde_json::from_value::<Direction>(value.clone())
                     .ok()
-                    .filter(|&d| matches!(d, Direction::Out | Direction::In))
+                    .filter(|d| d.is_iris())
                     .ok_or(Unusable::Direction(kind.as_str()))?,
             };
             let shape = match element.get("shape") {
@@ -412,7 +405,7 @@ fn running(
                 None => Direction::Clockwise,
                 Some(value) => serde_json::from_value::<Direction>(value.clone())
                     .ok()
-                    .filter(|&d| matches!(d, Direction::Clockwise | Direction::CounterClockwise))
+                    .filter(|d| d.is_radial())
                     .ok_or(Unusable::Direction(kind.as_str()))?,
             };
             let start_angle = match element.get("start_angle") {
@@ -437,7 +430,7 @@ fn running(
             let dir = element
                 .get("direction")
                 .and_then(|value| serde_json::from_value::<Direction>(value.clone()).ok())
-                .filter(|&d| is_cardinal(d))
+                .filter(|d| d.is_cardinal())
                 .ok_or(Unusable::Direction(kind.as_str()))?;
             let slats = match element.get("slats") {
                 None => 10,

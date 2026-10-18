@@ -211,7 +211,7 @@ pub enum Effect {
         angle: Animatable<f64>,
         length: Animatable<Smear>,
     },
-    /// ASC CDL (American Society of Cinematographers Color Decision List) color grading (ADR-0206).
+    /// ASC CDL (American Society of Cinematographers Color Decision List) colour grading (ADR-0206).
     Cdl {
         slope: [f64; 3],
         offset: [f64; 3],
@@ -300,14 +300,14 @@ pub enum Effect {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         invert: Option<bool>,
     },
-    /// Directional relief emboss blended onto the source at `contrast` (ADR-0225).
+    /// Directional relief emboss centred on neutral mid-grey at `contrast` (ADR-0225).
     Emboss {
         angle: Animatable<f64>,
         height: Animatable<EmbossHeight>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         contrast: Option<Animatable<EmbossContrast>>,
     },
-    /// Unsharp-mask sharpen against a 3×3 Gaussian neighbourhood (ADR-0225).
+    /// Unsharp-mask sharpen against a 3×3 box-blurred neighbourhood (ADR-0225).
     Sharpen { amount: Animatable<SharpenAmount> },
     /// Quadratic falloff vortex twist inside `radius` around `center` (ADR-0225).
     Twirl {
@@ -430,7 +430,7 @@ impl crate::resolve::Interpolate for EffectCenter {
     }
 }
 
-/// `twirl` and `bulge`'s `radius`: strictly positive (`> 0.0`) in element pixels (ADR-0225).
+/// `twirl` and `bulge`'s `radius`: strictly positive (`> 0.0`) fraction of `max(width, height)` (ADR-0225).
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct DistortionRadius(pub f64);
@@ -445,8 +445,9 @@ impl JsonSchema for DistortionRadius {
             "type": "number",
             "format": "double",
             "exclusiveMinimum": 0.0,
-            "description": "Distortion radius in element pixels, strictly greater than `0.0`, \
-                            in a static value and in every keyframe record (ADR-0225).",
+            "description": "Distortion radius as a fraction of `max(width, height)`, strictly \
+                            greater than `0.0`, in a static value and in every keyframe record \
+                            (ADR-0225).",
         }))
         .expect("an object literal is a schema")
     }

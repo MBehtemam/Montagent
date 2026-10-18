@@ -94,9 +94,9 @@ the ADR is right where the two disagree.
   directional relief `R = clamp(0.5 + contrast × (I(p + d) − I(p − d)), 0, 1)` along
   `d = (cos θ, sin θ) × height` in element pixels (`contrast` defaults to `1.0`; `height: 0` is
   the identity). Alpha is preserved from the centre pixel.
-- **`sharpen`: `{"amount": 0–5}`** (ADR-0225). Applies a 3×3 Laplacian unsharp mask on
-  non-premultiplied sRGB: `out = clamp(c + amount × (4·c − n − s − e − w), 0, 1)`, preserving
-  the centre pixel's alpha. `amount: 0` is the identity.
+- **`sharpen`: `{"amount": 0–5}`** (ADR-0225). Applies a 3×3 unsharp mask against a uniform
+  3×3 box blur on non-premultiplied sRGB: `out = clamp(c + amount × (c − box_blur_3(c)), 0, 1)`,
+  preserving the centre pixel's alpha. `amount: 0` is the identity.
 - **`twirl`: `{"center"?: [cx, cy], "radius": > 0, "angle": degrees}`** (ADR-0225). `center`
   defaults to `[0.5, 0.5]` (`0..=1` per axis). Within `R = radius × max(W, H)`, rotates sample
   coordinates around `(cx·W, cy·H)` by `θ(r) = radians(angle) × (1 − r / R)²` for `r < R`
