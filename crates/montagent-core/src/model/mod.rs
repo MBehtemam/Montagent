@@ -677,6 +677,10 @@ pub struct Image {
     pub x: Option<Animatable<i64>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub y: Option<Animatable<i64>>,
+    /// The trajectory this element's `origin` moves along, in place of `x` and `y`
+    /// (ADR-0218).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub motion_path: Option<MotionPath>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub origin: Option<Origin>,
     /// Required, never defaulted: the source's dimensions are not in the document, so a
@@ -749,6 +753,10 @@ pub struct Video {
     pub x: Option<Animatable<i64>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub y: Option<Animatable<i64>>,
+    /// The trajectory this element's `origin` moves along, in place of `x` and `y`
+    /// (ADR-0218).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub motion_path: Option<MotionPath>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub origin: Option<Origin>,
     pub width: i64,
@@ -848,6 +856,10 @@ pub struct TextElement {
     pub x: Option<Animatable<i64>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub y: Option<Animatable<i64>>,
+    /// The trajectory this element's `origin` moves along, in place of `x` and `y`
+    /// (ADR-0218).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub motion_path: Option<MotionPath>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub origin: Option<Origin>,
     /// The box the text must fit inside — required, because an omitted `height` would be
@@ -1040,6 +1052,120 @@ pub struct TextPath {
     pub points: Animatable<Points>,
 }
 
+/// A visual element's own trajectory in frame space (ADR-0218 §1): `closed` and `points`,
+/// both required and static, an optional animatable arc-length `offset` (`0` when omitted),
+/// and an optional static `orient` (`false` when omitted). Replaces `x` and `y`.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct MotionPath {
+    /// Whether a last segment runs from the last vertex back to the first. Static (ADR-0218 §1).
+    #[serde(deserialize_with = "static_closed")]
+    pub closed: bool,
+    /// The trajectory's vertices, in integer pixels in frame space. Static: a trajectory does
+    /// not deform while the element rides it (ADR-0218 §1).
+    #[serde(deserialize_with = "static_motion_points")]
+    pub points: Points,
+    /// Where on `points` the element's `origin` sits, as a fraction of the curve's total arc
+    /// length `L`: `[0, 1]` on an open path, or `[-1, 2]` (wrapped via `rem_euclid(1.0)`) on
+    /// a closed path (ADR-0218 §1, §2). Default `0`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub offset: Option<Animatable<MotionPathOffset>>,
+    /// Whether the trajectory's tangent angle is added to the element's `rotation` at every
+    /// instant (ADR-0218 §1, §3). Static. Default `false`.
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "static_orient"
+    )]
+    pub orient: Option<bool>,
+}
+
+/// A `motion_path`'s `offset` (ADR-0218 §1, §4): a fraction of its curve's total arc length,
+/// from `-1` to `2` inclusive in the schema (on an open path, values outside `[0, 1]` are
+/// refused by `E-MOTION-PATH-OFFSET-RANGE`).
+#[derive(Debug, Clone, Copy, PartialEq, Serialize)]
+#[serde(transparent)]
+pub struct MotionPathOffset(pub f64);
+
+impl MotionPathOffset {
+    /// `[minimum, maximum]`.
+    pub const RANGE: (f64, f64) = (-1.0, 2.0);
+}
+
+impl<'de> Deserialize<'de> for MotionPathOffset {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let value = f64::deserialize(deserializer)?;
+        let (min, max) = Self::RANGE;
+        if !(min..=max).contains(&value) {
+            return Err(D::Error::custom(format!(
+                "`motion_path.offset` is {value}: it is a fraction of the curve's length, \
+                 from `-1` to `2` inclusive, in a static value and in every keyframe record \
+                 (ADR-0218)"
+            )));
+        }
+        Ok(MotionPathOffset(value))
+    }
+}
+
+impl JsonSchema for MotionPathOffset {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        "MotionPathOffset".into()
+    }
+
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::Schema::try_from(serde_json::json!({
+            "type": "number",
+            "format": "double",
+            "description": "A fraction of the motion path's total arc length, from `-1` to \
+                            `2` inclusive, in a static value and in every keyframe record \
+                            (ADR-0218).",
+            "minimum": MotionPathOffset::RANGE.0,
+            "maximum": MotionPathOffset::RANGE.1,
+        }))
+        .expect("an object literal is a schema")
+    }
+}
+
+impl crate::resolve::Interpolate for MotionPathOffset {
+    type Out = f64;
+
+    fn between(a: &Self, b: &Self, p: f64) -> f64 {
+        f64::between(&a.0, &b.0, p)
+    }
+
+    fn held(value: &Self) -> f64 {
+        value.0
+    }
+}
+
+/// A `motion_path`'s `points`: a static vertex list in frame space, and never a keyframe list
+/// (ADR-0218 §1).
+fn static_motion_points<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Points, D::Error> {
+    let value = serde_json::Value::deserialize(deserializer)?;
+    if is_keyframe_list(&value) {
+        return Err(D::Error::custom(
+            "`motion_path.points` is static: a trajectory does not deform while the element \
+             rides it; animate `motion_path.offset` instead (ADR-0218)",
+        ));
+    }
+    Points::deserialize(value).map_err(D::Error::custom)
+}
+
+/// A `motion_path`'s `orient`: a static boolean, and never a keyframe list (ADR-0218 §1).
+fn static_orient<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Option<bool>, D::Error> {
+    let value = Option::<serde_json::Value>::deserialize(deserializer)?;
+    let Some(value) = value else {
+        return Ok(None);
+    };
+    if value.is_array() {
+        return Err(D::Error::custom(
+            "`motion_path.orient` is static: a keyframe list is not a value of it; animate \
+             `rotation` alongside `orient` instead (ADR-0218)",
+        ));
+    }
+    bool::deserialize(value).map(Some).map_err(D::Error::custom)
+}
+
 /// A rounded or square rectangle.
 ///
 /// **`rect` and `ellipse` are two types rather than one with a `shape` discriminator
@@ -1067,6 +1193,10 @@ pub struct Rect {
     pub x: Option<Animatable<i64>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub y: Option<Animatable<i64>>,
+    /// The trajectory this element's `origin` moves along, in place of `x` and `y`
+    /// (ADR-0218).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub motion_path: Option<MotionPath>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub origin: Option<Origin>,
     pub width: Animatable<Length>,
@@ -1167,6 +1297,10 @@ pub struct Ellipse {
     pub x: Option<Animatable<i64>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub y: Option<Animatable<i64>>,
+    /// The trajectory this element's `origin` moves along, in place of `x` and `y`
+    /// (ADR-0218).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub motion_path: Option<MotionPath>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub origin: Option<Origin>,
     pub width: Animatable<Length>,
@@ -1254,6 +1388,10 @@ pub struct PathElement {
     pub x: Option<Animatable<i64>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub y: Option<Animatable<i64>>,
+    /// The trajectory this element's `origin` moves along, in place of `x` and `y`
+    /// (ADR-0218).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub motion_path: Option<MotionPath>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub origin: Option<Origin>,
     /// Static on a path: the box bounds the drawing and does not stretch it (ADR-0154 §2).

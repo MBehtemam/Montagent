@@ -361,6 +361,7 @@ fn the_list_is_what_the_schema_types_as_animatable() {
         [
             "x",
             "y",
+            "motion_path.offset",
             "width",
             "height",
             "fill",
@@ -394,6 +395,7 @@ fn the_list_is_what_the_schema_types_as_animatable() {
         [
             "x",
             "y",
+            "motion_path.offset",
             "width",
             "height",
             "fill",
@@ -426,6 +428,7 @@ fn the_list_is_what_the_schema_types_as_animatable() {
         [
             "x",
             "y",
+            "motion_path.offset",
             "color",
             "color.angle",
             "color.stops",
@@ -460,6 +463,7 @@ fn the_list_is_what_the_schema_types_as_animatable() {
         [
             "x",
             "y",
+            "motion_path.offset",
             "scale",
             "rotation",
             "swivel",
