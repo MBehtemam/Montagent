@@ -2011,6 +2011,49 @@ every hand-placed break in them was taken against different metrics.",
         sets: &[Document],
     },
     CheckSpec {
+        // ADR-0223 §1.3: every axis tag on a `FontFile.axes` entry must exist in the face's
+        // `fvar` table and its coordinate must fall within the axis's `[min_value, max_value]`
+        // range. Refuse: whether the author meant a different coordinate or a different font
+        // file is not in the document.
+        code: "E-FONT-AXIS",
+        classes: &[Error],
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0223",
+        template: "`{font}` (`{file}`): axis `{axis}` {detail} (ADR-0223).",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        // ADR-0223 §2.3: every face used to shape a run must declare every active OpenType
+        // feature tag on that run in its `GSUB` or `GPOS` table. Refuse: whether the author
+        // meant to drop the feature or choose a face that carries it is not in the document.
+        code: "E-FONT-FEATURE",
+        classes: &[Error],
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0223",
+        template: "{element}: face `{file}` in the `{font}` chain does not declare OpenType feature `{feature}` in its `GSUB` or `GPOS` tables (ADR-0223).",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        // ADR-0223 §4.2: a run may set static `letter_spacing` only when the element's
+        // `letter_spacing` is omitted or static. Refuse: whether the author meant static
+        // per-run tracking or element-wide animated tracking is not in the document.
+        code: "E-RUN-LETTER-SPACING-CONFLICT",
+        classes: &[Error],
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0223",
+        template: "{element}: run {run} (`{text}`) sets `letter_spacing` while the element's `letter_spacing` is animated; static run `letter_spacing` is legal only when the element's `letter_spacing` is static or omitted (ADR-0223).",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
         // ADR-0151 §4: a run's `unit` replaces one unit's values, so the run must hold
         // exactly one unit. Refuse: which unit the author meant — or whether they meant to
         // split the run differently — is the one fact the document does not carry.

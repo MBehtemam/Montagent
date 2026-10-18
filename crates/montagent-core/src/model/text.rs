@@ -16,7 +16,7 @@ use super::Colour;
 /// optimises every edit except the one that actually occurred"* — adding a second style to
 /// a flat string is a shape change that retypes the original text at precisely the moment
 /// the author is doing something typographically delicate.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Serialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Run {
     /// UTF-8, NFC, raw characters — the serializer never emits `\uXXXX` above U+007F,
@@ -61,6 +61,147 @@ pub struct Run {
     /// the run's glyphs (ADR-0214).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub decoration: Option<Decoration>,
+    /// Closed set of OpenType feature tags enabled on this run, overriding the element's
+    /// `features` list when present (ADR-0223 §2).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub features: Option<Vec<FontFeature>>,
+    /// Vertical baseline offset in integer pixels (`> 0` raises glyphs toward `-Y`; `< 0`
+    /// lowers glyphs toward `+Y`) without altering line slot height or shared `baseline_y`
+    /// (ADR-0223 §3). Explicit `0` is forbidden (ADR-0030).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub baseline_shift: Option<i64>,
+    /// Static per-run tracking override in thousandths of an em of this run's resolved font
+    /// size (`0` explicitly resets element-level tracking across this run; ADR-0223 §4).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub letter_spacing: Option<i64>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RunWritten {
+    text: String,
+    #[serde(default)]
+    font: Option<String>,
+    #[serde(default)]
+    size: Option<i64>,
+    #[serde(default)]
+    color: Option<Colour>,
+    #[serde(default)]
+    stroke: Option<Colour>,
+    #[serde(default)]
+    stroke_width: Option<i64>,
+    #[serde(default)]
+    dir: Option<Dir>,
+    #[serde(default)]
+    highlight: Option<Highlight>,
+    #[serde(default)]
+    unit: Option<UnitOverride>,
+    #[serde(default)]
+    annotation: Option<Annotation>,
+    #[serde(default)]
+    decoration: Option<Decoration>,
+    #[serde(default)]
+    features: Option<Vec<FontFeature>>,
+    #[serde(default)]
+    baseline_shift: Option<i64>,
+    #[serde(default)]
+    letter_spacing: Option<i64>,
+}
+
+impl<'de> Deserialize<'de> for Run {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        use serde::de::Error;
+        let w = RunWritten::deserialize(deserializer)?;
+        if let Some(ref features) = w.features {
+            validate_features(features, "a run").map_err(D::Error::custom)?;
+        }
+        if w.baseline_shift == Some(0) {
+            return Err(D::Error::custom(
+                "`baseline_shift` is 0: omit `baseline_shift` when a run sits on the shared \
+                 line baseline (ADR-0030, ADR-0223)",
+            ));
+        }
+        Ok(Run {
+            text: w.text,
+            font: w.font,
+            size: w.size,
+            color: w.color,
+            stroke: w.stroke,
+            stroke_width: w.stroke_width,
+            dir: w.dir,
+            highlight: w.highlight,
+            unit: w.unit,
+            annotation: w.annotation,
+            decoration: w.decoration,
+            features: w.features,
+            baseline_shift: w.baseline_shift,
+            letter_spacing: w.letter_spacing,
+        })
+    }
+}
+
+/// The closed set of OpenType feature tags an author may enable on a `text` element or `run`
+/// (ADR-0223 §2).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "lowercase")]
+pub enum FontFeature {
+    Tnum,
+    Onum,
+    Zero,
+    Smcp,
+    C2sc,
+    Sups,
+    Subs,
+    Frac,
+    Ordn,
+}
+
+impl FontFeature {
+    /// The four-character OpenType feature tag.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Tnum => "tnum",
+            Self::Onum => "onum",
+            Self::Zero => "zero",
+            Self::Smcp => "smcp",
+            Self::C2sc => "c2sc",
+            Self::Sups => "sups",
+            Self::Subs => "subs",
+            Self::Frac => "frac",
+            Self::Ordn => "ordn",
+        }
+    }
+}
+
+pub(crate) fn validate_features(features: &[FontFeature], owner: &str) -> Result<(), String> {
+    if features.is_empty() {
+        return Err(format!(
+            "{owner}'s `features` is empty: omit `features` when no OpenType feature tags are \
+             enabled (ADR-0030, ADR-0223)"
+        ));
+    }
+    for (i, &tag) in features.iter().enumerate() {
+        if features[..i].contains(&tag) {
+            return Err(format!(
+                "{owner}'s `features` repeats `{}`: list each OpenType feature tag at most \
+                 once (ADR-0223)",
+                tag.as_str()
+            ));
+        }
+    }
+    if features.contains(&FontFeature::Tnum) && features.contains(&FontFeature::Onum) {
+        return Err(format!(
+            "{owner}'s `features` combines `tnum` and `onum`: tabular and oldstyle figure \
+             tags are mutually exclusive (ADR-0223)"
+        ));
+    }
+    if features.contains(&FontFeature::Sups) && features.contains(&FontFeature::Subs) {
+        return Err(format!(
+            "{owner}'s `features` combines `sups` and `subs`: superscript and subscript \
+             feature tags are mutually exclusive (ADR-0223)"
+        ));
+    }
+    Ok(())
 }
 
 /// A start/end window inside the element's own range, plus the style that applies during

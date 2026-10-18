@@ -33,28 +33,45 @@ number, and the ADR is right where the two disagree.
   no part in where text is drawn, so a single line sits at the same place under every `align`,
   and `align` moves only lines narrower than the widest. `query --at`'s `ink_box` is placed
   the same way, so it is where the text is drawn.
-- **`letter_spacing` is an integer in thousandths of an em** (ADR-0151, ADR-0153). After
-  every grapheme of a line, `size × letter_spacing / 1000` pixels are added, where `size` is
-  the size of **the run the grapheme sits in**, so a `size` edit keeps the same tracking.
+- **`letter_spacing` is an integer in thousandths of an em** (ADR-0151, ADR-0153, ADR-0223).
+  After every grapheme of a line, `size × letter_spacing / 1000` pixels are added, where `size`
+  is the size of **the run the grapheme sits in**, so a `size` edit keeps the same tracking.
   Spaces count, and so do run boundaries. **Nothing is added after a line's last grapheme**,
   so a centred or end-aligned line stays where `align` puts it. Negative tightens; the default
-  is 0. It belongs to the element: a run cannot override it. It is an animatable property —
-  keyframe values are integers, and the resolved value is never rounded — and the spaced
+  is 0. On the element it is an animatable property — keyframe values are integers, and the
+  resolved value is never rounded. A run may also carry a static `letter_spacing` integer
+  override (`0` allowed, so a run can reset a tracked element's spacing back to `0`) when the
+  element's `letter_spacing` is omitted or static; combining a run `letter_spacing` with an
+  animated element `letter_spacing` is `E-RUN-LETTER-SPACING-CONFLICT` (ADR-0223). The spaced
   line is what the block, `align`, `origin` and `query --at`'s `ink_box` all measure.
   Lines still break only at `\n`, so spacing never re-breaks a line.
   **No spacing is added between two letters of the same joining script** (Arabic, Syriac,
   N'Ko, Mongolian, Adlam and the others Unicode lists), whether or not they join: it would
   tear the cursive stroke. A tracked mixed line still spreads its spaces, punctuation,
-  digits and other scripts. `validate` names an element where this suppresses a pair as
-  `R-SPACING-SUPPRESSED`.
+  digits and other scripts. `validate` names an element where element or run `letter_spacing`
+  suppresses a pair as `R-SPACING-SUPPRESSED`.
 - **A non-zero `letter_spacing` switches optional ligatures off for the whole element**
-  (ADR-0151, ADR-0153). If any `letter_spacing` value or keyframe on the element is non-zero,
-  or it has a `units` block with `by: letter`, `liga`, `clig` and `dlig` are off for its whole
-  range, so `fi` is two glyphs at every frame
+  (ADR-0151, ADR-0153, ADR-0223). If any `letter_spacing` value or keyframe on the element or
+  any run's `letter_spacing` is non-zero, or it has a `units` block with `by: letter`, `liga`,
+  `clig` and `dlig` are off for its whole range, so `fi` is two glyphs at every frame
   — a spacing keyed through 0 included — and glyphs never swap mid-shot. The rule reads the
   file, never the value at an instant. The joining scripts are exempt: their script runs keep
   every ligature, because some fonts file a spelling-required ligature such as lam-alef under
   `liga`. Required ligatures (`rlig`) are never switched off.
+- **Closed OpenType `features` on a text element or run** (ADR-0223). Both `text` and `run`
+  accept `features`, a unique list drawn from the closed nine-tag vocabulary: `tnum`, `onum`,
+  `zero`, `smcp`, `c2sc`, `sups`, `subs`, `frac`, `ordn`. Mutually exclusive pairs (`tnum`
+  with `onum`, `smcp` with `c2sc`, `sups` with `subs`) are rejected by the schema. A run's
+  `features` replaces the element's `features` wholesale for that run (writing `features: []`
+  on a run clears the element's features on that run). Every face used to shape a run must
+  declare every active feature tag in its `GSUB` or `GPOS` table, or `validate` emits
+  `E-FONT-FEATURE`.
+- **Per-run `baseline_shift` is a non-zero integer in pixels** (ADR-0223). Positive lifts the
+  run above the line's baseline (superscripts, price cents); negative drops it below
+  (chemical subscripts). `0` is forbidden by the schema (omit the key instead). `baseline_shift`
+  never alters the line's vertical slot height (`max(run.size) × line_height`), so shifting a
+  run never pushes adjacent lines apart; the shifted glyph ink is measured in `measure`,
+  `query --at`'s `ink_box`, `E-TEXT-INK-OVERFLOW`, and `R-LINE-INK-COLLISION`.
 - **`R-LINE-INK-COLLISION` measures a spaced element at every `letter_spacing` value the file
   writes** — the static value, or each keyframe record's `v` — and reports the worst seam.
   Between two records the spacing passes only through the values between them; a bezier's
@@ -109,9 +126,13 @@ number, and the ADR is right where the two disagree.
   `line_height`; the block height is the `ceil` of that over the line count, computed in
   exact integer arithmetic. Defaults to `1.2`.
 - **Fonts are declared as an ordered chain of font *files*, never a system family name**
-  (ADR-0007, ADR-0057).
+  (ADR-0007, ADR-0057, ADR-0223).
   The renderer opens nothing outside that chain, which is what makes a project that renders
-  on your machine render on a clean one.
+  on your machine render on a clean one. A variable font file entry may pin static OpenType
+  variation coordinates via `axes: {wght, wdth, slnt, ital, opsz}` (at least one axis when
+  present); axes are never animatable, and two chain entries pointing at the same file with
+  different `axes` register distinct font keys. `validate` checks every declared axis against
+  the face's `fvar` table and emits `E-FONT-AXIS` when an axis is absent or out of range.
 - **Every font file is vendored through `montagent fonts vendor`, and the `fontVendor` table
   is its receipt** (ADR-0057). The table is keyed by file path — one path, one licence, one
   `sha256` — however many `fonts` chains reference the file, and it is written by the tool,

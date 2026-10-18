@@ -42,7 +42,7 @@
 
 use std::collections::HashMap;
 
-use skrifa::instance::{LocationRef, Size};
+use skrifa::instance::{LocationRef, NormalizedCoord, Size};
 use skrifa::outline::{DrawSettings, OutlinePen};
 use skrifa::{FontRef, GlyphId, MetadataProvider};
 
@@ -158,7 +158,7 @@ pub fn place(fonts: &mut Fonts, spec: &Spec<'_>) -> Result<Placement, FontError>
     let height = measurement.block_bottom - block_top;
 
     let mut outlines: Vec<Vec<PathEl>> = Vec::new();
-    let mut seen: HashMap<(usize, u32, u32, u32), usize> = HashMap::new();
+    let mut seen: HashMap<(usize, u32, u32, u32, Vec<i16>), usize> = HashMap::new();
     let mut glyphs = Vec::new();
     let mut annotation_glyphs = Vec::new();
     let mut clusters: Vec<Cluster> = Vec::new();
@@ -201,14 +201,26 @@ pub fn place(fonts: &mut Fonts, spec: &Spec<'_>) -> Result<Placement, FontError>
                     continue;
                 };
                 let which = run.style().brush as usize;
+                let baseline_shift = spec
+                    .runs
+                    .get(which)
+                    .and_then(|r| r.baseline_shift)
+                    .unwrap_or(0) as f64;
                 let font = run.run().font().clone();
                 let size = run.run().font_size();
+                let norm_coords: Vec<i16> = run.run().normalized_coords().to_vec();
                 let data = font.data.as_ref();
                 let key_font = data.as_ptr() as usize;
                 for glyph in run.positioned_glyphs() {
-                    let key = (key_font, font.index, glyph.id, size.to_bits());
+                    let key = (
+                        key_font,
+                        font.index,
+                        glyph.id,
+                        size.to_bits(),
+                        norm_coords.clone(),
+                    );
                     let outline = *seen.entry(key).or_insert_with(|| {
-                        outlines.push(outline_of(data, font.index, glyph.id, size));
+                        outlines.push(outline_of(data, font.index, glyph.id, size, &norm_coords));
                         outlines.len() - 1
                     });
                     let cluster_idx = first_cluster + owners.next().unwrap_or(0);
@@ -219,8 +231,9 @@ pub fn place(fonts: &mut Fonts, spec: &Spec<'_>) -> Result<Placement, FontError>
                         x: dx + f64::from(glyph.x) + shifts.next().unwrap_or(0.0),
                         // parley's `y` is the baseline of its own one-line layout; this
                         // block's baseline is ADR-0029's, so parley's is subtracted back
-                        // out and ours put in its place.
-                        y: baseline + f64::from(glyph.y - placed.metrics().baseline),
+                        // out and ours put in its place, then shifted by `Run.baseline_shift`
+                        // (ADR-0223 §3: positive shifts upward, i.e. -y in canvas coordinates).
+                        y: baseline - baseline_shift + f64::from(glyph.y - placed.metrics().baseline),
                         run: which,
                         outline,
                         cluster: cluster_idx,
@@ -274,12 +287,25 @@ pub fn place(fonts: &mut Fonts, spec: &Spec<'_>) -> Result<Placement, FontError>
                     };
                     let font = run.run().font().clone();
                     let size = run.run().font_size();
+                    let norm_coords: Vec<i16> = run.run().normalized_coords().to_vec();
                     let data = font.data.as_ref();
                     let key_font = data.as_ptr() as usize;
                     for glyph in run.positioned_glyphs() {
-                        let key = (key_font, font.index, glyph.id, size.to_bits());
+                        let key = (
+                            key_font,
+                            font.index,
+                            glyph.id,
+                            size.to_bits(),
+                            norm_coords.clone(),
+                        );
                         let outline = *seen.entry(key).or_insert_with(|| {
-                            outlines.push(outline_of(data, font.index, glyph.id, size));
+                            outlines.push(outline_of(
+                                data,
+                                font.index,
+                                glyph.id,
+                                size,
+                                &norm_coords,
+                            ));
                             outlines.len() - 1
                         });
                         annotation_glyphs.push(Glyph {
@@ -336,19 +362,24 @@ pub fn offset(align: Align, rtl: bool, block_width: f64, advance: f64) -> f64 {
     }
 }
 
-/// One glyph's outline, scaled to `size` in element space.
+/// One glyph's outline, scaled to `size` in element space at `coords` (ADR-0223 §1).
 ///
 /// An unreadable font or a glyph with no outline gives an empty path rather than an error:
 /// the font has already been opened and registered by this point, and a glyph the face
 /// carries no contour for — a space, most of them — is not a failure to report. What it
 /// must never be is a *substituted* glyph, which is why nothing here falls back.
-fn outline_of(data: &[u8], index: u32, glyph: u32, size: f32) -> Vec<PathEl> {
+fn outline_of(data: &[u8], index: u32, glyph: u32, size: f32, coords: &[i16]) -> Vec<PathEl> {
     let mut pen = Pen::default();
     if let Ok(font) = FontRef::from_index(data, index)
         && let Some(outline) = font.outline_glyphs().get(GlyphId::new(glyph))
     {
+        let loc_coords: Vec<NormalizedCoord> = coords
+            .iter()
+            .copied()
+            .map(NormalizedCoord::from_bits)
+            .collect();
         let _ = outline.draw(
-            DrawSettings::unhinted(Size::new(size), LocationRef::default()),
+            DrawSettings::unhinted(Size::new(size), LocationRef::new(&loc_coords)),
             &mut pen,
         );
     }

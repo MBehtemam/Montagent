@@ -20,7 +20,7 @@ use crate::finding::Finding;
 use crate::permissive::Loose;
 use crate::report::Report;
 
-/// The text element's animatable properties a run can also state.
+/// The text element's animatable paint properties a run can also state.
 fn run_paint() -> &'static [String] {
     static FIELDS: OnceLock<Vec<String>> = OnceLock::new();
     FIELDS.get_or_init(|| {
@@ -28,7 +28,7 @@ fn run_paint() -> &'static [String] {
         let run = &schema["$defs"]["Run"]["properties"];
         crate::animatable::of("text")
             .iter()
-            .filter(|property| run.get(&property.name).is_some())
+            .filter(|property| property.name != "letter_spacing" && run.get(&property.name).is_some())
             .map(|property| property.name.clone())
             .collect()
     })

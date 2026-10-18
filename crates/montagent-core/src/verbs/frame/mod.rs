@@ -2378,6 +2378,7 @@ impl<'a> Painter<'a> {
                 // read from the file (ADR-0151).
                 letter_spacing: crate::verbs::measure::letter_spacing_read(element, self.t),
                 optional_ligatures_off: crate::verbs::measure::optional_ligatures_off(element),
+                features: crate::verbs::measure::features_of(element),
             },
         );
         let placement = match placement {
