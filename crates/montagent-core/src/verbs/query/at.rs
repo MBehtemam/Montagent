@@ -430,7 +430,8 @@ fn outline_length(element: &Value, kind: &str, instant: i64) -> Option<f64> {
     montagent_render::canvas::shape_outline_length(shape, Extent { width, height }, stroke_width)
 }
 
-/// What `query --at` derives for a remapped `video` (ADR-0157 §5).
+/// What `query --at` derives for a remapped `video` (ADR-0157 §5) or an element carrying
+/// `motion_path` (ADR-0218 §5).
 #[derive(Debug, Clone, Serialize)]
 pub struct Derived {
     /// The source millisecond shown at the instant: `source_time` resolved and rounded
@@ -444,23 +445,54 @@ pub struct Derived {
     /// Why one of the two is missing, where one is.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub unresolved: Option<String>,
+    /// Total arc length `L` of the element's `motion_path` in pixels (ADR-0218 §5).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub length: Option<f64>,
+    /// Target distance `d = u * L` along the `motion_path` in pixels (ADR-0218 §5).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub distance: Option<f64>,
+    /// Forward tangent angle `atan2(dy, dx)` in degrees (ADR-0218 §5).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tangent_angle: Option<f64>,
 }
 
 impl Derived {
-    fn of(document: &Loose, element: &Value, instant: i64) -> Derived {
-        let source_time = crate::remap::source_ms(element, instant);
-        let fps = document
-            .value()
-            .get("fps")
-            .and_then(Value::as_i64)
-            .filter(|fps| *fps > 0)
-            .ok_or_else(|| "the project states no `fps` to find the next frame by".to_string());
-        let rate = fps.and_then(|fps| crate::remap::rate(element, instant, fps));
-        Derived {
-            unresolved: source_time.as_ref().err().or(rate.as_ref().err()).cloned(),
-            source_time: source_time.ok(),
-            rate: rate.ok(),
+    fn of(document: &Loose, element: &Value, instant: i64) -> Option<Derived> {
+        let remapped = crate::remap::is_remapped(element);
+        let motion_sample = crate::motion_path::at(element, (i128::from(instant), 1));
+        if !remapped && motion_sample.is_none() {
+            return None;
         }
+        let (source_time, rate, unresolved) = if remapped {
+            let source_time = crate::remap::source_ms(element, instant);
+            let fps = document
+                .value()
+                .get("fps")
+                .and_then(Value::as_i64)
+                .filter(|fps| *fps > 0)
+                .ok_or_else(|| "the project states no `fps` to find the next frame by".to_string());
+            let rate = fps.and_then(|fps| crate::remap::rate(element, instant, fps));
+            let unresolved = source_time.as_ref().err().or(rate.as_ref().err()).cloned();
+            (source_time.ok(), rate.ok(), unresolved)
+        } else {
+            (None, None, None)
+        };
+        let (length, distance, tangent_angle) = match motion_sample {
+            Some(sample) => (
+                Some(sample.length),
+                Some(sample.distance),
+                Some(sample.tangent_deg),
+            ),
+            None => (None, None, None),
+        };
+        Some(Derived {
+            source_time,
+            rate,
+            unresolved,
+            length,
+            distance,
+            tangent_angle,
+        })
     }
 }
 
@@ -843,8 +875,9 @@ fn build(document: &Loose, instant: i64, mut session: Option<&mut Session>, deta
             source_offset,
             source_offset_unresolved,
             source_origin,
-            derived: (detail == Detail::Full && crate::remap::is_remapped(element))
-                .then(|| Derived::of(document, element, instant)),
+            derived: (detail == Detail::Full)
+                .then(|| Derived::of(document, element, instant))
+                .flatten(),
             crop,
             crop_unresolved,
             ink_box,
@@ -1276,7 +1309,7 @@ fn audio_parameter(key: &str, value: &Value) -> String {
 /// `#00000000` at alpha 0.
 fn values(element: &Value, instant: i64) -> Vec<Resolved> {
     let own = crate::animatable::of_element(element);
-    crate::animatable::declared(element)
+    let mut out: Vec<Resolved> = crate::animatable::declared(element)
         .into_iter()
         // A typed element answers for its own type's properties; a key another type has is
         // the schema check's to name.
@@ -1339,7 +1372,95 @@ fn values(element: &Value, instant: i64) -> Vec<Resolved> {
                 }
             }
         })
-        .collect()
+        .collect();
+
+    // ADR-0218 §5: on an element carrying `motion_path`, `query --at` reports the resolved
+    // `x` and `y` sampled from the path, `motion_path.offset` (including when omitted and
+    // defaulted to `0.0`), and the effective `rotation` when `orient: true` or `rotation` is
+    // declared.
+    if let Some(sample) = crate::motion_path::at(element, (i128::from(instant), 1)) {
+        let offset_animated =
+            crate::animatable::records(element, "motion_path.offset").is_some();
+        if let Some(entry) = out.iter_mut().find(|r| r.property == "x") {
+            entry.animated = offset_animated;
+            entry.value = Some(Value::from(sample.x));
+            entry.unresolved = None;
+        } else {
+            out.insert(
+                0,
+                Resolved {
+                    property: "x".to_string(),
+                    animated: offset_animated,
+                    value: Some(Value::from(sample.x)),
+                    unresolved: None,
+                },
+            );
+        }
+        if let Some(entry) = out.iter_mut().find(|r| r.property == "y") {
+            entry.animated = offset_animated;
+            entry.value = Some(Value::from(sample.y));
+            entry.unresolved = None;
+        } else {
+            let y_idx = out
+                .iter()
+                .position(|r| r.property == "x")
+                .map_or(0, |i| i + 1);
+            out.insert(
+                y_idx,
+                Resolved {
+                    property: "y".to_string(),
+                    animated: offset_animated,
+                    value: Some(Value::from(sample.y)),
+                    unresolved: None,
+                },
+            );
+        }
+        if !out.iter().any(|r| r.property == "motion_path.offset") {
+            let off_idx = out
+                .iter()
+                .position(|r| r.property == "y")
+                .map_or(out.len(), |i| i + 1);
+            out.insert(
+                off_idx,
+                Resolved {
+                    property: "motion_path.offset".to_string(),
+                    animated: false,
+                    value: Some(Value::from(sample.offset)),
+                    unresolved: None,
+                },
+            );
+        }
+        let has_rotation = out.iter().any(|r| r.property == "rotation");
+        if sample.orient || has_rotation {
+            let base_rot = geometry::number::<f64>(element, "rotation", instant, 0.0);
+            let rot_animated = crate::animatable::records(element, "rotation").is_some()
+                || (sample.orient && offset_animated);
+            let effective_rot = sample.effective_rotation(base_rot);
+            if let Some(entry) = out.iter_mut().find(|r| r.property == "rotation") {
+                if entry.value.is_some() {
+                    entry.animated = rot_animated;
+                    entry.value = Some(Value::from(effective_rot));
+                }
+            } else {
+                let rot_idx = out
+                    .iter()
+                    .position(|r| r.property == "scale")
+                    .or_else(|| out.iter().position(|r| r.property == "motion_path.offset"))
+                    .map_or(out.len(), |i| i + 1);
+                out.insert(
+                    rot_idx,
+                    Resolved {
+                        property: "rotation".to_string(),
+                        animated: rot_animated,
+                        value: Some(Value::from(effective_rot)),
+                        unresolved: None,
+                    },
+                );
+            }
+        }
+    }
+
+    out
 }
 
 fn unreadable(property: &str, animated: bool, reason: String) -> Resolved {

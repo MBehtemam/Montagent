@@ -3855,6 +3855,43 @@ shorten the gloss text.",
         census: None,
         sets: &[Document],
     },
+    // ---- Motion paths (ADR-0218). -----------------------------------------------------------
+    CheckSpec {
+        code: "E-MOTION-PATH-XY",
+        classes: &[Error],
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0218",
+        template: "{element} carries `motion_path` alongside {fields}; position must be owned by \
+either `x`/`y` or `motion_path`, not both.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        code: "E-MOTION-PATH-ZERO-LENGTH",
+        classes: &[Error],
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0218",
+        template: "{element}'s `motion_path` has zero arc length; a motion path must have \
+positive length.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        code: "E-MOTION-PATH-OFFSET-RANGE",
+        classes: &[Error],
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0218",
+        template: "{element}'s `motion_path.offset`{?record} (record {record} at `t` {t}){/record} \
+is {value}, outside `[0.0, 1.0]` on an open motion path (`closed: false`).",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
 ];
 
 impl CheckSpec {
