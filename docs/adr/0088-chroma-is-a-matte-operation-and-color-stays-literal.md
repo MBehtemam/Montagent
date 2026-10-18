@@ -5,6 +5,8 @@ amends: 0040 (overturns its chroma-key out-of-scope entry, replaces that entry's
 
 # Chroma key is a matte operation, not a colour one: it is admitted, and `color` stays literal
 
+> **Amended by [ADR-0227](./0227-standalone-matte-and-luma-key-enter-effects-and-iterative-chokers-and-roughen-edges-are-refused.md)**: Standalone matte and luma_key enter effects[], and iterative chokers and roughen edges are refused.
+
 > **Amended by [ADR-0127](0127-a-run-of-frames-is-the-frames-the-render-paints.md).**
 > The coverage series was one to three frames ahead of the render wherever the element started
 > off its source's grid, ran at another rate, was retimed, or used a source starting after zero,

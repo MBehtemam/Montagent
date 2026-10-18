@@ -72,7 +72,8 @@ def declared_amendments(text):
             r"^amends:[ \t]*(.*(?:\n[ \t]+.*)*)$", yaml.group(1), re.M
         )
         if block:
-            targets |= set(re.findall(r"\b(\d{4})\b", block.group(1)))
+            # `#1067` in a gloss is an issue number, not an ADR.
+            targets |= set(re.findall(r"(?<!#)\b(\d{4})\b", block.group(1)))
 
     # Prose form, e.g. `**Amends:** [ADR-0011](./0011-...md) (gloss),`
     for line in re.findall(r"^\*\*Amends:\*\*\s*(.*)$", text, re.M):

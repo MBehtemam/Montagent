@@ -10,6 +10,8 @@ amends: 0032 (settles the release mechanism it deferred)
 
 # `shift` releases slack through a `release` argument naming boundary-instant pairs, enumerated individually
 
+> **Amended by [ADR-0200](./0200-negative-shift-excises-time-under-the-cut-origin-convention-with-two-tier-safety.md)**: Negative shift excises time under the cut-origin convention with two-tier safety.
+
 [ADR-0032](./0032-slack-is-invariant-shift-refuses-compare-is-the-backstop.md)
 settled that every slack is invariant by default and that `shift` refuses an
 edit that would change one, but left the release mechanism's exact shape

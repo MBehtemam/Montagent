@@ -5,6 +5,16 @@ amends: 0003 (After Effects joins the reference class as precedent for rendered 
 
 # After Effects is precedent for rendered results, and CapCut and Premiere stay first for shape
 
+> **Amended by [ADR-0227](./0227-standalone-matte-and-luma-key-enter-effects-and-iterative-chokers-and-roughen-edges-are-refused.md)**: Standalone matte and luma_key enter effects[], and iterative chokers and roughen edges are refused.
+
+> **Amended by [ADR-0226](./0226-stroke-taper-boolean-paths-and-path-modifiers-are-write-time-scripts-and-trim-is-single-contour.md)**: Stroke taper, boolean paths, and path modifiers are write-time skill scripts, and trim remains single-contour.
+
+> **Amended by [ADR-0225](./0225-edge-sampling-is-clamp-within-bounds-mosaic-radial-blur-sharpen-find-edges-emboss-and-four-distortions-enter-effects.md)**: Edge sampling is clamp within bounds, mosaic, radial_blur, sharpen, find_edges, emboss, and four distortions enter effects[].
+
+> **Amended by [ADR-0221](./0221-vibrance-hue-rotate-and-invert-enter-effects-and-twelve-skblendmode-variants-enter-blend.md)**: Vibrance, hue_rotate, and invert enter effects[], and twelve SkBlendMode variants enter blend.
+
+> **Amended by [ADR-0220](./0220-iris-radial-wipe-and-blinds-enter-as-transition-kinds-and-wipe-gains-angle.md)**: Iris, radial wipe, and blinds enter as transition kinds, and wipe gains angle.
+
 > **Amended by [ADR-0217](0217-motion-bakes-and-keyframe-assistants-enter-in-one-keyframes-script-auto-colour-is-refused-and-a-skill-script-with-its-spec-is-a-template.md)**: disposes of the motion-bake (`wiggle`, `bounce`, `loopIn`/`loopOut`, `valueAtTime`, *Sequence Layers*, time-stretch/reverse), keyframe-assistant (*Convert Audio to Keyframes*, *Smoother*, *Exponential Scale*), measure-then-write auto-colour (*Auto Levels* / *Auto Contrast* / *Auto Color*), and template/MOGRT/Essential-Properties/Expression-Controls rows from map [#896](https://github.com/MBehtemam/Montagent/issues/896)'s censuses ([#1059](https://github.com/MBehtemam/Montagent/issues/1059)).
 >
 > **Amended by [ADR-0218](0218-a-visual-element-moves-along-its-own-motion-path-in-place-of-x-and-y-with-arc-length-offset-and-orient.md)**: disposes of the curved spatial motion path, roving constant-speed keyframe, and *Orient Along Path* rows from map [#896](https://github.com/MBehtemam/Montagent/issues/896)'s transform and animation census ([#898](https://github.com/MBehtemam/Montagent/issues/898)) by admitting an optional `motion_path` (`closed`, `points`, `offset`, `orient`) in place of `x` and `y` on visual elements ([#1060](https://github.com/MBehtemam/Montagent/issues/1060)).

@@ -5,6 +5,8 @@ amends: 0009 (the `ffmpeg` the user supplies has a floor, ffmpeg 7.1 or newer bu
 
 # ffmpeg 7.1 with libx264 is the floor, and a tool qualification finds out
 
+> **Amended by [ADR-0203](./0203-prores-and-dnxhr-mezzanine-codecs-render-via-lgpl-encoders-and-alpha-flows-through-a-32-bit-pipe.md)**: ProRes and DNxHR mezzanine codecs render via LGPL encoders and alpha flows through a 32-bit pipe.
+
 > **Amended by [ADR-0187](0187-windows-ci-pins-a-checksummed-ffmpeg-and-macos-alone-floats.md).**
 > §7's "Windows (`choco`) keep[s] installing the newest release" no longer holds. Both Windows
 > legs install a pinned, checksum-verified BtbN build of the newest release series. macOS

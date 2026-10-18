@@ -5,6 +5,8 @@ amends: 0011 (each member of the resolved stack gains `blend`; `NOT COVERED` is 
 
 # A blend mode is a flat, static field of five values, and the finished element blends last
 
+> **Amended by [ADR-0221](./0221-vibrance-hue-rotate-and-invert-enter-effects-and-twelve-skblendmode-variants-enter-blend.md)**: Vibrance, hue_rotate, and invert enter effects[], and twelve SkBlendMode variants enter blend.
+
 [#670](https://github.com/MBehtemam/Montagent/issues/670), on the map
 [#663](https://github.com/MBehtemam/Montagent/issues/663). Elements composite with normal
 alpha only. The spy trailer needed screen, add, multiply and overlay for light leaks, glows

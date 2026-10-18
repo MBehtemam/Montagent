@@ -7,6 +7,8 @@ amended-by: 0136 (the scope section's open question is answered: a `text` elemen
 
 # `validate` gains two more caption checks: no audio backing, and a minimum display duration
 
+> **Amended by [ADR-0212](./0212-standalone-subtitles-translate-via-cue-intervals-and-text-runs.md)**: Standalone subtitles translate via cue intervals and text runs.
+
 > **Amended by [ADR-0136](0136-a-text-element-opts-out-of-the-caption-checks-with-caption-false.md).**
 > The scope section below hands the caption-vs-decorative line to #135, which never drew it.
 > ADR-0136 draws it: the four caption checks skip any `text` element carrying

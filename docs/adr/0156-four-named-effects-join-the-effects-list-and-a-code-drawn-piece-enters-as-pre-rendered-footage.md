@@ -5,6 +5,10 @@ amends: 0040 (the `effects` vocabulary gains `grain`, `glow`, `posterize` and `d
 
 # Four named effects join the effects list, and a code-drawn piece enters as pre-rendered footage
 
+> **Amended by [ADR-0227](./0227-standalone-matte-and-luma-key-enter-effects-and-iterative-chokers-and-roughen-edges-are-refused.md)**: Standalone matte and luma_key enter effects[], and iterative chokers and roughen edges are refused.
+
+> **Amended by [ADR-0225](./0225-edge-sampling-is-clamp-within-bounds-mosaic-radial-blur-sharpen-find-edges-emboss-and-four-distortions-enter-effects.md)**: Edge sampling is clamp within bounds, mosaic, radial_blur, sharpen, find_edges, emboss, and four distortions enter effects[].
+
 > **Amended by [ADR-0171](0171-svg-and-lottie-do-not-enter-as-sources-and-each-is-pre-rendered-through-the-skill.md).**
 > §7's pre-render route widens from a code-drawn piece to an SVG still and a Lottie animation,
 > under shared size, text and recipe rules.

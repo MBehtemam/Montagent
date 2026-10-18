@@ -5,6 +5,12 @@ amends: 0007 (strikes "text background box" from #22's candidate list, already s
 
 # The effect model: attachment, order, v1 vocabulary, and what's deliberately absent
 
+> **Amended by [ADR-0227](./0227-standalone-matte-and-luma-key-enter-effects-and-iterative-chokers-and-roughen-edges-are-refused.md)**: Standalone matte and luma_key enter effects[], and iterative chokers and roughen edges are refused.
+
+> **Amended by [ADR-0225](./0225-edge-sampling-is-clamp-within-bounds-mosaic-radial-blur-sharpen-find-edges-emboss-and-four-distortions-enter-effects.md)**: Edge sampling is clamp within bounds, mosaic, radial_blur, sharpen, find_edges, emboss, and four distortions enter effects[].
+
+> **Amended by [ADR-0205](./0205-project-level-master-effects-filter-the-composite-at-the-device-boundary.md)**: Project-level master effects filter the composite at the device boundary.
+
 > **Amended by [ADR-0169](./0169-audio-effects-are-an-ordered-list-before-volume-and-gain-and-routing-stay-flat.md)**: the "Audio effects" boundary marker is discharged.
 > Audio effects are `audio_effects: [...]`, a separate ordered list on `audio` and `video`
 > elements, in the same `{name, ...params}` shape; no member is shared with `effects`.

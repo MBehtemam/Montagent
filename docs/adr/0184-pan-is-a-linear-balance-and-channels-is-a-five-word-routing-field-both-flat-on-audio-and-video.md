@@ -4,6 +4,10 @@ status: proposed (DRAFT; becomes accepted once the render-test table in section 
 
 # Pan is a linear balance and channels is a five-word routing field, both flat on audio and video
 
+> **Amended by [ADR-0207](./0207-parametric-eq-dynamics-processors-and-perceptual-scopes-provide-mixing-and-inspection.md)**: Parametric EQ, dynamics processors, and perceptual scopes provide mixing and inspection.
+
+> **Amended by [ADR-0204](./0204-audio-stems-are-role-partitioned-24-bit-broadcast-wav-files-dispatched-in-decoupled-passes.md)**: Audio stems are role-partitioned 24-bit broadcast WAV files dispatched in decoupled passes.
+
 [Capability ADR and hand-off spec: pan/balance and channel operations](https://github.com/MBehtemam/Montagent/issues/795)
 on the audio map (#795), modelled on
 [ADR-0183](0183-the-noise-gate-is-one-stackable-audio-effect-with-a-range-no-hold-and-an-rms-threshold.md)

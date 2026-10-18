@@ -4,6 +4,8 @@ status: accepted
 
 # Slack is invariant by default; `shift` refuses to silently change it, `compare` is the backstop
 
+> **Amended by [ADR-0200](./0200-negative-shift-excises-time-under-the-cut-origin-convention-with-two-tier-safety.md)**: Negative shift excises time under the cut-origin convention with two-tier safety.
+
 > **Amended by five later ADRs.** Read them before relying on anything below.
 >
 > - [ADR-0039](0039-group-keyframe-time-check-retracted-from-validate-reassigned-to-compare.md)

@@ -5,6 +5,18 @@ amends: 0003 ("After Effects is out of scope for now" is replaced: the reference
 
 # CapCut and Premiere are where precedent is looked for first, not the edge of scope; a capability with no precedent in either enters by the entry test
 
+> **Amended by [ADR-0212](./0212-standalone-subtitles-translate-via-cue-intervals-and-text-runs.md)**: Standalone subtitles translate via cue intervals and text runs.
+
+> **Amended by [ADR-0211](./0211-cmx-3600-edl-and-fcpxml-translate-via-smpte-timecode-and-lane-mapping.md)**: CMX 3600 EDL and FCPXML translate via SMPTE timecode and lane mapping.
+
+> **Amended by [ADR-0210](./0210-opentimelineio-translates-bi-directionally-via-rational-time-and-sequential-tracks.md)**: OpenTimelineIO translates bi-directionally via rational time and sequential tracks.
+
+> **Amended by [ADR-0209](./0209-timeline-interchange-is-a-decoupled-zero-renderer-conversion-engine.md)**: Timeline interchange is a decoupled zero-renderer conversion engine.
+
+> **Amended by [ADR-0206](./0206-asc-cdl-and-3d-lut-tetrahedral-shaders-grade-colour-under-closed-arithmetic.md)**: ASC CDL and 3D LUT tetrahedral shaders grade colour under closed arithmetic.
+
+> **Amended by [ADR-0205](./0205-project-level-master-effects-filter-the-composite-at-the-device-boundary.md)**: Project-level master effects filter the composite at the device boundary.
+
 > **Amended by [ADR-0214](0214-multi-line-text-range-decorations-are-run-level-objects-rendered-via-per-line-skrrect-boxes.md)**: multi-line
 > text range decorations enter via Premiere Pro and CSS precedent under the entry test, preserving the paint-only invariant.
 

@@ -5,6 +5,8 @@ amends: 0154 (the round-join, butt-cap pin is lifted; the inset widens to the st
 
 # A path chooses its stroke join and cap, and every shape takes a dash pattern
 
+> **Amended by [ADR-0226](./0226-stroke-taper-boolean-paths-and-path-modifiers-are-write-time-scripts-and-trim-is-single-contour.md)**: Stroke taper, boolean paths, and path modifiers are write-time skill scripts, and trim remains single-contour.
+
 > **Amended by [ADR-0160](0160-a-stroke-draws-a-window-of-its-outline-measured-in-fractions-of-its-length.md).** A cap also draws at a trim's
 > ends: an element carrying `trim_start` or `trim_end` counts wherever §3 and §4 say "where a
 > cap draws", so `E-STROKE-CAP-UNDRAWN` and the square-cap reach factor follow it.

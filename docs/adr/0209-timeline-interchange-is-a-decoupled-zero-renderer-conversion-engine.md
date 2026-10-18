@@ -5,6 +5,12 @@ amends: 0001 (flat element list), 0004 (tracks), 0145 (four invariants), 0199 (r
 
 # Timeline interchange is a decoupled zero-renderer conversion engine
 
+> **Amended by [ADR-0212](./0212-standalone-subtitles-translate-via-cue-intervals-and-text-runs.md)**: Standalone subtitles translate via cue intervals and text runs.
+
+> **Amended by [ADR-0211](./0211-cmx-3600-edl-and-fcpxml-translate-via-smpte-timecode-and-lane-mapping.md)**: CMX 3600 EDL and FCPXML translate via SMPTE timecode and lane mapping.
+
+> **Amended by [ADR-0210](./0210-opentimelineio-translates-bi-directionally-via-rational-time-and-sequential-tracks.md)**: OpenTimelineIO translates bi-directionally via rational time and sequential tracks.
+
 [#978](https://github.com/MBehtemam/Montagent/issues/978), [#1038](https://github.com/MBehtemam/Montagent/issues/1038), [#1039](https://github.com/MBehtemam/Montagent/issues/1039).
 
 ## Context

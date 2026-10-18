@@ -5,6 +5,12 @@ amends: 0035 (states which whole millisecond of its grid a frame is painted at),
 
 # The nine `render` readings are ratified
 
+> **Amended by [ADR-0207](./0207-parametric-eq-dynamics-processors-and-perceptual-scopes-provide-mixing-and-inspection.md)**: Parametric EQ, dynamics processors, and perceptual scopes provide mixing and inspection.
+
+> **Amended by [ADR-0202](./0202-the-output-field-accepts-a-path-string-or-a-structured-output-config-with-container-inference.md)**: The output field accepts a path string or a structured output config with container inference.
+
+> **Amended by [ADR-0199](./0199-fractional-and-ntsc-timebases-are-exact-rational-fractions-and-timeline-points-stay-integer-milliseconds.md)**: Fractional and NTSC timebases are exact rational fractions and timeline points stay integer milliseconds.
+
 > **Amended by [ADR-0143](0143-render-keeps-libx264-medium-crf-20-pins-five-encoder-threads-and-says-so.md)**,
 > which keeps reading 7's libx264, CRF 20 and preset `medium` as a measured choice rather than
 > a default, pins libx264 to `-threads 5` instead of ffmpeg's automatic count, and makes the

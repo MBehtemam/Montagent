@@ -5,6 +5,12 @@ amends: 0005 (§2: sequence fps accepts exact rational fraction alongside intege
 
 # Fractional and NTSC timebases are exact rational fractions and timeline points stay integer milliseconds
 
+> **Amended by [ADR-0211](./0211-cmx-3600-edl-and-fcpxml-translate-via-smpte-timecode-and-lane-mapping.md)**: CMX 3600 EDL and FCPXML translate via SMPTE timecode and lane mapping.
+
+> **Amended by [ADR-0210](./0210-opentimelineio-translates-bi-directionally-via-rational-time-and-sequential-tracks.md)**: OpenTimelineIO translates bi-directionally via rational time and sequential tracks.
+
+> **Amended by [ADR-0209](./0209-timeline-interchange-is-a-decoupled-zero-renderer-conversion-engine.md)**: Timeline interchange is a decoupled zero-renderer conversion engine.
+
 [#980](https://github.com/MBehtemam/Montagent/issues/980), [#986](https://github.com/MBehtemam/Montagent/issues/986), [#987](https://github.com/MBehtemam/Montagent/issues/987).
 
 ## Context

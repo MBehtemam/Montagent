@@ -5,6 +5,10 @@ amends: 0040 (settles the colour-filter deferral that ADR named and excluded fro
 
 # The v1 colour-filter vocabulary: four flat scalar effects, and a mechanical stopping rule
 
+> **Amended by [ADR-0221](./0221-vibrance-hue-rotate-and-invert-enter-effects-and-twelve-skblendmode-variants-enter-blend.md)**: Vibrance, hue_rotate, and invert enter effects[], and twelve SkBlendMode variants enter blend.
+
+> **Amended by [ADR-0206](./0206-asc-cdl-and-3d-lut-tetrahedral-shaders-grade-colour-under-closed-arithmetic.md)**: ASC CDL and 3D LUT tetrahedral shaders grade colour under closed arithmetic.
+
 > **Amended by [ADR-0088](./0088-chroma-is-a-matte-operation-and-color-stays-literal.md)**,
 > which states that the stopping rule below and its closed `tint.color` exception are scoped
 > — in their own words — to **colour operations**, and so do not reach a matte operation.

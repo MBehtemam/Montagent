@@ -5,6 +5,10 @@ amends: 0077 (reading 7's CRF 20 and preset `medium` are now a measured choice r
 
 # `render` keeps libx264 `medium` at CRF 20, pins five encoder threads, and says so
 
+> **Amended by [ADR-0203](./0203-prores-and-dnxhr-mezzanine-codecs-render-via-lgpl-encoders-and-alpha-flows-through-a-32-bit-pipe.md)**: ProRes and DNxHR mezzanine codecs render via LGPL encoders and alpha flows through a 32-bit pipe.
+
+> **Amended by [ADR-0202](./0202-the-output-field-accepts-a-path-string-or-a-structured-output-config-with-container-inference.md)**: The output field accepts a path string or a structured output config with container inference.
+
 > **Amended by [ADR-0190](0190-x64-windows-guarantees-the-frames-at-the-encoders-input-not-the-mp4s-bytes.md).**
 > The pinned `-threads 5` and every encoder setting stand. What no longer holds on x86_64
 > Windows is that the same project writes the same MP4 bytes: x264's assembly path in the

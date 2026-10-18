@@ -5,6 +5,8 @@ amends: 0158 (a cap also draws at a trim's ends, so `E-STROKE-CAP-UNDRAWN` and t
 
 # A stroke draws a window of its outline, measured in fractions of its length
 
+> **Amended by [ADR-0226](./0226-stroke-taper-boolean-paths-and-path-modifiers-are-write-time-scripts-and-trim-is-single-contour.md)**: Stroke taper, boolean paths, and path modifiers are write-time skill scripts, and trim remains single-contour.
+
 [#712](https://github.com/MBehtemam/Montagent/issues/712), on the map
 [#663](https://github.com/MBehtemam/Montagent/issues/663).
 [ADR-0154](0154-a-point-list-enters-as-one-path-element-in-integer-pixels-from-the-declared-box.md)

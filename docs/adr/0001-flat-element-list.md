@@ -4,6 +4,10 @@ status: partially superseded by 0004
 
 # A project is a flat list of uniform elements, not tracks or scenes
 
+> **Amended by [ADR-0209](./0209-timeline-interchange-is-a-decoupled-zero-renderer-conversion-engine.md)**: Timeline interchange is a decoupled zero-renderer conversion engine.
+
+> **Amended by [ADR-0201](./0201-nested-sequences-are-bounded-containers-rendering-to-an-isolated-surface-on-an-absolute-timeline.md)**: Nested sequences are bounded containers rendering to an isolated surface on an absolute timeline.
+
 > [!IMPORTANT]
 > **The track rejection below is superseded by
 > [ADR-0004](./0004-tracks-as-constrained-lanes.md).** Elements now live in

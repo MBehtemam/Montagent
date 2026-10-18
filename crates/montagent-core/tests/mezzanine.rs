@@ -45,7 +45,7 @@ fn prores_4444_with_alpha_deliverable() {
 
     let dir = tempdir(line!());
     let out_path = dir.join("prores_alpha.mov");
-    let out_path_str = out_path.display().to_string();
+    let out_path_str = out_path.display().to_string().replace('\\', "/");
 
     let doc = format!(
         r##"{{
@@ -115,7 +115,7 @@ fn prores_standard_deliverable() {
 
     let dir = tempdir(line!());
     let out_path = dir.join("prores_std.mov");
-    let out_path_str = out_path.display().to_string();
+    let out_path_str = out_path.display().to_string().replace('\\', "/");
 
     let doc = format!(
         r##"{{
@@ -181,7 +181,7 @@ fn dnxhr_hq_mxf_deliverable() {
 
     let dir = tempdir(line!());
     let out_path = dir.join("dnxhr.mxf");
-    let out_path_str = out_path.display().to_string();
+    let out_path_str = out_path.display().to_string().replace('\\', "/");
 
     let doc = format!(
         r##"{{

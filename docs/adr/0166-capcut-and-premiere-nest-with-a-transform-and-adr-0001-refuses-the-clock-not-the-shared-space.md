@@ -5,6 +5,8 @@ amends: 0003 ("Nesting stays rejected": the reason given for it is wrong by mech
 
 # CapCut and Premiere nest with a transform, and ADR-0001 refuses the clock, not the shared space
 
+> **Amended by [ADR-0201](./0201-nested-sequences-are-bounded-containers-rendering-to-an-isolated-surface-on-an-absolute-timeline.md)**: Nested sequences are bounded containers rendering to an isolated surface on an absolute timeline.
+
 [#632](https://github.com/MBehtemam/Montagent/issues/632), on the map
 [#591](https://github.com/MBehtemam/Montagent/issues/591). The map's Destination owes two
 records whatever the group transform's ruling is: an erratum to ADR-0003, and a statement of
