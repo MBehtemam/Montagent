@@ -14,10 +14,15 @@ two disagree.
   element's element-level `color` and `stroke`. Every other colour field takes a colour only: run and
   highlight paint, the project `background`, and `shadow`, `tint` and `chroma` colours. For a
   gradient background, put a full-frame `rect` with a gradient `fill` at the bottom.
-- **A gradient is `linear` or `radial`, and every parameter is required** (ADR-0149):
-  `{"gradient": "linear", "angle": 90, "stops": [...]}` or
-  `{"gradient": "radial", "center": [0.5, 0.5], "radius": 1, "stops": [...]}`. `linear`
-  refuses `center` and `radius`; `radial` refuses `angle`. Nothing defaults.
+- **A gradient is `linear`, `radial`, `sweep` or `two_point_conical`, and every parameter is
+  required** (ADR-0149, ADR-0222):
+  `{"gradient": "linear", "angle": 90, "stops": [...]}`,
+  `{"gradient": "radial", "center": [0.5, 0.5], "radius": 1, "stops": [...]}`,
+  `{"gradient": "sweep", "center": [0.5, 0.5], "angle": 0, "stops": [...]}`, or
+  `{"gradient": "two_point_conical", "center": [0.5, 0.5], "radius": 1, "focal": [0.35, 0.35], "stops": [...]}`.
+  Each kind refuses the others' keys (`linear` refuses `center`, `radius` and `focal`; `radial`
+  refuses `angle` and `focal`; `sweep` refuses `radius` and `focal`; `two_point_conical`
+  refuses `angle`). Nothing defaults.
 - **A stop is `{"offset", "color"}`**, `offset` from `0` to `1`, `color` a colour whose alpha
   is the stop's opacity. At least two stops, no upper limit. Offsets never decrease
   (`E-GRADIENT-STOP-ORDER`, naming the first pair out of order); equal offsets are legal and
@@ -37,31 +42,47 @@ two disagree.
   fractions, so on a box that is not square it draws as an ellipse. `center: [0.5, 0.5]`,
   `radius: 1` is CSS's default radial gradient. `radius: 0` paints the last stop's colour
   over the whole box.
+- **`sweep`** (ADR-0222): `center` is `[fx, fy]` in box fractions; `angle` is in degrees,
+  CSS `conic-gradient` convention — `0` starts at 12 o'clock (top, `[cx, cy − ε]`) and sweeps
+  `360°` clockwise, so `90` starts at 3 o'clock, `180` at 6 o'clock, and `270` at 9 o'clock.
+  The rotation happens in unit-box coordinates before scaling to `(W, H)`, so on a non-square
+  box `45°` points toward the top-right corner `[1, 0]`. When the first and last stops differ,
+  a hard seam sits along `angle`; match the first and last stop colours for a continuous ring.
+- **`two_point_conical`** (ADR-0222): `center` and `focal` are `[fx, fy]` in box fractions,
+  and `radius` (≥ 0) is a fraction of the distance from `center` to the box's farthest corner
+  in box fractions (`R = radius × farthest_corner(center)`). Stop offset `0` sits at `focal`
+  (inner radius `0`), and stop offset `1` sits on the circle of radius `R` around `center`,
+  giving an off-axis specular highlight or 3D sphere shading. When `focal == center`, it draws
+  identically to `radial`. When `focal` lies on or outside the outer circle (`|focal − center| ≥ R`),
+  the renderer clamps `focal` along the ray from `center` to `0.999 × R` so the entire box stays
+  painted (`query --at` still prints the unclamped `focal` from the document). `radius: 0`
+  paints the last stop's colour over the whole box.
 - **Past the ends the first and last colours extend; colour blends in sRGB with premultiplied
   alpha** (ADR-0149), the rule a keyed colour uses across time. A fade to `#00000000` keeps
   its hue rather than passing through grey. There is no repeat or mirror.
-- **A gradient animates in place** (ADR-0149): `angle`, `center`, `radius` and `stops` each
-  take a literal or a keyframe list of their own type, with their own `ease`. `stops` as a
-  keyframe list has a whole stop list as each `v`: every `v` holds the same number of stops
-  (`E-GRADIENT-STOP-COUNT`, naming the first record that differs), and stop *i* blends with
-  stop *i*, its `offset` as a number and its `color` premultiplied. The kind never animates.
-  A paint's keyframe list holds colours, never a gradient, and never a mix: both are schema
-  errors. For flat to gradient, write the flat colour as a gradient whose stops share it, then
-  key the stops:
+- **A gradient animates in place** (ADR-0149, ADR-0222): `angle`, `center`, `radius`, `focal`
+  and `stops` each take a literal or a keyframe list of their own type, with their own `ease`.
+  `stops` as a keyframe list has a whole stop list as each `v`: every `v` holds the same number
+  of stops (`E-GRADIENT-STOP-COUNT`, naming the first record that differs), and stop *i* blends
+  with stop *i*, its `offset` as a number and its `color` premultiplied. The kind never
+  animates. A paint's keyframe list holds colours, never a gradient, and never a mix: both are
+  schema errors. For flat to gradient, write the flat colour as a gradient whose stops share it,
+  then key the stops:
   `{"gradient": "linear", "angle": 90, "stops": [{"t": 0, "v": [{"offset": 0, "color": "#FF3366"}, {"offset": 1, "color": "#FF3366"}]}, {"t": 800, "v": [{"offset": 0, "color": "#FF3366"}, {"offset": 1, "color": "#3366FF"}], "ease": "ease-out"}]}`.
 - **A bezier may carry an offset past its neighbour**: each resolved offset is clamped to
   `0..1`, then raised to the largest offset before it, and a raised stop keeps its own colour,
-  so a crossing is a hard edge. A resolved `radius` at or below `0` paints the last stop's
-  colour over the box. `query --at` prints what is drawn, always a legal literal.
+  so a crossing is a hard edge. A resolved `radius` at or below `0` on `radial` or
+  `two_point_conical` paints the last stop's colour over the box. `query --at` prints what is
+  drawn, always a legal literal.
 - **Two reviews** (ADR-0149): `R-GRADIENT-ONE-COLOUR`, a gradient whose resolved paint is a
   single colour at every frame `render` paints in the element's range (its stops share one, or
-  its `radius` stays at or below `0`); a flat-to-gradient animation never fires it. And
-  `R-TEXT-PAINT-OVERRIDDEN`, a text `color` or `stroke` that is keyed or a gradient and that
-  every run overrides, so it is never drawn. A run's own colour still beats the element's
-  gradient, run by run.
+  its `radius` on `radial` or `two_point_conical` stays at or below `0`); a flat-to-gradient
+  animation never fires it. And `R-TEXT-PAINT-OVERRIDDEN`, a text `color` or `stroke` that is
+  keyed or a gradient and that every run overrides, so it is never drawn. A run's own colour
+  still beats the element's gradient, run by run.
 - **`query --at` prints a gradient as a literal you can paste back**: kind, resolved
   parameters and stops, colours as hex, under the paint's own name (`fill`). `validate` and
-  the contact sheet name a nested list by its path: `fill.angle`, `stroke.stops`.
+  the contact sheet name a nested list by its path: `fill.angle`, `fill.focal`, `stroke.stops`.
 - **`shift` carries and splits every nested list.** A split writes the resolved value, so it
   is refused (`E-SHIFT-SPLIT-UNWRITABLE`, naming `fill.stops` and the instant) where the
   resolved offsets are out of `0..1` or crossed, tested before the fix above; splitting
