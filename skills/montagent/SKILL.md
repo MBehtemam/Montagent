@@ -72,7 +72,7 @@ This is the capability map. Read it before you design, so the brief does not lea
 
 - Text in fonts you vendor, as runs with their own size and colour: `fonts`, `size`, `color`.
 - Letter spacing on a whole text element, keyable: `letter_spacing`.
-- A text element's letters, words or lines animating one after another, with one singled out: `units`, `unit`.
+- A text element's letters, words or lines animating one after another (forward, reverse, from the centre out, or from the edges in), with per-unit blur and one unit singled out: `units`, `order`, `center_out`, `edges_in`, `blur`, `unit`.
 - One line of text bent along its own curve (straight, arc, wave or circle) and sliding along it: `path` (the `path` element's points) and `path_offset` on `text`, with `align`.
 
 **Compositing**
@@ -80,14 +80,14 @@ This is the capability map. Read it before you design, so the brief does not lea
 - Crossfade between clips, and a cut between clips: `transition`, `step`. Write `"audio": "constant_power"` on every new transition between clips that sound, so the sound crossfades too; absent keeps the hard audio cut.
 - Wipe, slide and push between clips, travelling in a direction, with an ease: `kind`, `direction`, `ease`.
 - Chroma key: `chroma`.
-- Blend an element into what is beneath it, as screen, add, multiply or overlay: `blend`.
+- Blend an element into what is beneath it, as screen, add, multiply, overlay, darken, lighten, color_dodge, color_burn, hard_light, soft_light, difference, exclusion, hue, saturation, color or luminosity: `blend`.
 - Keep everything outside a mask shape instead of inside it: `mask`, `invert`.
 - Soften a mask's edge, and animate the softness: `mask`, `feather`.
 - Mask an element through any closed outline drawn point by point, and animate the outline: `mask`, `shape`, `points`.
 
 **Effects**
 
-- Blur, shadow, mask, tint, saturation, brightness, contrast, ASC CDL color grading and 3D LUT cube grading: `blur`, `shadow`, `mask`, `tint`, `saturation`, `brightness`, `contrast`, `cdl`, `lut3d`.
+- Blur, shadow, mask, tint, saturation, brightness, contrast, vibrance, hue rotation, channel inversion, ASC CDL color grading and 3D LUT cube grading: `blur`, `shadow`, `mask`, `tint`, `saturation`, `brightness`, `contrast`, `vibrance`, `hue_rotate`, `invert`, `cdl`, `lut3d`.
 - Outer alpha-contour stroke, alpha-preserving solid colour fill, and inset shadow clipped to an element's alpha silhouette (sticker borders on transparent PNGs or keyed subjects, hit-flashes, sunken cutouts): `outline`, `color_overlay`, `inner_shadow`.
 - Film grain that re-rolls every frame from a literal seed, on an element or as a grey `rect` texture blended `overlay`: `grain`, `seed`, `size`, `mono`.
 - Posterize an element's colours into a few flat steps: `posterize`, `levels`.
@@ -149,3 +149,4 @@ Montagent refuses these on purpose, so do not wait for them. Each line gives wha
 - Bevel and emboss or a gradient overlay effect. Use native gradient paint on `fill`, `stroke` or `color`, a blended gradient `rect` over footage, a pair of opposite `inner_shadow` effects for a 2.5D bevel, or pre-render 3D lighting with `montagent-prerender`. ([ADR-0231](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0231-outline-color-overlay-and-inner-shadow-enter-effects-and-bevel-and-gradient-overlay-are-refused.md))
 - A 3D camera, z-depth sorting, 3D layer intersections, inter-layer 3D cast shadows, or arbitrary 4-point corner pin. Turn flat elements in perspective with `swivel`, `tilt` and `perspective` ([ADR-0167](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0167-an-element-may-be-projected-never-placed-swivel-tilt-and-perspective-join-the-transform.md)), or pre-render 3D scenes with `montagent-prerender` ([ADR-0233](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0233-3d-models-and-multichannel-passes-are-refused-as-native-sources-and-3d-scenes-pre-render-via-headless-recipes.md)).
 - Native 3D model sources (`.glb`, `.gltf`, `.obj`, `.fbx`, `.blend`) or multichannel 3D passes. Pre-render 3D scenes to transparent footage or PNGs with `montagent-prerender`. ([ADR-0233](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0233-3d-models-and-multichannel-passes-are-refused-as-native-sources-and-3d-scenes-pre-render-via-headless-recipes.md))
+- After Effects Range Selector shapes, converting text glyphs to `path` elements, or vertical writing mode (`writing_mode` / `text_orientation`). Stagger units with `order` (`forward`, `reverse`, `center_out`, `edges_in`), per-unit `blur`, and 3-keyframe return waves; animate `text` directly with `stroke`, `units`, `path` and `effects` instead of converting glyphs with inner counters to single-contour `path` elements; and stack upright vertical columns with `\n` or rotate sideways spines with `rotation` (`montagent-motion`). ([ADR-0224](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0224-units-gain-center-out-edges-in-and-blur-and-range-selectors-glyph-to-path-and-vertical-writing-mode-are-refused.md)) <!-- guard-ok: writing_mode text_orientation -->

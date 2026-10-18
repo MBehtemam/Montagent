@@ -82,14 +82,28 @@ Recolour a word inside its line with a `highlight` on that word's run, starting 
 
 ### Kinetic and typed text
 
-Lines that arrive a word or a letter at a time are set with the bundled script, not written by hand. `python3 scripts/type_on.py <project> <spec>` (run it with `--help` for the spec) measures the line with `measure`, places each word or letter where the whole line would set it, and prints the project with those elements added:
+When every letter, word or line shares one motion curve on a regular step (`every` ms), keep a single `text` element and stagger it with `units` (`by`: `letter`, `word` or `line`; `order`: `forward`, `reverse`, `center_out` or `edges_in`). Here a headline evaporates into focus from its centre outward:
 
-- **Words landing on beats:** `"by": "word"`, `"enter": "pop"`, and one time per word in `times`. A `highlights` entry recolours one word on its beat.
-- **Typing:** `"by": "letter"`, 60–150 ms between letters (irregular reads more human: vary ±30 ms), and a `cursor` that blinks at 500–600 ms per cycle while idle, stays solid while typing, and steps ahead of each letter.
-- **Tracked titles:** do not split the title into letters. Write one `text` element with `letter_spacing`, in thousandths of an em (`size × letter_spacing / 1000` px after each letter; negative tightens). Key it to drift a title apart: `"letter_spacing": [{"t": 0, "v": 0}, {"t": 800, "v": 120, "ease": [0.65, 0, 0.35, 1]}]`. Any non-zero value switches the optional ligatures off, and a joining script such as Arabic takes no spacing. <!-- guard-ok: times highlights cursor -->
+```json
+{
+  "frame": {"width": 1920, "height": 1080}, "fps": 30, "background": "#101418", "duration": 2000, "output": "out/evaporate.mp4",
+  "fonts": {"title": [{"file": "fonts/Inter-Bold.ttf"}]},
+  "fontVendor": {"fonts/Inter-Bold.ttf": {"licence": "OFL-1.1", "source": "https://github.com/rsms/inter", "sha256": "288316099b1e0a47a4716d159098005eef7c0066921f34e3200393dbdb01947f"}},
+  "tracks": [
+    {"name": "title", "layer": 20, "elements": [
+      {"id": "evaporate", "type": "text", "start": 0, "end": 2000, "x": 960, "y": 540, "origin": "center", "width": 1400, "height": 160, "font": "title", "size": 108, "color": "#F5F0E6", "align": "center", "runs": [{"text": "SHARP FOCUS"}], "units": {"by": "letter", "order": "center_out", "every": 45, "y": [{"t": 0, "v": 20}, {"t": 360, "v": 0, "ease": "ease-out"}], "opacity": [{"t": 0, "v": 0}, {"t": 360, "v": 1, "ease": "ease-out"}], "blur": [{"t": 0, "v": 24}, {"t": 360, "v": 0, "ease": "ease-out"}]}, "caption": false}
+    ]}
+  ]
+}
+```
 
-It writes one element per unit and marks each one `caption: false`, so the caption checks skip them.
-
+- **Evaporate / optical focus-in (`blur`):** key `blur` inside `units` from `16`–`32` px down to `0` over 300–450 ms (`ease-out`), paired with `opacity` (`0 -> 1`) and a small `y` lift (`16`–`28` px `-> 0`) or `scale` (`[1.08, 1.08] -> [1.0, 1.0]`). Once `blur` reaches `0` and `opacity` reaches `1`, the renderer takes the fast path with zero extra layer cost.
+- **Symmetric orders (`center_out`, `edges_in`):** `center_out` starts on the middle unit (or middle pair when the count is even) and steps outward to both ends; `edges_in` starts on the first and last units together and converges on the middle.
+- **Travelling wave (`A -> peak -> A`):** instead of an After Effects Range Selector (`triangle`, `round` or `smooth`), write a three-keyframe return curve in `units` — for example `"y": [{"t": 0, "v": 0}, {"t": 180, "v": -28, "ease": "ease-out"}, {"t": 360, "v": 0, "ease": "ease-in-out"}]` (or a `scale` / `blur` pulse) — and let `every` ripple the peak across the line. To single out one word or letter with custom timing, split it into its own run with `unit`. <!-- guard-ok: triangle smooth -->
+- **Keep glyphs as `text` (never convert glyphs to `path`):** `path` elements have one contour (`points` with no `holes`), so converting multi-contour glyphs (`O`, `A`, `B`, `8`, `i`, `?`, `%`) to `path` fills inner counters solid or drops islands (ADR-0224). Keep text as `text` and style or animate it with `stroke`, `units`, `path` and `effects`. <!-- guard-ok: holes i -->
+- **Irregular beat times or typing cursor (`scripts/type_on.py`):** when words land on irregular beat timestamps or letters need a stepping `cursor`, run `python3 scripts/type_on.py <project> <spec>` (`--help` for the spec). It measures the line with `measure` and emits one `text` element per unit (`"by": "word"` with `"enter": "pop"` and `times` / `highlights`, or `"by": "letter"` at 60–150 ms with a blinking `cursor`), marking each `caption: false`. <!-- guard-ok: python3 times highlights cursor -->
+- **Tracked titles:** do not split the title into letters. Write one `text` element with `letter_spacing`, in thousandths of an em (`size × letter_spacing / 1000` px after each letter; negative tightens). Key it to drift a title apart: `"letter_spacing": [{"t": 0, "v": 0}, {"t": 800, "v": 120, "ease": [0.65, 0, 0.35, 1]}]`. Any non-zero value switches the optional ligatures off, and a joining script such as Arabic takes no spacing.
+- **Vertical columns and sideways spines:** Montagent has no `writing_mode` property (ADR-0224). For an **upright stacked column** (CJK vertical copy or a stacked marquee), join graphemes with `\n` (`"text": "東\n京\n都"`) inside a narrow `text` box with `"align": "center"` and `"line_height": 1.0` or `1.1`; keep 2–3 horizontal digits or Latin initials on one line (`"text": "第\n25\n回"`, Tate-chu-yoko) and stagger with `"by": "line"` so the horizontal number moves as one unit. For a **sideways Latin spine**, set a horizontal `text` element and rotate it with `"rotation": -90` (reads bottom-to-top) or `"rotation": 90` (reads top-to-bottom). <!-- guard-ok: writing_mode -->
 - **Look:** `preview` the span of the line coming on. Then `frame` it at rest, and check the spacing reads as one line, with no gap wider at a word or letter boundary.
 
 ### Reveal by wipe
@@ -336,7 +350,7 @@ A panel hinged on one edge: put `origin` on the hinge and key `swivel`. With `"o
 
 ### Procedural keyframes, expressions, and audio reactivity
 
-High-frequency shake, inertial bounce, repeating cycles, noisy-curve smoothing, exponential zooms, and audio-reactive pulses are baked into ordinary keyframes with `python3 scripts/keyframes.py <project> <spec> [--check]` (run with `--help` for full option defaults). It samples on drawn frames (`floor(n * 1000 / fps)`), thins redundant points with Ramer–Douglas–Peucker simplification (`tol`), replaces the `[start, end]` keyframe range idempotently, and runs `validate` before printing the updated project: <!-- guard-ok: python3 floor tol -->
+High-frequency shake, inertial bounce, repeating cycles, noisy-curve smoothing, exponential zooms, audio-reactive pulses, and monotonic auto-Bezier tangents are baked into ordinary keyframes with `python3 scripts/keyframes.py <project> <spec> [--check]` (run with `--help` for full option defaults). It samples procedural curves on drawn frames (`floor(n * 1000 / fps)`), thins redundant points with Ramer–Douglas–Peucker simplification (`tol`), replaces the `[start, end]` keyframe range idempotently, and runs `validate` before printing the updated project: <!-- guard-ok: python3 floor tol -->
 
 ```json fragment
 {
@@ -346,7 +360,8 @@ High-frequency shake, inertial bounce, repeating cycles, noisy-curve smoothing, 
     {"op": "loop", "id": "badge", "property": "scale", "mode": "pingpong", "start": 0, "slice_end": 600, "end": 3000},
     {"op": "smooth", "id": "cam", "property": "x", "start": 0, "end": 2000, "window_ms": 120, "tol": 0.5},
     {"op": "exp_scale", "id": "map", "property": "scale", "start": 0, "end": 2000, "from": 1.0, "to": 16.0, "tol": 0.005},
-    {"op": "audio", "id": "ring", "property": "scale", "audio_id": "beat", "start": 0, "end": 2000, "floor_db": -40.0, "peak_db": -6.0, "min_v": 1.0, "max_v": 1.35, "window_ms": 50, "tol": 0.01}
+    {"op": "audio", "id": "ring", "property": "scale", "audio_id": "beat", "start": 0, "end": 2000, "floor_db": -40.0, "peak_db": -6.0, "min_v": 1.0, "max_v": 1.35, "window_ms": 50, "tol": 0.01},
+    {"op": "auto_bezier", "id": "card", "property": "x", "start": 0, "end": 1000}
   ]
 }
 ```
@@ -357,7 +372,21 @@ High-frequency shake, inertial bounce, repeating cycles, noisy-curve smoothing, 
 - **`smooth`:** symmetric box-filter moving average of width `window_ms` over a dense or jittery keyframe curve, followed by RDP thinning. <!-- guard-ok: smooth window_ms RDP -->
 - **`exp_scale`:** visually constant-rate zoom $s(t) = s_0 \cdot (s_1 / s_0)^{(t - t_0)/(t_1 - t_0)}$ so deep zooms (such as $1\times \to 16\times$, whose geometric midpoint at halfway is $\sqrt{s_0 s_1} = 4\times$) do not rush the start and stall at the end. <!-- guard-ok: exp_scale -->
 - **`audio`:** decodes the referenced `audio` or `video` element's clip slice (`source_start` to `source_end`, weighted by element `volume` and `audio.master`) with `ffmpeg`, computes per-frame RMS in dBFS, and maps `[floor_db, peak_db]` into `[min_v, max_v]`. Pass `--check` to verify whether baked audio keyframes are still in sync with the audio track. <!-- guard-ok: ffmpeg dBFS floor_db peak_db min_v max_v -->
+- **`auto_bezier`:** computes Fritsch–Carlson monotonic cubic spline physical slopes $m_i = dv/dt$ across existing keyframes in `[start, end]`, clamps local extrema to $m_i = 0$ so the curve never overshoots, and writes slope-matched `[x1, y1, x2, y2]` handles rounded to 6 decimal places. <!-- guard-ok: auto_bezier x1 y1 x2 y2 -->
 - **Look:** `preview` across the baked `[start, end]` window to confirm the motion settles cleanly at the boundaries.
+
+### Smooth pass-through across keyframes (continuous and auto Bezier)
+
+Because `ease` on keyframe $k_i$ describes strictly the segment entering $k_i$ from $k_{i-1}$, chaining `"ease": "ease-in-out"` into `"ease": "ease-in-out"` across a monotonic three-keyframe move ($v_0 < v_1 < v_2$ or $v_0 > v_1 > v_2$) falls into the **accidental midpoint pause** trap: the element decelerates to a complete stop ($v' = 0$) at the intermediate waypoint $k_1$ before accelerating again (`validate` does not flag this, because a deliberate pause at a waypoint is valid staging). When an element should glide continuously through $k_1$ without stopping or kinking, either run `scripts/keyframes.py` with `"op": "auto_bezier"` or write slope-matched cubic Bezier handles `[x1, y1, x2, y2]` directly: <!-- guard-ok: op auto_bezier x1 y1 x2 y2 -->
+
+1. **Match physical velocity at the shared knot:** on segment $i$ ($\Delta t_i = t_i - t_{i-1}$, $\Delta v_i = v_i - v_{i-1}$, secant $\delta_i = \Delta v_i / \Delta t_i$), the incoming and outgoing physical velocities at interior keyframe $k_i$ are:
+   $$v'_{\text{in}}(k_i) = \frac{1 - y_{2, i}}{1 - x_{2, i}} \cdot \frac{\Delta v_i}{\Delta t_i} = \frac{y_{1, i+1}}{x_{1, i+1}} \cdot \frac{\Delta v_{i+1}}{\Delta t_{i+1}} = v'_{\text{out}}(k_i) = m_i$$
+2. **Compute the Fritsch–Carlson monotonic slope $m_1$ for a 3-keyframe transition $(t_0, v_0) \to (t_1, v_1) \to (t_2, v_2)$:**
+   - If $k_1$ is a local extremum ($\delta_1 \cdot \delta_2 \le 0$), clamp $m_1 = 0$ to prevent overshoot.
+   - Otherwise, use the weighted harmonic mean of the adjacent secants:
+     $$m_1 = \frac{3(\Delta t_1 + \Delta t_2)}{\frac{2\Delta t_2 + \Delta t_1}{\delta_1} + \frac{\Delta t_2 + 2\Delta t_1}{\delta_2}}$$
+     (which reduces to $\frac{2\delta_1\delta_2}{\delta_1 + \delta_2}$ when $\Delta t_1 = \Delta t_2$), clamped to $|m_1| \le 3\min(|\delta_1|, |\delta_2|)$.
+3. **Convert $m_1$ to $1/3$-time Bezier handles ($x_1 = 1/3 \approx 0.333333$, $x_2 = 2/3 \approx 0.666667$, rounded to 6 decimal places):** with boundary slopes at rest ($m_0 = m_2 = 0$), segment 1 gets $y_{1,1} = 0$, $y_{2,1} = 1 - \frac{m_1 \Delta t_1}{3 \Delta v_1}$ and segment 2 gets $y_{1,2} = \frac{m_1 \Delta t_2}{3 \Delta v_2}$, $y_{2,2} = 1$. For example, moving `x` from `100` (`t: 0`) through `300` (`t: 500`, $\delta_1 = 0.4$) to `900` (`t: 1000`, $\delta_2 = 1.2$) gives $m_1 = 0.6\text{ px/ms}$, `{"t": 500, "v": 300, "ease": [0.333333, 0.0, 0.666667, 0.5]}`, and `{"t": 1000, "v": 900, "ease": [0.333333, 0.166667, 0.666667, 1.0]}`.
 
 ### Extrapolate after a keyframe (`loopOut("continue")`)
 

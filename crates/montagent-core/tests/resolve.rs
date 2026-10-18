@@ -507,8 +507,8 @@ fn the_published_schema_states_the_positional_rule_too() {
         }
     }
     assert_eq!(
-        seen, 42,
-        "twenty-one keyframe instantiations, first and non-first"
+        seen, 48,
+        "twenty-four keyframe instantiations, first and non-first"
     );
 }
 
@@ -584,10 +584,10 @@ fn every_animatable_property_the_schema_publishes_is_one_the_view_resolves() {
     let mut animatable: Vec<String> = Vec::new();
     collect_animatable(&schema, None, &mut animatable);
     // A gradient's own parameters are printed inside their paint, never as properties of
-    // their own (ADR-0149 §6, ADR-0222; `gradient_animate.rs` reads them there). `radius`
-    // stays: a `rect` has one of its own, and so does `angle`: `directional_blur` has one
-    // (ADR-0156).
-    animatable.retain(|name| !matches!(name.as_str(), "center" | "focal" | "stops"));
+    // their own (ADR-0149 §6, ADR-0222; `gradient_animate.rs` reads them there), and a text
+    // stagger unit's `blur` resolves per unit inside `units`. `radius` stays: a `rect` has
+    // one of its own, and so does `angle`: `directional_blur` has one (ADR-0156).
+    animatable.retain(|name| !matches!(name.as_str(), "blur" | "center" | "focal" | "stops"));
     animatable.sort();
     animatable.dedup();
     assert!(

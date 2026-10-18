@@ -148,8 +148,8 @@ pub struct Transform {
     pub projection: Option<Projection>,
 }
 
-/// ADR-0147's five modes, each one Skia mode. The arithmetic runs on the stored sRGB
-/// values: the surface carries no colour space, so Skia blends the bytes as they are.
+/// ADR-0147 and ADR-0221 blend modes, each one Skia mode. The arithmetic runs on the stored
+/// sRGB values: the surface carries no colour space, so Skia blends the bytes as they are.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Blend {
     #[default]
@@ -158,6 +158,18 @@ pub enum Blend {
     Screen,
     Overlay,
     Add,
+    Darken,
+    Lighten,
+    ColorDodge,
+    ColorBurn,
+    HardLight,
+    SoftLight,
+    Difference,
+    Exclusion,
+    Hue,
+    Saturation,
+    Color,
+    Luminosity,
 }
 
 impl Blend {
@@ -168,6 +180,18 @@ impl Blend {
             Blend::Screen => BlendMode::Screen,
             Blend::Overlay => BlendMode::Overlay,
             Blend::Add => BlendMode::Plus,
+            Blend::Darken => BlendMode::Darken,
+            Blend::Lighten => BlendMode::Lighten,
+            Blend::ColorDodge => BlendMode::ColorDodge,
+            Blend::ColorBurn => BlendMode::ColorBurn,
+            Blend::HardLight => BlendMode::HardLight,
+            Blend::SoftLight => BlendMode::SoftLight,
+            Blend::Difference => BlendMode::Difference,
+            Blend::Exclusion => BlendMode::Exclusion,
+            Blend::Hue => BlendMode::Hue,
+            Blend::Saturation => BlendMode::Saturation,
+            Blend::Color => BlendMode::Color,
+            Blend::Luminosity => BlendMode::Luminosity,
         }
     }
 }
@@ -196,6 +220,135 @@ impl Region {
             self.width as f32,
             self.height as f32,
         )
+    }
+}
+
+/// A non-rectangular geometric clip contour in frame space (ADR-0220 §5).
+#[derive(Debug, Clone, PartialEq)]
+pub enum AperturePath {
+    /// A circle centered at `center` with `radius`, for `iris` with `shape: "circle"`.
+    Circle { center: (f64, f64), radius: f64 },
+    /// A circular sector centered at `center` with `radius`, sweeping from `start_angle_deg`
+    /// (in Skia degrees, where 0° is +x and 90° is +y) by `sweep_deg`, for `radial_wipe`.
+    Sector {
+        center: (f64, f64),
+        radius: f64,
+        start_angle_deg: f64,
+        sweep_deg: f64,
+    },
+    /// A closed polygon in frame space, for `wipe` at an arbitrary `angle`.
+    Polygon { points: Vec<(f64, f64)> },
+}
+
+impl AperturePath {
+    fn to_skia_path(&self) -> Path {
+        let mut builder = PathBuilder::new();
+        match self {
+            AperturePath::Circle {
+                center: (cx, cy),
+                radius,
+            } => {
+                if *radius > 0.0 {
+                    let cx = *cx as f32;
+                    let cy = *cy as f32;
+                    let r = *radius as f32;
+                    builder.add_oval(Rect::from_ltrb(cx - r, cy - r, cx + r, cy + r), None, None);
+                }
+            }
+            AperturePath::Sector {
+                center: (cx, cy),
+                radius,
+                start_angle_deg,
+                sweep_deg,
+            } => {
+                if *radius > 0.0 && *sweep_deg != 0.0 {
+                    let cx = *cx as f32;
+                    let cy = *cy as f32;
+                    let r = *radius as f32;
+                    let oval = Rect::from_ltrb(cx - r, cy - r, cx + r, cy + r);
+                    builder.move_to((cx, cy));
+                    builder.arc_to(oval, *start_angle_deg as f32, *sweep_deg as f32, false);
+                    builder.close();
+                }
+            }
+            AperturePath::Polygon { points } => {
+                if let Some(&(x0, y0)) = points.first() {
+                    builder.move_to((x0 as f32, y0 as f32));
+                    for &(x, y) in &points[1..] {
+                        builder.line_to((x as f32, y as f32));
+                    }
+                    builder.close();
+                }
+            }
+        }
+        builder.detach()
+    }
+}
+
+/// The frame-space aperture an element is clipped through (ADR-0025, ADR-0150, ADR-0220 §5).
+#[derive(Debug, Clone, PartialEq)]
+pub enum Aperture {
+    /// A single axis-aligned integer rectangle (`clip`, cardinal `wipe`, or rectangular `iris`).
+    Rect(Region),
+    /// A union of axis-aligned integer rectangles (`blinds` slats, or the complement of a
+    /// rectangular `iris`).
+    MultiRect(Vec<Region>),
+    /// A geometric path clipped with hard aliasing (`aa: false`), bounded by `bounds`.
+    /// When `invert` is `true`, the path's fill rule is inverted (`InverseWinding`) so that
+    /// the incoming and outgoing elements of a transition share the exact same contour and
+    /// partition the canvas into bit-exact complements ($A \cap B = \emptyset$, $A \cup B = \text{Frame}$).
+    Path {
+        bounds: Region,
+        shape: AperturePath,
+        invert: bool,
+    },
+}
+
+impl From<Region> for Aperture {
+    fn from(region: Region) -> Self {
+        Aperture::Rect(region)
+    }
+}
+
+impl Aperture {
+    fn apply(&self, canvas: &skia_safe::Canvas) {
+        match self {
+            Aperture::Rect(region) => {
+                canvas.clip_rect(region.rect(), skia_safe::ClipOp::Intersect, false);
+            }
+            Aperture::MultiRect(regions) => {
+                let mut builder = PathBuilder::new();
+                let mut any = false;
+                for region in regions {
+                    if region.width > 0 && region.height > 0 {
+                        builder.add_rect(region.rect(), None, None);
+                        any = true;
+                    }
+                }
+                if any {
+                    let path = builder.detach();
+                    canvas.clip_path(&path, skia_safe::ClipOp::Intersect, false);
+                } else {
+                    canvas.clip_rect(Rect::new_empty(), skia_safe::ClipOp::Intersect, false);
+                }
+            }
+            Aperture::Path {
+                bounds,
+                shape,
+                invert,
+            } => {
+                canvas.clip_rect(bounds.rect(), skia_safe::ClipOp::Intersect, false);
+                if bounds.width > 0 && bounds.height > 0 {
+                    let mut path = shape.to_skia_path();
+                    path.set_fill_type(if *invert {
+                        PathFillType::InverseWinding
+                    } else {
+                        PathFillType::Winding
+                    });
+                    canvas.clip_path(&path, skia_safe::ClipOp::Intersect, false);
+                }
+            }
+        }
     }
 }
 
@@ -445,10 +598,10 @@ pub struct Glyph {
 }
 
 /// One stagger unit's pose, as the canvas draws it: a body of glyphs that moves, turns,
-/// scales and fades as one (ADR-0151 §2, ADR-0153 §2).
+/// scales, fades and blurs as one (ADR-0151 §2, ADR-0153 §2, ADR-0224 §3).
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct UnitDraw {
-    /// Which body: the glyphs of one fading body share one layer.
+    /// Which body: the glyphs of one fading or blurred body share one layer.
     pub body: usize,
     /// `[sx, kx, tx, ky, sy, ty]`, from the block's own coordinates to the block's own
     /// coordinates.
@@ -456,6 +609,10 @@ pub struct UnitDraw {
     /// Below 1, the body's strokes and fills are drawn together into one layer that takes
     /// this opacity.
     pub opacity: f32,
+    /// Above 0, the body's strokes and fills are drawn together into one layer filtered by
+    /// a Gaussian blur (`sigma = blur / 2`) with `TileMode::Decal` and bounds outset by
+    /// `ceil(3 * sigma)` (ADR-0224 §3).
+    pub blur: f32,
 }
 
 /// How a text run decoration renders (ADR-0214 §1).
@@ -557,6 +714,9 @@ impl Effect {
             Effect::DirectionalBlur { .. } => "directional_blur",
             Effect::Cdl { .. } => "cdl",
             Effect::Lut3d { .. } => "lut3d",
+            Effect::Vibrance { .. } => "vibrance",
+            Effect::HueRotate { .. } => "hue_rotate",
+            Effect::Invert { .. } => "invert",
             Effect::Outline { .. } => "outline",
             Effect::ColorOverlay { .. } => "color_overlay",
             Effect::InnerShadow { .. } => "inner_shadow",
@@ -659,6 +819,12 @@ pub enum Effect {
         table: Vec<u8>,
         intensity: f64,
     },
+    /// Chroma-weighted saturation adjustment (`amount` in `[-1, 1]`, identity `0`) (ADR-0221).
+    Vibrance { amount: f64 },
+    /// Hue rotation in degrees (`angle` in `[-180, 180]`, identity `0`) (ADR-0221).
+    HueRotate { angle: f64 },
+    /// Linear channel inversion (`amount` in `[0, 1]`, identity `0`, full invert `1`) (ADR-0221).
+    Invert { amount: f64 },
     /// Morphological silhouette outline composited behind the element (ADR-0231).
     Outline {
         width: f64,
@@ -1038,21 +1204,25 @@ impl Effect {
                     None,
                 )
             }
-            // The four colour scalars, named rather than caught by a wildcard: it is what
+            // The colour-matrix scalars, named rather than caught by a wildcard: it is what
             // makes `matrix`'s own exhaustive match a compiler-checked claim about which
             // members reach it, instead of a comment asserting it.
             Effect::Tint { .. }
             | Effect::Saturation { .. }
             | Effect::Brightness { .. }
-            | Effect::Contrast { .. } => image_filters::color_filter(
+            | Effect::Contrast { .. }
+            | Effect::HueRotate { .. }
+            | Effect::Invert { .. } => image_filters::color_filter(
                 color_filters::matrix_row_major(&self.matrix(), None),
                 None,
                 None,
             ),
-            // ADR-0156's three, each a runtime effect of Montagent's own ([`named`]). An
-            // identity value is no filter at all, so it paints a plain layer: the same bytes
-            // as no member even under a rotation, where a filter layer resamples.
+            // ADR-0156's three and ADR-0221's `vibrance`, each a runtime effect of
+            // Montagent's own ([`named`]). An identity value is no filter at all, so it
+            // paints a plain layer: the same bytes as no member even under a rotation, where
+            // a filter layer resamples.
             Effect::Posterize { levels } => named::posterize(levels),
+            Effect::Vibrance { amount } => named::vibrance(amount),
             Effect::Glow {
                 threshold,
                 radius,
@@ -1175,7 +1345,7 @@ impl Effect {
             .make_color_filter(Data::new_copy(&bytes), None)
     }
 
-    /// The four colour scalars as one row-major colour matrix (ADR-0049).
+    /// The colour-matrix scalars as one row-major colour matrix (ADR-0049, ADR-0221).
     ///
     /// Skia applies the matrix to **unpremultiplied** colour and premultiplies afterwards,
     /// so the alpha row is identity in every one of them and a transparent pixel stays
@@ -1256,16 +1426,55 @@ impl Effect {
                     0.0, 0.0, 0.0, 1.0, 0.0,
                 ]
             }
-            // Never reached: [`Effect::filter`] names the four colour members explicitly
+            Effect::HueRotate { angle } => {
+                // W3C / SVG `<feColorMatrix type="hueRotate">` luminance-preserving rotation
+                // in Rec. 709 RGB space (ADR-0221).
+                let (s, c) = (angle as f32).to_radians().sin_cos();
+                [
+                    0.213 + 0.787 * c - 0.213 * s,
+                    0.715 - 0.715 * c - 0.715 * s,
+                    0.072 - 0.072 * c + 0.928 * s,
+                    0.0,
+                    0.0, //
+                    0.213 - 0.213 * c + 0.143 * s,
+                    0.715 + 0.285 * c + 0.140 * s,
+                    0.072 - 0.072 * c - 0.283 * s,
+                    0.0,
+                    0.0, //
+                    0.213 - 0.213 * c - 0.787 * s,
+                    0.715 - 0.715 * c + 0.715 * s,
+                    0.072 + 0.928 * c + 0.072 * s,
+                    0.0,
+                    0.0, //
+                    0.0,
+                    0.0,
+                    0.0,
+                    1.0,
+                    0.0,
+                ]
+            }
+            Effect::Invert { amount } => {
+                // Linear channel inversion: `c' = c × (1 - 2a) + a` (ADR-0221).
+                let a = amount.clamp(0.0, 1.0) as f32;
+                let s = 1.0 - 2.0 * a;
+                [
+                    s, 0.0, 0.0, 0.0, a, //
+                    0.0, s, 0.0, 0.0, a, //
+                    0.0, 0.0, s, 0.0, a, //
+                    0.0, 0.0, 0.0, 1.0, 0.0,
+                ]
+            }
+            // Never reached: [`Effect::filter`] names the colour-matrix members explicitly
             // and sends nothing else here. The identity is what a new member would get if
             // that ever stopped being true, and adding one to the enum breaks *this* match
-            // first, which is the point of spelling the four out rather than `_`.
+            // first, which is the point of spelling the members out rather than `_`.
             Effect::Blur { .. }
             | Effect::Shadow { .. }
             | Effect::Mask { .. }
             | Effect::Chroma { .. }
             | Effect::Grain { .. }
             | Effect::Posterize { .. }
+            | Effect::Vibrance { .. }
             | Effect::Glow { .. }
             | Effect::DirectionalBlur { .. }
             | Effect::Cdl { .. }
@@ -1326,11 +1535,45 @@ impl Raster {
     /// render's samples (#648). `make_raster_image` makes the `Raster` own its pixels, so the
     /// one `Painter::stills` keeps for the render is decoded once per painter.
     /// `a_decoded_still_holds_its_pixels_rather_than_a_lazy_generator` holds this.
+    /// **Non-sRGB ICC-tagged stills are normalised to sRGB here, once (ADR-0216 §3).** When
+    /// `from_encoded` yields an image whose `color_space()` is `Some(cs)` with `!cs.is_srgb()`,
+    /// its pixels are converted into `ColorSpace::new_srgb()` (`RGBA8888`, `Premul`) and
+    /// wrapped with `color_space: None` to match the canvas surface; untagged and sRGB stills
+    /// keep their exact pixel bytes untouched.
     pub fn decode(bytes: &[u8]) -> Option<Raster> {
-        Some(Raster {
-            image: Image::from_encoded(Data::new_copy(bytes))?
-                .make_raster_image(None, skia_safe::image::CachingHint::Disallow)?,
-        })
+        let decoded = Image::from_encoded(Data::new_copy(bytes))?;
+        let image = if decoded.color_space().is_some_and(|cs| !cs.is_srgb()) {
+            let dims = decoded.dimensions();
+            if dims.width <= 0 || dims.height <= 0 {
+                return None;
+            }
+            let row_bytes = (dims.width as usize).checked_mul(4)?;
+            let byte_len = row_bytes.checked_mul(dims.height as usize)?;
+            let mut pixels = vec![0u8; byte_len];
+            let srgb_info = ImageInfo::new(
+                dims,
+                ColorType::RGBA8888,
+                AlphaType::Premul,
+                skia_safe::ColorSpace::new_srgb(),
+            );
+            if !decoded.read_pixels(
+                &srgb_info,
+                &mut pixels,
+                row_bytes,
+                (0, 0),
+                skia_safe::image::CachingHint::Disallow,
+            ) {
+                return None;
+            }
+            images::raster_from_data(
+                &srgb_info.with_color_space(None),
+                Data::new_copy(&pixels),
+                row_bytes,
+            )?
+        } else {
+            decoded.make_raster_image(None, skia_safe::image::CachingHint::Disallow)?
+        };
+        Some(Raster { image })
     }
 
     /// Wrap already-decoded RGBA8 pixels — one video frame, as `ffmpeg` hands it over.
@@ -1759,7 +2002,7 @@ impl Canvas {
         paint: &Fill,
         dash: Option<&Dash>,
         trim: Option<Trim>,
-        clip: Option<Region>,
+        clip: Option<Aperture>,
         effects: &[Effect],
     ) {
         if paint.fill.is_none() && paint.stroke.is_none() {
@@ -1862,7 +2105,7 @@ impl Canvas {
         transform: &Transform,
         paint: &Fill,
         style: StrokeStyle,
-        clip: Option<Region>,
+        clip: Option<Aperture>,
         effects: &[Effect],
     ) {
         if paint.fill.is_none() && paint.stroke.is_none() {
@@ -1914,7 +2157,7 @@ impl Canvas {
         source: &Raster,
         extent: Extent,
         transform: &Transform,
-        clip: Option<Region>,
+        clip: Option<Aperture>,
         effects: &[Effect],
     ) {
         let fidelity = self.fidelity;
@@ -1966,7 +2209,7 @@ impl Canvas {
         decorations: &[TextDecoration],
         extent: Extent,
         transform: &Transform,
-        clip: Option<Region>,
+        clip: Option<Aperture>,
         effects: &[Effect],
     ) {
         if glyphs.is_empty() && decorations.is_empty() {
@@ -1981,25 +2224,30 @@ impl Canvas {
             // beneath all glyph strokes and fills.
             draw_background_decorations(canvas, decorations);
 
-            // **A fading stagger unit is one layer, between the stroke pass and the fill
-            // pass** (ADR-0151 §2, as the accepted prototype #683 measured it). Every other
-            // glyph keeps the two passes: all strokes, then all fills. A body below opacity 1
-            // draws its own strokes then its own fills into one layer that takes its opacity,
-            // so its stroke never shows through its own fill; its fill still covers its
-            // neighbours' strokes, and its neighbours' fills still cover its stroke. Two
-            // overlapping fading bodies stack whole, the later over the earlier. With no
-            // fading body this is exactly the two passes over every glyph, so an idle stagger
-            // draws the same bytes as no stagger.
-            let fading = |glyph: &Glyph| glyph.unit.is_some_and(|unit| unit.opacity < 1.0);
+            // **A fading or blurred stagger unit is one layer, between the stroke pass and
+            // the fill pass** (ADR-0151 §2, ADR-0224 §3, as the accepted prototype #683
+            // measured it). Every other glyph keeps the two passes: all strokes, then all
+            // fills. A body below opacity 1 or with blur > 0 draws its own strokes then its
+            // own fills into one layer that takes its opacity and Gaussian blur, so its
+            // stroke never shows through its own fill; its fill still covers its neighbours'
+            // strokes, and its neighbours' fills still cover its stroke. Two overlapping
+            // layered bodies stack whole, the later over the earlier. With no fading or
+            // blurred body this is exactly the two passes over every glyph, so an idle
+            // stagger draws the same bytes as no stagger.
+            let fading = |glyph: &Glyph| {
+                glyph
+                    .unit
+                    .is_some_and(|unit| unit.opacity < 1.0 || unit.blur > 0.0)
+            };
             let solid: Vec<&Glyph> = glyphs.iter().filter(|glyph| !fading(glyph)).collect();
             draw_pass(canvas, &paths, &solid, Pass::Stroke);
-            let mut bodies: Vec<(usize, f32)> = Vec::new();
+            let mut bodies: Vec<(usize, f32, f32)> = Vec::new();
             for unit in glyphs.iter().filter(|g| fading(g)).filter_map(|g| g.unit) {
-                if !bodies.iter().any(|(body, _)| *body == unit.body) {
-                    bodies.push((unit.body, unit.opacity));
+                if !bodies.iter().any(|(body, _, _)| *body == unit.body) {
+                    bodies.push((unit.body, unit.opacity, unit.blur));
                 }
             }
-            for (body, opacity) in bodies {
+            for (body, opacity, blur) in bodies {
                 // A body at opacity 0 draws nothing at all.
                 if opacity <= 0.0 {
                     continue;
@@ -2010,8 +2258,35 @@ impl Canvas {
                     .collect();
                 // Bounded to the body's own ink: a full-canvas layer per fading letter costs
                 // about 1.4 ms a frame at 1080p, a bounded one about 8 µs (#683). The bound is
-                // a function of the glyphs alone, so it is the same on every painter.
-                canvas.save_layer_alpha_f(unit_bounds(&paths, &members), opacity);
+                // a function of the glyphs alone, so it is the same on every painter. When
+                // `blur > 0`, the bound is outset by `ceil(3 * sigma)` on all four sides and
+                // filtered with `TileMode::Decal` so the Gaussian kernel skirt is never
+                // clipped (ADR-0224 §3).
+                if blur > 0.0 {
+                    let sig = sigma(f64::from(blur));
+                    let skirt = (3.0 * sig).ceil();
+                    let bounds = unit_bounds(&paths, &members).map(|b| {
+                        let outset = b.with_outset((skirt, skirt));
+                        <Rect as skia_safe::RoundOut<Rect>>::round_out(&outset)
+                    });
+                    let mut paint = SkPaint::default();
+                    paint.set_alpha_f(opacity);
+                    if let Some(filter) = image_filters::blur(
+                        (sig, sig),
+                        skia_safe::TileMode::Decal,
+                        None,
+                        None,
+                    ) {
+                        paint.set_image_filter(filter);
+                    }
+                    let mut layer = SaveLayerRec::default().paint(&paint);
+                    if let Some(ref bounds) = bounds {
+                        layer = layer.bounds(bounds);
+                    }
+                    canvas.save_layer(&layer);
+                } else {
+                    canvas.save_layer_alpha_f(unit_bounds(&paths, &members), opacity);
+                }
                 draw_pass(canvas, &paths, &members, Pass::Stroke);
                 draw_pass(canvas, &paths, &members, Pass::Fill);
                 canvas.restore();
@@ -2036,7 +2311,7 @@ impl Canvas {
         &mut self,
         extent: Extent,
         transform: &Transform,
-        clip: Option<Region>,
+        clip: Option<Aperture>,
         effects: &[Effect],
         draw: impl Fn(&skia_safe::Canvas),
     ) {
@@ -2057,7 +2332,7 @@ impl Canvas {
         let canvas = self.surface.canvas();
         canvas.save();
         if let Some(clip) = clip {
-            canvas.clip_rect(clip.rect(), None, Some(true));
+            clip.apply(canvas);
         }
         // One layer for the whole element rather than alpha on each paint: a fill and an
         // inside stroke overlap, and two alphas would blend the overlap twice.
@@ -4162,5 +4437,91 @@ mod tests {
         assert_eq!(rgba[1], 128); // G
         assert_eq!(rgba[2], 128); // B
         assert_eq!(rgba[3], 255); // A
+    }
+
+    #[test]
+    fn raster_decode_converts_display_p3_png_to_srgb_and_preserves_untagged_png() {
+        use skia_safe::{named_primaries, named_transfer_fn, ColorSpace};
+
+        let pixel = [200u8, 50, 50, 255];
+        let extent = Extent {
+            width: 1.0,
+            height: 1.0,
+        };
+        let encode_png = |cs: Option<ColorSpace>| -> Vec<u8> {
+            let info = ImageInfo::new(
+                ISize::new(1, 1),
+                ColorType::RGBA8888,
+                AlphaType::Premul,
+                cs,
+            );
+            let image =
+                images::raster_from_data(&info, Data::new_copy(&pixel), 4).expect("raster image");
+            image
+                .encode(None, skia_safe::EncodedImageFormat::PNG, None)
+                .expect("encoded png")
+                .as_bytes()
+                .to_vec()
+        };
+
+        // 1. Untagged PNG keeps exact byte values.
+        let untagged_png = encode_png(None);
+        let untagged_raster = Raster::decode(&untagged_png).expect("decode untagged png");
+        let mut canvas = Canvas::new(1, 1).expect("canvas");
+        canvas.raster(
+            &untagged_raster,
+            extent,
+            &at(0.5, 0.5, (1.0, 1.0), 0.0),
+            None,
+            &[],
+        );
+        assert_eq!(canvas.rgba().expect("rgba"), pixel);
+
+        // 2. sRGB-tagged PNG keeps exact byte values.
+        let srgb_png = encode_png(Some(ColorSpace::new_srgb()));
+        let srgb_raster = Raster::decode(&srgb_png).expect("decode srgb png");
+        let mut canvas = Canvas::new(1, 1).expect("canvas");
+        canvas.raster(
+            &srgb_raster,
+            extent,
+            &at(0.5, 0.5, (1.0, 1.0), 0.0),
+            None,
+            &[],
+        );
+        assert_eq!(canvas.rgba().expect("rgba"), pixel);
+
+        // 3. Display P3 PNG (SMPTE EG 432-1 primaries + IEC 61966-2-1 sRGB transfer)
+        // is converted to sRGB once at Raster::decode and wrapped with color_space: None.
+        let display_p3 = ColorSpace::new_cicp(
+            named_primaries::CicpId::SMPTE_EG_432_1,
+            named_transfer_fn::CicpId::IEC61966_2_1,
+        )
+        .expect("Display P3 ColorSpace");
+        assert!(!display_p3.is_srgb());
+
+        let p3_png = encode_png(Some(display_p3));
+        let p3_raster = Raster::decode(&p3_png).expect("decode Display P3 png");
+        assert!(
+            p3_raster.image.color_space().is_none(),
+            "converted raster should be wrapped with color_space: None"
+        );
+
+        let mut canvas = Canvas::new(1, 1).expect("canvas");
+        canvas.raster(
+            &p3_raster,
+            extent,
+            &at(0.5, 0.5, (1.0, 1.0), 0.0),
+            None,
+            &[],
+        );
+        let p3_rgba = canvas.rgba().expect("rgba");
+        assert_ne!(
+            p3_rgba, pixel,
+            "Display P3 pixels must be converted to sRGB rather than left as raw P3 values"
+        );
+        assert!(
+            p3_rgba[0] > pixel[0] && p3_rgba[1] < pixel[1] && p3_rgba[2] < pixel[2],
+            "Display P3 (200, 50, 50) in sRGB should have higher R and lower G/B, got {p3_rgba:?}"
+        );
     }
 }
