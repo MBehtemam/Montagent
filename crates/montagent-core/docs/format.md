@@ -272,6 +272,11 @@ gains a depth, a sort order or an occlusion.
 - **`overrun` has no `"none"` value** (ADR-0020) — it is present when needed and absent otherwise.
   `"hold"` is video-only; the correct spelling of "then silence" on audio is a shorter
   element and a gap.
+- **`frame_blend` on `video` is `"none"` or `"mix"`** (ADR-0232). Omitted or `"none"`, sub-frame
+  source instants hold the nearest prior source frame (ADR-0096); `"mix"` linearly cross-dissolves
+  between the two adjacent source video frames by the fractional elapsed time between their
+  presentation timestamps. Optical-flow retiming, echo/trail compositing, and posterize-time frame
+  stepping are outside the format.
 - **`ease` is required on every keyframe record except the first, and forbidden on the
   first** (ADR-0038). Easing describes the interpolation *arriving at* a keyframe, and nothing arrives
   at the first one. Presence is a pure function of position.

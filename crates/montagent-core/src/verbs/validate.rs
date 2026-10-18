@@ -150,6 +150,7 @@ fn run_checks(
     // format does not publish — which is ADR-0016's whole migration mechanism, and was
     // unfired until this call existed.
     crate::checks::schema::check(document, report);
+    crate::checks::frame_blend::check(document, report);
     crate::checks::retired::check(document, report);
     crate::checks::anchor::check(document, report);
     // ADR-0060's layer tie (#209): two elements resolving to one layer whose boxes

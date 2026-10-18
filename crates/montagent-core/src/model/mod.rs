@@ -52,7 +52,7 @@ pub use output::{
     AudioExportConfig, Output, OutputConfig, StemExportConfig, VideoExportConfig, infer_container,
 };
 pub use paint::{Gradient, Paint, ResolvedGradient, Stops};
-pub use playback::{AudioOverrun, SourceTime, Speed, Volume};
+pub use playback::{AudioOverrun, FrameBlend, SourceTime, Speed, Volume};
 pub use rates::FrameRate;
 pub use role::Role;
 pub use stroke::{DashPattern, MiterLimit, StrokeCap, StrokeJoin, TrimFraction};
@@ -996,6 +996,11 @@ pub struct Video {
     pub speed: Option<Speed>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub overrun: Option<Overrun>,
+    /// How sub-frame source instants are resolved into pixels under slow motion or time
+    /// remapping (`"none"` default nearest-prior-frame hold per ADR-0096, or `"mix"` linear
+    /// cross-dissolve between adjacent source frames per ADR-0232).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub frame_blend: Option<FrameBlend>,
     /// A video element is one element with intrinsic audio, so its embedded audio reuses
     /// this same field and there is no `mute` — `volume: 0` already says silent, including
     /// at one instant via a keyframe (ADR-0055).

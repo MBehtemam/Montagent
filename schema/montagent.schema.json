@@ -2802,6 +2802,10 @@
             "overrun": {
               "$ref": "#/$defs/Overrun"
             },
+            "frame_blend": {
+              "description": "How sub-frame source instants are resolved into pixels under slow motion or time\nremapping (`\"none\"` default nearest-prior-frame hold per ADR-0096, or `\"mix\"` linear\ncross-dissolve between adjacent source frames per ADR-0232).",
+              "$ref": "#/$defs/FrameBlend"
+            },
             "volume": {
               "description": "A video element is one element with intrinsic audio, so its embedded audio reuses\nthis same field and there is no `mute` — `volume: 0` already says silent, including\nat one instant via a keyframe (ADR-0055).",
               "$ref": "#/$defs/AnimatableVolume"
@@ -4666,6 +4670,21 @@
         }
       ],
       "description": "What a time-based element does past the end of its (possibly speed-adjusted) source.\n\nThere is no third value and no `\"none\"`: the field's presence alone signals the\ncondition, so an explicit \"no overrun\" would be indistinguishable from omission\n(ADR-0020)."
+    },
+    "FrameBlend": {
+      "oneOf": [
+        {
+          "type": "string",
+          "const": "none",
+          "description": "Nearest-prior-frame hold (`ADR-0096`): the last source frame starting at or\nbefore the resolved source millisecond is painted."
+        },
+        {
+          "type": "string",
+          "const": "mix",
+          "description": "Linear cross-dissolve between the two adjacent source video frames (`ADR-0232`)."
+        }
+      ],
+      "description": "How sub-frame source instants are resolved into pixels under slow motion or time remapping\n(`ADR-0232`)."
     },
     "AnimatableVolume": {
       "anyOf": [
