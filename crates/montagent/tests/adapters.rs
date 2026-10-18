@@ -1079,6 +1079,25 @@ fn cli_frame_reaches_the_verb_and_writes_the_picture() {
 }
 
 #[test]
+fn cli_frame_accepts_output_alias_identically_to_out() {
+    let dir = scratch_dir("cli-frame-alias");
+    let out_file = dir.join("look-alias.jpg");
+    let fixture = fixture_dir().join("en-halloween-decorating.montagent.json");
+    let out = montagent(&[
+        "frame",
+        fixture.to_str().unwrap(),
+        "--at",
+        "11000",
+        "--output",
+        out_file.to_str().unwrap(),
+    ]);
+
+    assert_eq!(out.code, Some(0), "{}{}", out.stdout, out.stderr);
+    assert!(out.stdout.contains("FRAME  at 11000"), "{}", out.stdout);
+    assert!(out_file.exists(), "file was written via --output alias");
+}
+
+#[test]
 fn cli_frame_offers_no_flag_that_suppresses_the_caption() {
     // ADR-0011 makes the block unconditional, so the assertion is about the *surface*: an
     // agent that could ask for the picture alone would be able to attribute a defect to the
@@ -1576,6 +1595,32 @@ fn cli_render_on_a_project_with_an_error_is_exit_1_and_writes_nothing() {
 }
 
 #[test]
+fn cli_render_accepts_out_alias() {
+    if montagent_core::media::tools::resolve().is_err() {
+        eprintln!("skipping: no ffmpeg/ffprobe on PATH");
+        return;
+    }
+    let dir = scratch_dir("cli-render-alias");
+    let project = dir.join("p.montagent.json");
+    let out_file = dir.join("render_custom_out.mp4");
+    std::fs::write(
+        &project,
+        "{\n  \"frame\": {\"width\": 200, \"height\": 100},\n  \"fps\": 25,\n  \
+         \"duration\": 200,\n  \"output\": \"out/p.mp4\",\n  \"tracks\": []\n}\n",
+    )
+    .unwrap();
+    let out = montagent(&[
+        "render",
+        project.to_str().unwrap(),
+        "--out",
+        out_file.to_str().unwrap(),
+    ]);
+
+    assert_eq!(out.code, Some(0), "{}{}", out.stdout, out.stderr);
+    assert!(out_file.is_file(), "file was written via --out alias");
+}
+
+#[test]
 fn cli_render_offers_no_flag_that_skips_the_checks_or_scales_the_output() {
     // ADR-0006 makes the check engine the thing `render` runs before it draws anything,
     // and ADR-0021 makes the deliverable the one output that is never downsampled. The
@@ -1656,6 +1701,32 @@ fn cli_preview_discloses_its_tier_and_keeps_adr_0011s_split() {
     assert!(out.stdout.contains("PREVIEW  "), "{}", out.stdout);
     assert!(out.stdout.contains("tier        720p"), "{}", out.stdout);
     assert!(out.stdout.contains("NOT CHECKED"), "{}", out.stdout);
+}
+
+#[test]
+fn cli_preview_accepts_out_alias() {
+    if montagent_core::media::tools::resolve().is_err() {
+        eprintln!("skipping: no ffmpeg/ffprobe on PATH");
+        return;
+    }
+    let dir = scratch_dir("cli-preview-alias");
+    let project = dir.join("p.montagent.json");
+    let out_file = dir.join("custom_out.mp4");
+    std::fs::write(
+        &project,
+        "{\n  \"frame\": {\"width\": 200, \"height\": 100},\n  \"fps\": 25,\n  \
+         \"duration\": 200,\n  \"output\": \"out/p.mp4\",\n  \"tracks\": []\n}\n",
+    )
+    .unwrap();
+    let out = montagent(&[
+        "preview",
+        project.to_str().unwrap(),
+        "--out",
+        out_file.to_str().unwrap(),
+    ]);
+
+    assert_eq!(out.code, Some(0), "{}{}", out.stdout, out.stderr);
+    assert!(out_file.is_file(), "file was written via --out alias");
 }
 
 #[test]

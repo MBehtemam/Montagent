@@ -237,7 +237,7 @@ enum Command {
         /// a verb that invented one would be writing a file into somebody's project
         /// directory on a read. The MCP surface needs no such flag — there the image comes
         /// back in the answer.
-        #[arg(long, value_name = "PATH")]
+        #[arg(long, alias = "output", value_name = "PATH")]
         out: PathBuf,
         /// Return just this region of the frame, as `x,y,w,h` in whole frame-space pixels,
         /// and at true scale — so you can look closely at one card without paying for the
@@ -348,7 +348,7 @@ enum Command {
         to: Option<i64>,
         /// Write here instead of the project's `output`. Refused while a range is set if
         /// it names the project's own `output`.
-        #[arg(long, value_name = "PATH")]
+        #[arg(long, alias = "out", value_name = "PATH")]
         output: Option<PathBuf>,
         /// Refuse rather than replace a file at `output` that this project did not produce.
         ///
@@ -436,7 +436,7 @@ enum Command {
         to: Option<i64>,
         /// Write here instead of `out/<name>.preview.<from>-<to>.mp4`. Refused where it
         /// names the project's own `output`.
-        #[arg(long, value_name = "PATH")]
+        #[arg(long, alias = "out", value_name = "PATH")]
         output: Option<PathBuf>,
         /// True pixels instead of the proxy target, for a check that is precision-
         /// sensitive. This arm of the budget is observational: it is neither enforced nor
