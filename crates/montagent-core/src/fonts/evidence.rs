@@ -25,6 +25,11 @@ pub fn confined(base: &Path, file: &str) -> Result<PathBuf, String> {
     {
         return Err(format!("invalid evidence path: {file}"));
     }
+    let base = if base.as_os_str().is_empty() {
+        Path::new(".")
+    } else {
+        base
+    };
     let root = base.canonicalize().map_err(|e| e.to_string())?;
     let target = root.join(relative);
     let mut existing = target.as_path();
@@ -83,7 +88,10 @@ pub fn prepare(
     let selected: SelectedFont = serde_json::from_value(receipt["font"].clone())
         .map_err(|e| format!("invalid receipt selected Face: {e}"))?;
     let hash = sha256_hex(font);
-    let base = receipt_path.parent().unwrap_or(Path::new("."));
+    let base = match receipt_path.parent() {
+        Some(parent) if !parent.as_os_str().is_empty() => parent,
+        _ => Path::new("."),
+    };
     if receipt["font"]["sha256"] != hash || checked(base, &receipt["font"])? != font {
         return Err("receipt font does not match vendor input".into());
     }

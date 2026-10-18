@@ -80,10 +80,11 @@ pub(crate) fn subject_of(id: Option<&str>) -> String {
 /// Shared by every check that resolves a `source` off disk — [`source`] and [`fit`] both
 /// need it, and a second copy is a second place for ADR-0053's rule to drift.
 pub(crate) fn project_dir(document: &crate::permissive::Loose) -> std::path::PathBuf {
-    std::path::Path::new(document.path())
-        .parent()
-        .unwrap_or(std::path::Path::new("."))
-        .to_path_buf()
+    let path = std::path::Path::new(document.path());
+    match path.parent() {
+        Some(parent) if !parent.as_os_str().is_empty() => parent.to_path_buf(),
+        _ => std::path::PathBuf::from("."),
+    }
 }
 
 /// One run of a `text` element: its own text, and the `font` delta it states over the

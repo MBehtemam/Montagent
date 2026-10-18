@@ -223,7 +223,10 @@ pub fn atomically(path: &Path, bytes: &str) -> std::io::Result<()> {
 /// `validate` would hash and report as a mismatch against an attestation that was never
 /// written, and the whole point of the attestation is that the two agree by construction.
 pub fn atomically_bytes(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
-    let directory = path.parent().unwrap_or_else(|| Path::new("."));
+    let directory = match path.parent() {
+        Some(parent) if !parent.as_os_str().is_empty() => parent,
+        _ => Path::new("."),
+    };
     let temp = directory.join(temp_name(path));
 
     // Scoped so the handle is closed before the rename. Windows refuses to rename a file

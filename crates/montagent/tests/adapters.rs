@@ -616,6 +616,35 @@ fn cli_fonts_vendor_reaches_the_gate_and_the_copy() {
     );
 }
 
+#[test]
+fn cli_fonts_vendor_with_bare_project_filename_succeeds() {
+    let project = scratch("cli-fonts-vendor-bare", "p.montagent.json", HEADER_ONLY);
+    let project_dir = project.parent().unwrap();
+    let font = open_runde();
+
+    let out = Command::new(binary())
+        .current_dir(project_dir)
+        .args(&[
+            "fonts",
+            "vendor",
+            "p.montagent.json",
+            font.to_str().unwrap(),
+            "--licence",
+            "OFL-1.1",
+        ])
+        .output()
+        .expect("run montagent");
+
+    assert_eq!(
+        out.status.code(),
+        Some(0),
+        "stdout: {}, stderr: {}",
+        String::from_utf8_lossy(&out.stdout),
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert!(project_dir.join("fonts/OpenRunde-Bold.otf").is_file());
+}
+
 fn open_runde() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../fixtures/en-halloween-decorating/fonts/OpenRunde-Bold.otf")
