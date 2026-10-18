@@ -361,6 +361,7 @@ fn the_list_is_what_the_schema_types_as_animatable() {
         [
             "x",
             "y",
+            "motion_path.offset",
             "width",
             "height",
             "fill",
@@ -394,6 +395,7 @@ fn the_list_is_what_the_schema_types_as_animatable() {
         [
             "x",
             "y",
+            "motion_path.offset",
             "width",
             "height",
             "fill",
@@ -426,6 +428,7 @@ fn the_list_is_what_the_schema_types_as_animatable() {
         [
             "x",
             "y",
+            "motion_path.offset",
             "color",
             "color.angle",
             "color.stops",
@@ -460,6 +463,7 @@ fn the_list_is_what_the_schema_types_as_animatable() {
         [
             "x",
             "y",
+            "motion_path.offset",
             "scale",
             "rotation",
             "swivel",
@@ -504,6 +508,9 @@ fn every_numeric_and_colour_effect_parameter_is_in_the_list() {
             ("vibrance", vec!["amount"]),
             ("hue_rotate", vec!["angle"]),
             ("invert", vec!["amount"]),
+            ("outline", vec!["width", "color", "opacity"]),
+            ("color_overlay", vec!["color", "opacity"]),
+            ("inner_shadow", vec!["dx", "dy", "radius", "color", "opacity"]),
         ]
     );
     let (_, chroma) = animatable::effect_members()

@@ -59,8 +59,8 @@ pub use stroke::{DashPattern, MiterLimit, StrokeCap, StrokeJoin, TrimFraction};
 pub use text::{
     Align, Annotation, AnnotationAlign, AnnotationOverhang, AnnotationOverhangMode,
     AnnotationPosition, Decoration, DecorationBreak, DecorationKind, DecorationPadding,
-    DecorationWindow, Dir, EdgePadding, Highlight, Run, SymmetricPadding, UnitBy, UnitOrder,
-    UnitOverride, Units,
+    DecorationWindow, Dir, EdgePadding, Highlight, Run, SymmetricPadding, UnitBlur, UnitBy,
+    UnitOrder, UnitOverride, Units,
 };
 
 /// `[sx, sy]`, never a bare number.
@@ -677,6 +677,10 @@ pub struct Image {
     pub x: Option<Animatable<i64>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub y: Option<Animatable<i64>>,
+    /// The trajectory this element's `origin` moves along, in place of `x` and `y`
+    /// (ADR-0218).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub motion_path: Option<MotionPath>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub origin: Option<Origin>,
     /// Required, never defaulted: the source's dimensions are not in the document, so a
@@ -749,6 +753,10 @@ pub struct Video {
     pub x: Option<Animatable<i64>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub y: Option<Animatable<i64>>,
+    /// The trajectory this element's `origin` moves along, in place of `x` and `y`
+    /// (ADR-0218).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub motion_path: Option<MotionPath>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub origin: Option<Origin>,
     pub width: i64,
@@ -853,6 +861,10 @@ pub struct TextElement {
     pub x: Option<Animatable<i64>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub y: Option<Animatable<i64>>,
+    /// The trajectory this element's `origin` moves along, in place of `x` and `y`
+    /// (ADR-0218).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub motion_path: Option<MotionPath>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub origin: Option<Origin>,
     /// The box the text must fit inside — required, because an omitted `height` would be
@@ -1045,6 +1057,120 @@ pub struct TextPath {
     pub points: Animatable<Points>,
 }
 
+/// A visual element's own trajectory in frame space (ADR-0218 §1): `closed` and `points`,
+/// both required and static, an optional animatable arc-length `offset` (`0` when omitted),
+/// and an optional static `orient` (`false` when omitted). Replaces `x` and `y`.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct MotionPath {
+    /// Whether a last segment runs from the last vertex back to the first. Static (ADR-0218 §1).
+    #[serde(deserialize_with = "static_closed")]
+    pub closed: bool,
+    /// The trajectory's vertices, in integer pixels in frame space. Static: a trajectory does
+    /// not deform while the element rides it (ADR-0218 §1).
+    #[serde(deserialize_with = "static_motion_points")]
+    pub points: Points,
+    /// Where on `points` the element's `origin` sits, as a fraction of the curve's total arc
+    /// length `L`: `[0, 1]` on an open path, or `[-1, 2]` (wrapped via `rem_euclid(1.0)`) on
+    /// a closed path (ADR-0218 §1, §2). Default `0`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub offset: Option<Animatable<MotionPathOffset>>,
+    /// Whether the trajectory's tangent angle is added to the element's `rotation` at every
+    /// instant (ADR-0218 §1, §3). Static. Default `false`.
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "static_orient"
+    )]
+    pub orient: Option<bool>,
+}
+
+/// A `motion_path`'s `offset` (ADR-0218 §1, §4): a fraction of its curve's total arc length,
+/// from `-1` to `2` inclusive in the schema (on an open path, values outside `[0, 1]` are
+/// refused by `E-MOTION-PATH-OFFSET-RANGE`).
+#[derive(Debug, Clone, Copy, PartialEq, Serialize)]
+#[serde(transparent)]
+pub struct MotionPathOffset(pub f64);
+
+impl MotionPathOffset {
+    /// `[minimum, maximum]`.
+    pub const RANGE: (f64, f64) = (-1.0, 2.0);
+}
+
+impl<'de> Deserialize<'de> for MotionPathOffset {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let value = f64::deserialize(deserializer)?;
+        let (min, max) = Self::RANGE;
+        if !(min..=max).contains(&value) {
+            return Err(D::Error::custom(format!(
+                "`motion_path.offset` is {value}: it is a fraction of the curve's length, \
+                 from `-1` to `2` inclusive, in a static value and in every keyframe record \
+                 (ADR-0218)"
+            )));
+        }
+        Ok(MotionPathOffset(value))
+    }
+}
+
+impl JsonSchema for MotionPathOffset {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        "MotionPathOffset".into()
+    }
+
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::Schema::try_from(serde_json::json!({
+            "type": "number",
+            "format": "double",
+            "description": "A fraction of the motion path's total arc length, from `-1` to \
+                            `2` inclusive, in a static value and in every keyframe record \
+                            (ADR-0218).",
+            "minimum": MotionPathOffset::RANGE.0,
+            "maximum": MotionPathOffset::RANGE.1,
+        }))
+        .expect("an object literal is a schema")
+    }
+}
+
+impl crate::resolve::Interpolate for MotionPathOffset {
+    type Out = f64;
+
+    fn between(a: &Self, b: &Self, p: f64) -> f64 {
+        f64::between(&a.0, &b.0, p)
+    }
+
+    fn held(value: &Self) -> f64 {
+        value.0
+    }
+}
+
+/// A `motion_path`'s `points`: a static vertex list in frame space, and never a keyframe list
+/// (ADR-0218 §1).
+fn static_motion_points<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Points, D::Error> {
+    let value = serde_json::Value::deserialize(deserializer)?;
+    if is_keyframe_list(&value) {
+        return Err(D::Error::custom(
+            "`motion_path.points` is static: a trajectory does not deform while the element \
+             rides it; animate `motion_path.offset` instead (ADR-0218)",
+        ));
+    }
+    Points::deserialize(value).map_err(D::Error::custom)
+}
+
+/// A `motion_path`'s `orient`: a static boolean, and never a keyframe list (ADR-0218 §1).
+fn static_orient<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Option<bool>, D::Error> {
+    let value = Option::<serde_json::Value>::deserialize(deserializer)?;
+    let Some(value) = value else {
+        return Ok(None);
+    };
+    if value.is_array() {
+        return Err(D::Error::custom(
+            "`motion_path.orient` is static: a keyframe list is not a value of it; animate \
+             `rotation` alongside `orient` instead (ADR-0218)",
+        ));
+    }
+    bool::deserialize(value).map(Some).map_err(D::Error::custom)
+}
+
 /// A rounded or square rectangle.
 ///
 /// **`rect` and `ellipse` are two types rather than one with a `shape` discriminator
@@ -1072,6 +1198,10 @@ pub struct Rect {
     pub x: Option<Animatable<i64>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub y: Option<Animatable<i64>>,
+    /// The trajectory this element's `origin` moves along, in place of `x` and `y`
+    /// (ADR-0218).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub motion_path: Option<MotionPath>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub origin: Option<Origin>,
     pub width: Animatable<Length>,
@@ -1172,6 +1302,10 @@ pub struct Ellipse {
     pub x: Option<Animatable<i64>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub y: Option<Animatable<i64>>,
+    /// The trajectory this element's `origin` moves along, in place of `x` and `y`
+    /// (ADR-0218).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub motion_path: Option<MotionPath>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub origin: Option<Origin>,
     pub width: Animatable<Length>,
@@ -1259,6 +1393,10 @@ pub struct PathElement {
     pub x: Option<Animatable<i64>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub y: Option<Animatable<i64>>,
+    /// The trajectory this element's `origin` moves along, in place of `x` and `y`
+    /// (ADR-0218).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub motion_path: Option<MotionPath>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub origin: Option<Origin>,
     /// Static on a path: the box bounds the drawing and does not stretch it (ADR-0154 §2).
@@ -1493,17 +1631,42 @@ pub struct Audio {
 #[serde(deny_unknown_fields, remote = "Self")]
 pub struct Transition {
     /// `crossfade` ramps the two elements' opacity; `wipe`, `slide` and `push` move or cut
-    /// them a whole frame's width or height, outside their own transforms (ADR-0150).
+    /// them a whole frame's width or height, outside their own transforms (ADR-0150); `iris`,
+    /// `radial_wipe` and `blinds` cut them by geometric apertures (ADR-0220).
     pub kind: TransitionKind,
     pub from: String,
     pub to: String,
+    /// The geometric aperture shape for an `iris` transition: `"circle"` or `"rect"`.
+    /// Omitted means `"circle"`; refused on every other `kind` (ADR-0220).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub shape: Option<IrisShape>,
     /// The way the motion travels: `"left"` means the content (or a wipe's edge) moves
-    /// leftward, so the incoming element enters from the right. Required on `wipe`,
-    /// `slide` and `push`; refused on `crossfade` (ADR-0150).
+    /// leftward, so the incoming element enters from the right. Required on `slide`,
+    /// `push` and `blinds`; paired with `angle` on `wipe` (one or the other); optional on
+    /// `iris` (`"out"` or `"in"`) and `radial_wipe` (`"clockwise"` or `"counter_clockwise"`);
+    /// refused on `crossfade` and `audio_crossfade` (ADR-0150, ADR-0220).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub direction: Option<Direction>,
+    /// Sweep angle in degrees for a `wipe` (`0` = up, `90` = right, `180` = down,
+    /// `270` = left). Mutually exclusive with `direction` on `wipe`, and refused on every
+    /// other `kind` (ADR-0220).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub angle: Option<f64>,
+    /// Starting ray angle in degrees for a `radial_wipe` (`0` = 12 o'clock / straight up).
+    /// Omitted means `0.0`; refused on every other `kind` (ADR-0220).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub start_angle: Option<f64>,
+    /// Aperture origin `[x, y]` in frame pixel coordinates for `iris` and `radial_wipe`.
+    /// Omitted means the frame centre `[W / 2, H / 2]`; refused on every other `kind`
+    /// (ADR-0220).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub center: Option<Pixels>,
+    /// Number of equal-width parallel slats (`>= 1`) for a `blinds` transition. Omitted
+    /// means `10`; refused on every other `kind` (ADR-0220).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub slats: Option<i64>,
     /// The keyframe vocabulary, applied to the window's progress. Omitted means `linear`;
-    /// refused on `crossfade` (ADR-0150).
+    /// refused on `crossfade` and `audio_crossfade` (ADR-0150, ADR-0220).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ease: Option<Ease>,
     /// The sound across the same window (ADR-0176): `from` fades out and `to` fades in over
@@ -1514,22 +1677,34 @@ pub struct Transition {
 }
 
 impl Transition {
-    /// ADR-0150's two relational rules, and ADR-0176's per-kind rules for `audio`, which
-    /// the derive cannot state.
+    /// ADR-0150's, ADR-0176's, and ADR-0220's per-kind relational rules, which the derive
+    /// cannot state.
     fn checked(self) -> Result<Self, String> {
         let kind = self.kind.as_str();
+        for (field, val) in [("angle", self.angle), ("start_angle", self.start_angle)] {
+            if val.is_some_and(|v| !v.is_finite()) {
+                return Err(format!(
+                    "`{field}` on a `{kind}` must be a finite number of degrees (ADR-0220)"
+                ));
+            }
+        }
         match self.kind {
             TransitionKind::AudioCrossfade => {
                 for (field, present) in [
+                    ("shape", self.shape.is_some()),
                     ("direction", self.direction.is_some()),
+                    ("angle", self.angle.is_some()),
+                    ("start_angle", self.start_angle.is_some()),
+                    ("center", self.center.is_some()),
+                    ("slats", self.slats.is_some()),
                     ("ease", self.ease.is_some()),
                 ] {
                     if present {
                         return Err(format!(
                             "unknown field `{field}` on an `audio_crossfade`: it paints \
-                             nothing, so `direction` and `ease` are fields of the picture \
-                             kinds only (ADR-0176) — expected one of `kind`, `from`, `to`, \
-                             `audio`"
+                             nothing, so `{field}` is a field of the picture \
+                             kinds only (ADR-0176, ADR-0220) — expected one of `kind`, `from`, \
+                             `to`, `audio`"
                         ));
                     }
                 }
@@ -1554,24 +1729,184 @@ impl Transition {
             }
             TransitionKind::Crossfade => {
                 for (field, present) in [
+                    ("shape", self.shape.is_some()),
                     ("direction", self.direction.is_some()),
+                    ("angle", self.angle.is_some()),
+                    ("start_angle", self.start_angle.is_some()),
+                    ("center", self.center.is_some()),
+                    ("slats", self.slats.is_some()),
                     ("ease", self.ease.is_some()),
                 ] {
                     if present {
                         return Err(format!(
                             "unknown field `{field}` on a `crossfade`: a crossfade travels \
-                             nowhere and its ramp is linear, so `direction` and `ease` are \
-                             fields of `wipe`, `slide` and `push` only (ADR-0150) — expected \
+                             nowhere and its ramp is linear, so `{field}` is a field of the \
+                             geometric transition kinds only (ADR-0150, ADR-0220) — expected \
                              one of `kind`, `from`, `to`, `audio`"
                         ));
                     }
                 }
             }
-            TransitionKind::Wipe | TransitionKind::Slide | TransitionKind::Push => {
-                if self.direction.is_none() {
+            TransitionKind::Wipe => {
+                for (field, present) in [
+                    ("shape", self.shape.is_some()),
+                    ("start_angle", self.start_angle.is_some()),
+                    ("center", self.center.is_some()),
+                    ("slats", self.slats.is_some()),
+                ] {
+                    if present {
+                        return Err(format!(
+                            "unknown field `{field}` on a `wipe`: `{field}` is not a parameter \
+                             of `wipe` (ADR-0220) — expected one of `kind`, `from`, `to`, \
+                             `direction`, `angle`, `ease`, `audio`"
+                        ));
+                    }
+                }
+                match (self.direction, self.angle) {
+                    (None, None) => {
+                        return Err(
+                            "missing field `direction` or `angle`: a `wipe` names the way its \
+                             motion travels via `direction` (`left`, `right`, `up`, `down`) \
+                             or `angle` in degrees (ADR-0150, ADR-0220)"
+                                .to_string(),
+                        );
+                    }
+                    (Some(_), Some(_)) => {
+                        return Err(
+                            "a `wipe` cannot specify both `direction` and `angle`: write \
+                             either `direction` (`left`, `right`, `up`, `down`) or `angle` \
+                             in degrees (ADR-0220)"
+                                .to_string(),
+                        );
+                    }
+                    (Some(dir), None) if !dir.is_cardinal() => {
+                        return Err(format!(
+                            "invalid `direction` `{}` on a `wipe`: expected one of `left`, \
+                             `right`, `up`, `down` (ADR-0150, ADR-0220)",
+                            dir.as_str()
+                        ));
+                    }
+                    _ => {}
+                }
+            }
+            TransitionKind::Slide | TransitionKind::Push => {
+                for (field, present) in [
+                    ("shape", self.shape.is_some()),
+                    ("angle", self.angle.is_some()),
+                    ("start_angle", self.start_angle.is_some()),
+                    ("center", self.center.is_some()),
+                    ("slats", self.slats.is_some()),
+                ] {
+                    if present {
+                        return Err(format!(
+                            "unknown field `{field}` on a `{kind}`: `{field}` is not a parameter \
+                             of `{kind}` (ADR-0220) — expected one of `kind`, `from`, `to`, \
+                             `direction`, `ease`, `audio`"
+                        ));
+                    }
+                }
+                match self.direction {
+                    None => {
+                        return Err(format!(
+                            "missing field `direction`: a `{kind}` names the way its motion \
+                             travels, one of `left`, `right`, `up`, `down` (ADR-0150)"
+                        ));
+                    }
+                    Some(dir) if !dir.is_cardinal() => {
+                        return Err(format!(
+                            "invalid `direction` `{}` on a `{kind}`: expected one of `left`, \
+                             `right`, `up`, `down` (ADR-0150)",
+                            dir.as_str()
+                        ));
+                    }
+                    Some(_) => {}
+                }
+            }
+            TransitionKind::Iris => {
+                for (field, present) in [
+                    ("angle", self.angle.is_some()),
+                    ("start_angle", self.start_angle.is_some()),
+                    ("slats", self.slats.is_some()),
+                ] {
+                    if present {
+                        return Err(format!(
+                            "unknown field `{field}` on an `iris`: `{field}` is not a parameter \
+                             of `iris` (ADR-0220) — expected one of `kind`, `from`, `to`, \
+                             `shape`, `direction`, `center`, `ease`, `audio`"
+                        ));
+                    }
+                }
+                if let Some(dir) = self.direction
+                    && !dir.is_iris()
+                {
                     return Err(format!(
-                        "missing field `direction`: a `{kind}` names the way its motion \
-                         travels, one of `left`, `right`, `up`, `down` (ADR-0150)"
+                        "invalid `direction` `{}` on an `iris`: expected `out` or `in` \
+                         (ADR-0220)",
+                        dir.as_str()
+                    ));
+                }
+            }
+            TransitionKind::RadialWipe => {
+                for (field, present) in [
+                    ("shape", self.shape.is_some()),
+                    ("angle", self.angle.is_some()),
+                    ("slats", self.slats.is_some()),
+                ] {
+                    if present {
+                        return Err(format!(
+                            "unknown field `{field}` on a `radial_wipe`: `{field}` is not a \
+                             parameter of `radial_wipe` (ADR-0220) — expected one of `kind`, \
+                             `from`, `to`, `direction`, `start_angle`, `center`, `ease`, `audio`"
+                        ));
+                    }
+                }
+                if let Some(dir) = self.direction
+                    && !dir.is_radial()
+                {
+                    return Err(format!(
+                        "invalid `direction` `{}` on a `radial_wipe`: expected `clockwise` or \
+                         `counter_clockwise` (ADR-0220)",
+                        dir.as_str()
+                    ));
+                }
+            }
+            TransitionKind::Blinds => {
+                for (field, present) in [
+                    ("shape", self.shape.is_some()),
+                    ("angle", self.angle.is_some()),
+                    ("start_angle", self.start_angle.is_some()),
+                    ("center", self.center.is_some()),
+                ] {
+                    if present {
+                        return Err(format!(
+                            "unknown field `{field}` on a `blinds`: `{field}` is not a parameter \
+                             of `blinds` (ADR-0220) — expected one of `kind`, `from`, `to`, \
+                             `direction`, `slats`, `ease`, `audio`"
+                        ));
+                    }
+                }
+                match self.direction {
+                    None => {
+                        return Err(
+                            "missing field `direction`: a `blinds` names the way its slats \
+                             sweep, one of `left`, `right`, `up`, `down` (ADR-0220)"
+                                .to_string(),
+                        );
+                    }
+                    Some(dir) if !dir.is_cardinal() => {
+                        return Err(format!(
+                            "invalid `direction` `{}` on a `blinds`: expected one of `left`, \
+                             `right`, `up`, `down` (ADR-0220)",
+                            dir.as_str()
+                        ));
+                    }
+                    Some(_) => {}
+                }
+                if let Some(slats) = self.slats
+                    && slats < 1
+                {
+                    return Err(format!(
+                        "`slats` is {slats} on a `blinds`: `slats` must be at least 1 (ADR-0220)"
                     ));
                 }
             }
@@ -1597,14 +1932,16 @@ impl<'de> Deserialize<'de> for Transition {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "lowercase")]
+#[serde(rename_all = "snake_case")]
 pub enum TransitionKind {
     Crossfade,
     Wipe,
     Slide,
     Push,
+    Iris,
+    RadialWipe,
+    Blinds,
     /// Sound alone: it paints nothing (ADR-0176).
-    #[serde(rename = "audio_crossfade")]
     AudioCrossfade,
 }
 
@@ -1639,20 +1976,46 @@ impl TransitionKind {
             TransitionKind::Wipe => "wipe",
             TransitionKind::Slide => "slide",
             TransitionKind::Push => "push",
+            TransitionKind::Iris => "iris",
+            TransitionKind::RadialWipe => "radial_wipe",
+            TransitionKind::Blinds => "blinds",
             TransitionKind::AudioCrossfade => "audio_crossfade",
         }
     }
 }
 
-/// A `wipe`, `slide` or `push`'s direction: the way the motion travels, never the edge
-/// something enters from (ADR-0150).
+/// The geometric aperture shape for an `iris` transition (ADR-0220).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "lowercase")]
+#[serde(rename_all = "snake_case")]
+pub enum IrisShape {
+    Circle,
+    Rect,
+}
+
+impl IrisShape {
+    /// The word a document spells this shape with.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            IrisShape::Circle => "circle",
+            IrisShape::Rect => "rect",
+        }
+    }
+}
+
+/// A transition's `direction`: the way a `wipe`, `slide`, `push` or `blinds` moves (`left`,
+/// `right`, `up`, `down`), whether an `iris` expands or contracts (`out`, `in`), or which
+/// way a `radial_wipe` sweeps (`clockwise`, `counter_clockwise`) (ADR-0150, ADR-0220).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
 pub enum Direction {
     Left,
     Right,
     Up,
     Down,
+    Out,
+    In,
+    Clockwise,
+    CounterClockwise,
 }
 
 impl Direction {
@@ -1663,7 +2026,31 @@ impl Direction {
             Direction::Right => "right",
             Direction::Up => "up",
             Direction::Down => "down",
+            Direction::Out => "out",
+            Direction::In => "in",
+            Direction::Clockwise => "clockwise",
+            Direction::CounterClockwise => "counter_clockwise",
         }
+    }
+
+    /// Whether this direction is one of the four cardinal directions (`left`, `right`,
+    /// `up`, `down`).
+    pub fn is_cardinal(self) -> bool {
+        matches!(
+            self,
+            Direction::Left | Direction::Right | Direction::Up | Direction::Down
+        )
+    }
+
+    /// Whether this direction is one of `iris`'s two aperture directions (`out`, `in`).
+    pub fn is_iris(self) -> bool {
+        matches!(self, Direction::Out | Direction::In)
+    }
+
+    /// Whether this direction is one of `radial_wipe`'s two sweep directions (`clockwise`,
+    /// `counter_clockwise`).
+    pub fn is_radial(self) -> bool {
+        matches!(self, Direction::Clockwise | Direction::CounterClockwise)
     }
 }
 
