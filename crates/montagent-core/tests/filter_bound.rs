@@ -68,6 +68,18 @@ fn directional(angle: f64, length: f64) -> Value {
     json!({"name": "directional_blur", "angle": angle, "length": length})
 }
 
+fn outline(width: f64, colour: &str, opacity: f64) -> Value {
+    json!({"name": "outline", "width": width, "color": colour, "opacity": opacity})
+}
+
+fn color_overlay(colour: &str, opacity: f64) -> Value {
+    json!({"name": "color_overlay", "color": colour, "opacity": opacity})
+}
+
+fn inner_shadow(dx: f64, dy: f64, radius: f64, colour: &str, opacity: f64) -> Value {
+    json!({"name": "inner_shadow", "dx": dx, "dy": dy, "radius": radius, "color": colour, "opacity": opacity})
+}
+
 /// `SPY` in Cinzel Bold at 150, the trailer's title face, in a box `width`×`height`.
 fn text(width: f64, height: f64) -> Value {
     json!({"type": "text", "font": "cinzel-bold", "size": 150, "color": "#E3C067",
@@ -91,18 +103,46 @@ fn radial() -> Value {
         {"offset": 0, "color": "#FFFFFF"}, {"offset": 1, "color": "#2040A0"}]})
 }
 
+/// A `sweep` gradient paint centred off the box's middle (ADR-0222).
+fn sweep(angle: f64) -> Value {
+    json!({"gradient": "sweep", "center": [0.35, 0.45], "angle": angle, "stops": [
+        {"offset": 0, "color": "#FF3366"}, {"offset": 0.5, "color": "#FFCC00"},
+        {"offset": 1, "color": "#3366FF00"}]})
+}
+
+/// A `two_point_conical` gradient paint with an off-centre focal highlight (ADR-0222).
+fn two_point_conical(focal: [f64; 2]) -> Value {
+    json!({"gradient": "two_point_conical", "center": [0.5, 0.5], "radius": 0.85,
+        "focal": focal, "stops": [
+        {"offset": 0, "color": "#FFFFFF"}, {"offset": 1, "color": "#2040A0"}]})
+}
+
 /// Key every parameter of a gradient over the slot that starts at `start`: the direction or
-/// the centre and radius, and the stop list stop by stop (ADR-0149 §3), with a bezier that
-/// overshoots, so offsets cross at some instants and the fix applies.
+/// the centre, radius and focal point, and the stop list stop by stop (ADR-0149 §3, ADR-0222),
+/// with a bezier that overshoots, so offsets cross at some instants and the fix applies.
 fn key_gradient(gradient: &mut Value, start: i64) {
     let end = start + 1000;
     let list = |from: Value, to: Value, ease: Value| json!([{"t": start, "v": from}, {"t": end, "v": to, "ease": ease}]);
-    if gradient["gradient"] == "linear" {
-        let angle = gradient["angle"].as_f64().unwrap();
-        gradient["angle"] = list(json!(angle), json!(angle + 140.0), json!("linear"));
-    } else {
-        gradient["center"] = list(json!([0.3, 0.25]), json!([0.8, 0.7]), json!("ease-in-out"));
-        gradient["radius"] = list(json!(0.4), json!(1.3), json!("linear"));
+    match gradient["gradient"].as_str() {
+        Some("linear") => {
+            let angle = gradient["angle"].as_f64().unwrap();
+            gradient["angle"] = list(json!(angle), json!(angle + 140.0), json!("linear"));
+        }
+        Some("sweep") => {
+            let angle = gradient["angle"].as_f64().unwrap();
+            gradient["center"] = list(json!([0.3, 0.35]), json!([0.75, 0.65]), json!("ease-in-out"));
+            gradient["angle"] = list(json!(angle), json!(angle + 220.0), json!("linear"));
+        }
+        Some("two_point_conical") => {
+            gradient["center"] = list(json!([0.4, 0.4]), json!([0.6, 0.6]), json!("ease-in-out"));
+            gradient["radius"] = list(json!(0.4), json!(1.1), json!("linear"));
+            // Sweeps `focal` past the outer circle so the 0.999 * R clamp fires on some frames.
+            gradient["focal"] = list(json!([0.2, 0.25]), json!([1.8, -0.4]), json!([0.34, 1.56, 0.64, 1]));
+        }
+        _ => {
+            gradient["center"] = list(json!([0.3, 0.25]), json!([0.8, 0.7]), json!("ease-in-out"));
+            gradient["radius"] = list(json!(0.4), json!(1.3), json!("linear"));
+        }
     }
     let stops = |a: f64, b: f64, c: &str, d: &str| {
         json!([{"offset": 0, "color": c}, {"offset": a, "color": d}, {"offset": b, "color": c},
@@ -195,11 +235,18 @@ fn cases() -> Vec<(&'static str, Value, f64, f64)> {
         ("rect-gradient-stroke-rotated-anisotropic-shadow", with(shape("rect", 300.0, 120.0), json!({"y": 540, "rotation": 20, "scale": [-1.5, 0.6], "fill": linear(200.0), "stroke": radial(), "stroke_width": 10, "effects": [shadow(10.0, -6.0, 16.0)]})), 960.4, 13.7),
         ("text-gradient-stroke-glow", with(t(), json!({"y": 540, "color": linear(90.0), "stroke": radial(), "stroke_width": 8, "effects": [shadow(0.0, 0.0, 24.0)]})), 960.4, 13.7),
         ("text-gradient-scale-blur", with(t(), json!({"y": 540, "scale": [2.0, 0.7], "color": radial(), "effects": [blur(14.0)]})), 700.4, 13.7),
-        // Keyed gradient parameters (#687): the paint changes every frame, under the hint.
+        // Sweep and two-point conical gradients (ADR-0222): local matrices under the hint.
+        ("rect-sweep-gradient-blur", with(shape("rect", 400.0, 200.0), json!({"y": 540, "fill": sweep(30.0), "effects": [blur(40.0)]})), 960.37, 13.7),
+        ("ellipse-conical-gradient-shadow-offset", with(shape("ellipse", 300.0, 180.0), json!({"y": 500, "fill": two_point_conical([0.25, 0.2]), "effects": [shadow(24.0, 18.0, 24.0)]})), 800.5, 13.7),
+        ("rect-conical-clamped-focal-rotated-anisotropic-shadow", with(shape("rect", 300.0, 120.0), json!({"y": 540, "rotation": 20, "scale": [-1.5, 0.6], "fill": sweep(200.0), "stroke": two_point_conical([1.8, -0.4]), "stroke_width": 10, "effects": [shadow(10.0, -6.0, 16.0)]})), 960.4, 13.7),
+        ("text-sweep-conical-stroke-glow", with(t(), json!({"y": 540, "color": sweep(90.0), "stroke": two_point_conical([0.2, 0.3]), "stroke_width": 8, "effects": [shadow(0.0, 0.0, 24.0)]})), 960.4, 13.7),
+        // Keyed gradient parameters (#687, ADR-0222): the paint changes every frame, under the hint.
         ("keyed-gradient-rect-blur", with(shape("rect", 400.0, 200.0), json!({"y": 540, "fill": linear(30.0), "effects": [blur(40.0)]})), 960.37, 13.7),
         ("keyed-gradient-ellipse-shadow-offset", with(shape("ellipse", 300.0, 180.0), json!({"y": 500, "fill": radial(), "effects": [shadow(24.0, 18.0, 24.0)]})), 800.5, 13.7),
         ("keyed-gradient-stroke-rotated-anisotropic-shadow", with(shape("rect", 300.0, 120.0), json!({"y": 540, "rotation": 20, "scale": [-1.5, 0.6], "fill": linear(200.0), "stroke": radial(), "stroke_width": 10, "effects": [shadow(10.0, -6.0, 16.0)]})), 960.4, 13.7),
         ("keyed-gradient-text-glow", with(t(), json!({"y": 540, "color": linear(90.0), "stroke": radial(), "stroke_width": 8, "effects": [shadow(0.0, 0.0, 24.0)]})), 960.4, 13.7),
+        ("keyed-gradient-sweep-conical-rotated-anisotropic-shadow", with(shape("rect", 300.0, 120.0), json!({"y": 540, "rotation": 20, "scale": [-1.5, 0.6], "fill": sweep(45.0), "stroke": two_point_conical([0.2, 0.25]), "stroke_width": 10, "effects": [shadow(10.0, -6.0, 16.0)]})), 960.4, 13.7),
+        ("keyed-gradient-sweep-conical-text-glow", with(t(), json!({"y": 540, "color": sweep(90.0), "stroke": two_point_conical([0.2, 0.3]), "stroke_width": 8, "effects": [shadow(0.0, 0.0, 24.0)]})), 960.4, 13.7),
         // Paths (ADR-0154): a centred stroke the box contains, so the hint's bound on the box
         // must hold for one whose ink runs right up to the box's edge.
         ("path-star-blur", json!({"type": "path", "width": 300, "height": 280, "closed": true, "fill": "#F2F2F2", "stroke": "#FF3B30", "stroke_width": 8, "points": [{"at": [150, 4]}, {"at": [238, 276]}, {"at": [4, 108]}, {"at": [296, 108]}, {"at": [62, 276]}], "y": 540, "effects": [blur(18.0)]}), 960.4, 13.7),
@@ -230,6 +277,11 @@ fn cases() -> Vec<(&'static str, Value, f64, f64)> {
         ("blur-directional-shadow-rotated-anisotropic", with(t(), json!({"y": 540, "rotation": 20, "scale": [1.6, 0.7], "effects": [blur(4.0), directional(135.0, 60.5), shadow(10.0, -6.0, 16.0)]})), 960.4, 13.7),
         ("all-named-mask-blur", with(shape("rect", 300.0, 200.0), json!({"y": 540, "rotation": 12, "fill": radial(), "effects": [posterize(6), named_glow(0.4, 20.0, 2.0), directional(-20.0, 33.0), {"name": "mask", "shape": "ellipse", "feather": 12}, blur(6.0)]})), 960.4, 13.7),
         ("keyed-named-effects", with(shape("rect", 300.0, 200.0), json!({"y": 540, "rotation": -15, "fill": linear(200.0), "effects": [posterize(4), named_glow(0.5, 10.0, 1.0), directional(0.0, 10.0), blur(5.0)]})), 960.4, 13.7),
+        // ADR-0231's layer styles (#1105): `outline` expands `content` by its dilated reach,
+        // and `color_overlay` and `inner_shadow` stay within the silhouette and pass `content` on.
+        ("text-outline-shadow-rotated", with(t(), json!({"y": 540, "rotation": 18, "effects": [outline(12.0, "#FFFFFF", 0.9), shadow(8.0, 10.0, 16.0)]})), 960.4, 13.7),
+        ("color-overlay-inner-shadow-outline-anisotropic", with(shape("ellipse", 280.0, 180.0), json!({"y": 540, "rotation": -22, "scale": [1.4, 0.8], "effects": [color_overlay("#FF3366", 0.7), inner_shadow(10.0, 12.0, 18.0, "#000000", 0.8), outline(8.0, "#FFEEAA", 1.0), blur(6.0)]})), 960.4, 13.7),
+        ("keyed-layer-styles", with(shape("rect", 260.0, 160.0), json!({"y": 540, "rotation": 14, "fill": radial(), "effects": [color_overlay("#20C0F0", 0.5), inner_shadow(6.0, -4.0, 10.0, "#000000", 0.6), outline(6.0, "#FFFFFF", 0.8), shadow(6.0, 6.0, 12.0)]})), 960.4, 13.7),
         // Past the σ 135 precondition, so unbounded both ways: #649's `gen_big.py` cases.
         ("rect-blur-sigma150", with(shape("rect", 400.0, 200.0), json!({"y": 540, "effects": [blur(300.0)]})), 960.4, 13.7),
         ("text-scale3-blur-sigma150", with(t(), json!({"y": 500, "scale": [3.0, 3.0], "effects": [blur(100.0)]})), 700.4, 13.7),
@@ -285,6 +337,19 @@ fn edge_project() -> (Value, Vec<(&'static str, i64)>) {
                 effects[1]["radius"] = keyed(json!(0), json!(27), json!(4));
                 effects[2]["angle"] = keyed(json!(350), json!(10), json!(95));
                 effects[2]["length"] = keyed(json!(0), json!(41), json!(7));
+            }
+            "keyed-layer-styles" => {
+                let effects = &mut element["effects"];
+                effects[0]["color"] = keyed(json!("#20C0F0"), json!("#FF336680"), json!("#00000000"));
+                effects[0]["opacity"] = keyed(json!(0), json!(0.85), json!(0.4));
+                effects[1]["dx"] = keyed(json!(0), json!(18), json!(-6));
+                effects[1]["dy"] = keyed(json!(0), json!(-12), json!(8));
+                effects[1]["radius"] = keyed(json!(0), json!(24), json!(5));
+                effects[1]["color"] = keyed(json!("#000000"), json!("#102040"), json!("#FFFFFF80"));
+                effects[1]["opacity"] = keyed(json!(0), json!(0.9), json!(0.5));
+                effects[2]["width"] = keyed(json!(0), json!(14), json!(4));
+                effects[2]["color"] = keyed(json!("#FFFFFF"), json!("#FFCC00"), json!("#FF336680"));
+                effects[2]["opacity"] = keyed(json!(0), json!(1), json!(0.6));
             }
             "keyed-mask-reveal-then-blur" => {
                 let mask = &mut element["effects"][0];

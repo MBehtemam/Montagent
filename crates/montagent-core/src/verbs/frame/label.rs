@@ -280,7 +280,7 @@ pub(super) fn draw(
             blend: montagent_render::canvas::Blend::Normal,
             projection: None,
         },
-        Some(strip),
+        Some(strip.into()),
         &[],
     );
     Ok(())

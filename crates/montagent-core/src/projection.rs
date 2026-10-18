@@ -63,12 +63,22 @@ pub(crate) fn origin_of(element: &Value) -> (f64, f64) {
 pub(crate) fn placed(element: &Value, t: (i128, i128), frame: (i64, i64)) -> Transform {
     let (frame_width, frame_height) = frame;
     let [sx, sy] = geometry::number_at::<[f64; 2]>(element, "scale", t, [1.0, 1.0]);
+    let sample = crate::motion_path::at(element, t);
+    let base_rotation = geometry::number_at::<f64>(element, "rotation", t, 0.0);
     Transform {
-        x: geometry::number_at::<i64>(element, "x", t, frame_width as f64 / 2.0),
-        y: geometry::number_at::<i64>(element, "y", t, frame_height as f64 / 2.0),
+        x: sample.as_ref().map_or_else(
+            || geometry::number_at::<i64>(element, "x", t, frame_width as f64 / 2.0),
+            |s| s.x,
+        ),
+        y: sample.as_ref().map_or_else(
+            || geometry::number_at::<i64>(element, "y", t, frame_height as f64 / 2.0),
+            |s| s.y,
+        ),
         origin: origin_of(element),
         scale: (sx, sy),
-        rotation: geometry::number_at::<f64>(element, "rotation", t, 0.0),
+        rotation: sample
+            .as_ref()
+            .map_or(base_rotation, |s| s.effective_rotation(base_rotation)),
         opacity: geometry::number_at::<f64>(element, "opacity", t, 1.0),
         blend: montagent_render::canvas::Blend::Normal,
         projection: at(element, t),

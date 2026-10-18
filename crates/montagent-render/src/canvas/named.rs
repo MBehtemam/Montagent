@@ -90,11 +90,31 @@ half4 main(float2 p) {
 }
 ";
 
+/// `vibrance` (ADR-0221): chroma-weighted saturation boost/cut on non-premultiplied sRGB
+/// colour, with Rec. 709 luma `[0.213, 0.715, 0.072]` and pixel chroma `max(r,g,b) - min(r,g,b)`.
+const VIBRANCE: &str = r"
+uniform float amount;
+
+half4 main(half4 color) {
+    float a = float(color.a);
+    if (a <= 0.0) { return color; }
+    float3 v = clamp(float3(color.rgb) / a, 0.0, 1.0);
+    float mx = max(v.r, max(v.g, v.b));
+    float mn = min(v.r, min(v.g, v.b));
+    float sat = mx - mn;
+    float luma = dot(v, float3(0.213, 0.715, 0.072));
+    float scale = max(0.0, 1.0 + amount * (1.0 - sat));
+    float3 q = clamp(luma + (v - luma) * scale, 0.0, 1.0);
+    return half4(half3(q * a), color.a);
+}
+";
+
 thread_local! {
     static POSTERIZE_EFFECT: OnceCell<Option<RuntimeEffect>> = const { OnceCell::new() };
     static BRIGHT_PASS_EFFECT: OnceCell<Option<RuntimeEffect>> = const { OnceCell::new() };
     static GAIN_EFFECT: OnceCell<Option<RuntimeEffect>> = const { OnceCell::new() };
     static DIRECTIONAL_EFFECT: OnceCell<Option<RuntimeEffect>> = const { OnceCell::new() };
+    static VIBRANCE_EFFECT: OnceCell<Option<RuntimeEffect>> = const { OnceCell::new() };
 }
 
 /// One SkSL's compile on this painter thread, made by `make` the first time this thread
@@ -118,6 +138,19 @@ fn colour_filter(
     })?;
     let bytes: Vec<u8> = uniforms.iter().flat_map(|v| v.to_ne_bytes()).collect();
     effect.make_color_filter(Data::new_copy(&bytes), None)
+}
+
+/// `vibrance` at `amount` in `[-1, 1]`, or `None` at `0`, the identity (ADR-0221).
+pub(super) fn vibrance(amount: f64) -> Option<ImageFilter> {
+    if amount == 0.0 {
+        return None;
+    }
+    let amount = amount.clamp(-1.0, 1.0) as f32;
+    image_filters::color_filter(
+        colour_filter(&VIBRANCE_EFFECT, VIBRANCE, &[amount])?,
+        None,
+        None,
+    )
 }
 
 /// `posterize` at `levels` (already a whole number from 2 to 256), or `None` at 256, the

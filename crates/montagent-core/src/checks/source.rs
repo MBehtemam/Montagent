@@ -288,6 +288,7 @@ mod tests {
             dimensions: None,
             alpha: None,
             codec_name: None,
+            color_space: None,
             audio,
         }
     }

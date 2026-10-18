@@ -1665,9 +1665,9 @@ fn a_transition_that_cannot_be_read_is_named_rather_than_silently_inert() {
         (codes, details)
     };
 
-    // A `kind` outside the vocabulary (ADR-0150: `crossfade`, `wipe`, `slide`, `push`).
+    // A `kind` outside the vocabulary (ADR-0150, ADR-0220).
     let (codes, details) = unusable(
-        r##"{"id":"fade","type":"transition","start":1000,"end":2000,"kind":"iris",
+        r##"{"id":"fade","type":"transition","start":1000,"end":2000,"kind":"star_wipe",
              "from":"first","to":"second"}"##,
     );
     assert!(
@@ -1675,7 +1675,7 @@ fn a_transition_that_cannot_be_read_is_named_rather_than_silently_inert() {
         "a deferred `kind` was silently inert: {codes:?}"
     );
     assert!(
-        details.iter().any(|detail| detail.contains("iris")),
+        details.iter().any(|detail| detail.contains("star_wipe")),
         "the finding did not name the `kind` it could not draw: {details:?}"
     );
 
@@ -1842,3 +1842,187 @@ fn invert_sits_after_radius_in_the_canonical_key_order_and_a_written_false_is_ke
         false_kept
     );
 }
+
+// ---------------------------------------------------------------------------
+// ADR-0221: `vibrance`, `hue_rotate`, and `invert`
+// ---------------------------------------------------------------------------
+
+#[test]
+fn vibrance_boosts_muted_colours_more_than_saturated_ones_and_zero_is_identity() {
+    // Muted warm tone (#A08070: r=160, g=128, b=112, sat = 48/255 ≈ 0.188) vs
+    // already-saturated pure red (#FF0000: sat = 1.0).
+    const MUTED: &str = "#A08070";
+    const PURE_RED: &str = "#FF0000";
+
+    let bare_muted = painted(line!(), &coloured_square_with(MUTED, ""));
+    let zero_muted = painted(
+        line!(),
+        &coloured_square_with(MUTED, r##"{"name":"vibrance","amount":0}"##),
+    );
+    assert_eq!(
+        differing(&bare_muted, &zero_muted),
+        0,
+        "`vibrance` at `amount: 0` is the identity"
+    );
+
+    let boosted_muted = middle(&painted(
+        line!(),
+        &coloured_square_with(MUTED, r##"{"name":"vibrance","amount":1}"##),
+    ));
+    let plain_muted = middle(&bare_muted);
+    let plain_chroma = plain_muted[0] - plain_muted[2];
+    let boosted_chroma = boosted_muted[0] - boosted_muted[2];
+    assert!(
+        boosted_chroma > plain_chroma + 20,
+        "positive vibrance should strongly boost muted chroma: plain {plain_muted:?}, boosted {boosted_muted:?}"
+    );
+
+    // A fully saturated colour (sat = 1.0) has `scale = 1 + amount * (1 - 1) = 1`, so it is
+    // untouched by positive or negative vibrance.
+    let boosted_pure = middle(&painted(
+        line!(),
+        &coloured_square_with(PURE_RED, r##"{"name":"vibrance","amount":1}"##),
+    ));
+    assert_eq!(boosted_pure, [0xFF, 0x00, 0x00]);
+
+    // Negative vibrance desaturates muted colours toward Rec. 709 luma.
+    let cut_muted = middle(&painted(
+        line!(),
+        &coloured_square_with(MUTED, r##"{"name":"vibrance","amount":-1}"##),
+    ));
+    let cut_chroma = cut_muted[0].abs_diff(cut_muted[2]);
+    assert!(
+        cut_chroma < plain_chroma,
+        "negative vibrance should reduce muted chroma: plain {plain_muted:?}, cut {cut_muted:?}"
+    );
+
+    // Out-of-range values are rejected by the model's schema check.
+    for bad in [
+        r##"{"name":"vibrance","amount":1.5}"##,
+        r##"{"name":"vibrance","amount":-1.1}"##,
+        r##"{"name":"vibrance","amount":[{"t":0,"v":0},{"t":500,"v":2.0,"ease":"linear"}]}"##,
+    ] {
+        assert!(
+            serde_json::from_str::<montagent_core::model::Effect>(bad).is_err(),
+            "expected {bad} to fail range check"
+        );
+    }
+}
+
+#[test]
+fn hue_rotate_rotates_hues_preserves_greys_and_zero_is_identity() {
+    const RED_HEX: &str = "#FF0000";
+    const GREY_HEX: &str = "#808080";
+
+    let bare_red = painted(line!(), &coloured_square_with(RED_HEX, ""));
+    let zero_red = painted(
+        line!(),
+        &coloured_square_with(RED_HEX, r##"{"name":"hue_rotate","angle":0}"##),
+    );
+    assert_eq!(
+        differing(&bare_red, &zero_red),
+        0,
+        "`hue_rotate` at `angle: 0` is the identity"
+    );
+
+    // +120 degrees shifts primary red's dominant channel to green; -120 shifts it to blue.
+    let plus_120 = middle(&painted(
+        line!(),
+        &coloured_square_with(RED_HEX, r##"{"name":"hue_rotate","angle":120}"##),
+    ));
+    assert!(
+        plus_120[1] > plus_120[0] && plus_120[1] > plus_120[2],
+        "+120° from red should be predominantly green: {plus_120:?}"
+    );
+
+    let minus_120 = middle(&painted(
+        line!(),
+        &coloured_square_with(RED_HEX, r##"{"name":"hue_rotate","angle":-120}"##),
+    ));
+    assert!(
+        minus_120[2] > minus_120[0] && minus_120[2] > minus_120[1],
+        "-120° from red should be predominantly blue: {minus_120:?}"
+    );
+
+    // Neutral grey is invariant under hue rotation.
+    let rotated_grey = middle(&painted(
+        line!(),
+        &coloured_square_with(GREY_HEX, r##"{"name":"hue_rotate","angle":90}"##),
+    ));
+    for c in rotated_grey {
+        assert!(
+            c.abs_diff(0x80) <= 1,
+            "grey should stay neutral under hue_rotate: {rotated_grey:?}"
+        );
+    }
+
+    // Out-of-range angles are rejected.
+    for bad in [
+        r##"{"name":"hue_rotate","angle":181}"##,
+        r##"{"name":"hue_rotate","angle":-181}"##,
+        r##"{"name":"hue_rotate","angle":[{"t":0,"v":0},{"t":500,"v":360,"ease":"linear"}]}"##,
+    ] {
+        assert!(
+            serde_json::from_str::<montagent_core::model::Effect>(bad).is_err(),
+            "expected {bad} to fail range check"
+        );
+    }
+}
+
+#[test]
+fn invert_flips_channels_linearly_and_zero_is_identity() {
+    const COLOUR: &str = "#FF4000";
+
+    let bare = painted(line!(), &coloured_square_with(COLOUR, ""));
+    let zero = painted(
+        line!(),
+        &coloured_square_with(COLOUR, r##"{"name":"invert","amount":0}"##),
+    );
+    assert_eq!(
+        differing(&bare, &zero),
+        0,
+        "`invert` at `amount: 0` is the identity"
+    );
+
+    // Full inversion (`amount: 1`) maps (255, 64, 0) -> (0, 191, 255).
+    let full = middle(&painted(
+        line!(),
+        &coloured_square_with(COLOUR, r##"{"name":"invert","amount":1}"##),
+    ));
+    assert_eq!(full, [0, 191, 255]);
+
+    // Half inversion (`amount: 0.5`) maps every channel to mid-grey (0.5 -> 128).
+    let half = middle(&painted(
+        line!(),
+        &coloured_square_with(COLOUR, r##"{"name":"invert","amount":0.5}"##),
+    ));
+    for c in half {
+        assert!(c.abs_diff(128) <= 1, "invert 0.5 should be mid-grey: {half:?}");
+    }
+
+    // Keyframed `invert` interpolates across time.
+    let keyed = middle(&painted_at(
+        line!(),
+        &coloured_square_with(
+            COLOUR,
+            r##"{"name":"invert","amount":[{"t":0,"v":0},{"t":1000,"v":1,"ease":"linear"}]}"##,
+        ),
+        500,
+    ));
+    for c in keyed {
+        assert!(c.abs_diff(128) <= 1, "keyed invert at midpoint: {keyed:?}");
+    }
+
+    // Out-of-range amounts are rejected.
+    for bad in [
+        r##"{"name":"invert","amount":-0.1}"##,
+        r##"{"name":"invert","amount":1.1}"##,
+        r##"{"name":"invert","amount":[{"t":0,"v":0},{"t":500,"v":1.5,"ease":"linear"}]}"##,
+    ] {
+        assert!(
+            serde_json::from_str::<montagent_core::model::Effect>(bad).is_err(),
+            "expected {bad} to fail range check"
+        );
+    }
+}
+
