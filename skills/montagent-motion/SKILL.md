@@ -82,14 +82,28 @@ Recolour a word inside its line with a `highlight` on that word's run, starting 
 
 ### Kinetic and typed text
 
-Lines that arrive a word or a letter at a time are set with the bundled script, not written by hand. `python3 scripts/type_on.py <project> <spec>` (run it with `--help` for the spec) measures the line with `measure`, places each word or letter where the whole line would set it, and prints the project with those elements added:
+When every letter, word or line shares one motion curve on a regular step (`every` ms), keep a single `text` element and stagger it with `units` (`by`: `letter`, `word` or `line`; `order`: `forward`, `reverse`, `center_out` or `edges_in`). Here a headline evaporates into focus from its centre outward:
 
-- **Words landing on beats:** `"by": "word"`, `"enter": "pop"`, and one time per word in `times`. A `highlights` entry recolours one word on its beat.
-- **Typing:** `"by": "letter"`, 60–150 ms between letters (irregular reads more human: vary ±30 ms), and a `cursor` that blinks at 500–600 ms per cycle while idle, stays solid while typing, and steps ahead of each letter.
-- **Tracked titles:** do not split the title into letters. Write one `text` element with `letter_spacing`, in thousandths of an em (`size × letter_spacing / 1000` px after each letter; negative tightens). Key it to drift a title apart: `"letter_spacing": [{"t": 0, "v": 0}, {"t": 800, "v": 120, "ease": [0.65, 0, 0.35, 1]}]`. Any non-zero value switches the optional ligatures off, and a joining script such as Arabic takes no spacing. <!-- guard-ok: times highlights cursor -->
+```json
+{
+  "frame": {"width": 1920, "height": 1080}, "fps": 30, "background": "#101418", "duration": 2000, "output": "out/evaporate.mp4",
+  "fonts": {"title": [{"file": "fonts/Inter-Bold.ttf"}]},
+  "fontVendor": {"fonts/Inter-Bold.ttf": {"licence": "OFL-1.1", "source": "https://github.com/rsms/inter", "sha256": "288316099b1e0a47a4716d159098005eef7c0066921f34e3200393dbdb01947f"}},
+  "tracks": [
+    {"name": "title", "layer": 20, "elements": [
+      {"id": "evaporate", "type": "text", "start": 0, "end": 2000, "x": 960, "y": 540, "origin": "center", "width": 1400, "height": 160, "font": "title", "size": 108, "color": "#F5F0E6", "align": "center", "runs": [{"text": "SHARP FOCUS"}], "units": {"by": "letter", "order": "center_out", "every": 45, "y": [{"t": 0, "v": 20}, {"t": 360, "v": 0, "ease": "ease-out"}], "opacity": [{"t": 0, "v": 0}, {"t": 360, "v": 1, "ease": "ease-out"}], "blur": [{"t": 0, "v": 24}, {"t": 360, "v": 0, "ease": "ease-out"}]}, "caption": false}
+    ]}
+  ]
+}
+```
 
-It writes one element per unit and marks each one `caption: false`, so the caption checks skip them.
-
+- **Evaporate / optical focus-in (`blur`):** key `blur` inside `units` from `16`–`32` px down to `0` over 300–450 ms (`ease-out`), paired with `opacity` (`0 -> 1`) and a small `y` lift (`16`–`28` px `-> 0`) or `scale` (`[1.08, 1.08] -> [1.0, 1.0]`). Once `blur` reaches `0` and `opacity` reaches `1`, the renderer takes the fast path with zero extra layer cost.
+- **Symmetric orders (`center_out`, `edges_in`):** `center_out` starts on the middle unit (or middle pair when the count is even) and steps outward to both ends; `edges_in` starts on the first and last units together and converges on the middle.
+- **Travelling wave (`A -> peak -> A`):** instead of an After Effects Range Selector (`triangle`, `round` or `smooth`), write a three-keyframe return curve in `units` — for example `"y": [{"t": 0, "v": 0}, {"t": 180, "v": -28, "ease": "ease-out"}, {"t": 360, "v": 0, "ease": "ease-in-out"}]` (or a `scale` / `blur` pulse) — and let `every` ripple the peak across the line. To single out one word or letter with custom timing, split it into its own run with `unit`. <!-- guard-ok: triangle smooth -->
+- **Keep glyphs as `text` (never convert glyphs to `path`):** `path` elements have one contour (`points` with no `holes`), so converting multi-contour glyphs (`O`, `A`, `B`, `8`, `i`, `?`, `%`) to `path` fills inner counters solid or drops islands (ADR-0224). Keep text as `text` and style or animate it with `stroke`, `units`, `path` and `effects`. <!-- guard-ok: holes i -->
+- **Irregular beat times or typing cursor (`scripts/type_on.py`):** when words land on irregular beat timestamps or letters need a stepping `cursor`, run `python3 scripts/type_on.py <project> <spec>` (`--help` for the spec). It measures the line with `measure` and emits one `text` element per unit (`"by": "word"` with `"enter": "pop"` and `times` / `highlights`, or `"by": "letter"` at 60–150 ms with a blinking `cursor`), marking each `caption: false`. <!-- guard-ok: python3 times highlights cursor -->
+- **Tracked titles:** do not split the title into letters. Write one `text` element with `letter_spacing`, in thousandths of an em (`size × letter_spacing / 1000` px after each letter; negative tightens). Key it to drift a title apart: `"letter_spacing": [{"t": 0, "v": 0}, {"t": 800, "v": 120, "ease": [0.65, 0, 0.35, 1]}]`. Any non-zero value switches the optional ligatures off, and a joining script such as Arabic takes no spacing.
+- **Vertical columns and sideways spines:** Montagent has no `writing_mode` property (ADR-0224). For an **upright stacked column** (CJK vertical copy or a stacked marquee), join graphemes with `\n` (`"text": "東\n京\n都"`) inside a narrow `text` box with `"align": "center"` and `"line_height": 1.0` or `1.1`; keep 2–3 horizontal digits or Latin initials on one line (`"text": "第\n25\n回"`, Tate-chu-yoko) and stagger with `"by": "line"` so the horizontal number moves as one unit. For a **sideways Latin spine**, set a horizontal `text` element and rotate it with `"rotation": -90` (reads bottom-to-top) or `"rotation": 90` (reads top-to-bottom). <!-- guard-ok: writing_mode -->
 - **Look:** `preview` the span of the line coming on. Then `frame` it at rest, and check the spacing reads as one line, with no gap wider at a word or letter boundary.
 
 ### Reveal by wipe

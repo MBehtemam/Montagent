@@ -598,10 +598,10 @@ pub struct Glyph {
 }
 
 /// One stagger unit's pose, as the canvas draws it: a body of glyphs that moves, turns,
-/// scales and fades as one (ADR-0151 §2, ADR-0153 §2).
+/// scales, fades and blurs as one (ADR-0151 §2, ADR-0153 §2, ADR-0224 §3).
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct UnitDraw {
-    /// Which body: the glyphs of one fading body share one layer.
+    /// Which body: the glyphs of one fading or blurred body share one layer.
     pub body: usize,
     /// `[sx, kx, tx, ky, sy, ty]`, from the block's own coordinates to the block's own
     /// coordinates.
@@ -609,6 +609,10 @@ pub struct UnitDraw {
     /// Below 1, the body's strokes and fills are drawn together into one layer that takes
     /// this opacity.
     pub opacity: f32,
+    /// Above 0, the body's strokes and fills are drawn together into one layer filtered by
+    /// a Gaussian blur (`sigma = blur / 2`) with `TileMode::Decal` and bounds outset by
+    /// `ceil(3 * sigma)` (ADR-0224 §3).
+    pub blur: f32,
 }
 
 /// How a text run decoration renders (ADR-0214 §1).
@@ -2140,25 +2144,30 @@ impl Canvas {
             // beneath all glyph strokes and fills.
             draw_background_decorations(canvas, decorations);
 
-            // **A fading stagger unit is one layer, between the stroke pass and the fill
-            // pass** (ADR-0151 §2, as the accepted prototype #683 measured it). Every other
-            // glyph keeps the two passes: all strokes, then all fills. A body below opacity 1
-            // draws its own strokes then its own fills into one layer that takes its opacity,
-            // so its stroke never shows through its own fill; its fill still covers its
-            // neighbours' strokes, and its neighbours' fills still cover its stroke. Two
-            // overlapping fading bodies stack whole, the later over the earlier. With no
-            // fading body this is exactly the two passes over every glyph, so an idle stagger
-            // draws the same bytes as no stagger.
-            let fading = |glyph: &Glyph| glyph.unit.is_some_and(|unit| unit.opacity < 1.0);
+            // **A fading or blurred stagger unit is one layer, between the stroke pass and
+            // the fill pass** (ADR-0151 §2, ADR-0224 §3, as the accepted prototype #683
+            // measured it). Every other glyph keeps the two passes: all strokes, then all
+            // fills. A body below opacity 1 or with blur > 0 draws its own strokes then its
+            // own fills into one layer that takes its opacity and Gaussian blur, so its
+            // stroke never shows through its own fill; its fill still covers its neighbours'
+            // strokes, and its neighbours' fills still cover its stroke. Two overlapping
+            // layered bodies stack whole, the later over the earlier. With no fading or
+            // blurred body this is exactly the two passes over every glyph, so an idle
+            // stagger draws the same bytes as no stagger.
+            let fading = |glyph: &Glyph| {
+                glyph
+                    .unit
+                    .is_some_and(|unit| unit.opacity < 1.0 || unit.blur > 0.0)
+            };
             let solid: Vec<&Glyph> = glyphs.iter().filter(|glyph| !fading(glyph)).collect();
             draw_pass(canvas, &paths, &solid, Pass::Stroke);
-            let mut bodies: Vec<(usize, f32)> = Vec::new();
+            let mut bodies: Vec<(usize, f32, f32)> = Vec::new();
             for unit in glyphs.iter().filter(|g| fading(g)).filter_map(|g| g.unit) {
-                if !bodies.iter().any(|(body, _)| *body == unit.body) {
-                    bodies.push((unit.body, unit.opacity));
+                if !bodies.iter().any(|(body, _, _)| *body == unit.body) {
+                    bodies.push((unit.body, unit.opacity, unit.blur));
                 }
             }
-            for (body, opacity) in bodies {
+            for (body, opacity, blur) in bodies {
                 // A body at opacity 0 draws nothing at all.
                 if opacity <= 0.0 {
                     continue;
@@ -2169,8 +2178,35 @@ impl Canvas {
                     .collect();
                 // Bounded to the body's own ink: a full-canvas layer per fading letter costs
                 // about 1.4 ms a frame at 1080p, a bounded one about 8 µs (#683). The bound is
-                // a function of the glyphs alone, so it is the same on every painter.
-                canvas.save_layer_alpha_f(unit_bounds(&paths, &members), opacity);
+                // a function of the glyphs alone, so it is the same on every painter. When
+                // `blur > 0`, the bound is outset by `ceil(3 * sigma)` on all four sides and
+                // filtered with `TileMode::Decal` so the Gaussian kernel skirt is never
+                // clipped (ADR-0224 §3).
+                if blur > 0.0 {
+                    let sig = sigma(f64::from(blur));
+                    let skirt = (3.0 * sig).ceil();
+                    let bounds = unit_bounds(&paths, &members).map(|b| {
+                        let outset = b.with_outset((skirt, skirt));
+                        <Rect as skia_safe::RoundOut<Rect>>::round_out(&outset)
+                    });
+                    let mut paint = SkPaint::default();
+                    paint.set_alpha_f(opacity);
+                    if let Some(filter) = image_filters::blur(
+                        (sig, sig),
+                        skia_safe::TileMode::Decal,
+                        None,
+                        None,
+                    ) {
+                        paint.set_image_filter(filter);
+                    }
+                    let mut layer = SaveLayerRec::default().paint(&paint);
+                    if let Some(ref bounds) = bounds {
+                        layer = layer.bounds(bounds);
+                    }
+                    canvas.save_layer(&layer);
+                } else {
+                    canvas.save_layer_alpha_f(unit_bounds(&paths, &members), opacity);
+                }
                 draw_pass(canvas, &paths, &members, Pass::Stroke);
                 draw_pass(canvas, &paths, &members, Pass::Fill);
                 canvas.restore();

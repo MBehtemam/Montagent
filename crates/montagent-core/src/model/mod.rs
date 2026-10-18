@@ -59,8 +59,8 @@ pub use stroke::{DashPattern, MiterLimit, StrokeCap, StrokeJoin, TrimFraction};
 pub use text::{
     Align, Annotation, AnnotationAlign, AnnotationOverhang, AnnotationOverhangMode,
     AnnotationPosition, Decoration, DecorationBreak, DecorationKind, DecorationPadding,
-    DecorationWindow, Dir, EdgePadding, Highlight, Run, SymmetricPadding, UnitBy, UnitOrder,
-    UnitOverride, Units,
+    DecorationWindow, Dir, EdgePadding, Highlight, Run, SymmetricPadding, UnitBlur, UnitBy,
+    UnitOrder, UnitOverride, Units,
 };
 
 /// `[sx, sy]`, never a bare number.
