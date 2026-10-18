@@ -334,6 +334,87 @@ A panel hinged on one edge: put `origin` on the hinge and key `swivel`. With `"o
 - **Length:** 800–1200 ms, with the door held shut for a beat first.
 - **Look:** `frame` at the widest swing and check the hinge edge has not moved; then `preview` the swing.
 
+### Procedural keyframes, expressions, and audio reactivity
+
+High-frequency shake, inertial bounce, repeating cycles, noisy-curve smoothing, exponential zooms, and audio-reactive pulses are baked into ordinary keyframes with `python3 scripts/keyframes.py <project> <spec> [--check]` (run with `--help` for full option defaults). It samples on drawn frames (`floor(n * 1000 / fps)`), thins redundant points with Ramer–Douglas–Peucker simplification (`tol`), replaces the `[start, end]` keyframe range idempotently, and runs `validate` before printing the updated project: <!-- guard-ok: python3 floor tol -->
+
+```json fragment
+{
+  "operations": [
+    {"op": "wiggle", "id": "title", "property": "x", "start": 666, "end": 1000, "freq": 8.0, "amp": 18.0, "octaves": 2, "mult": 0.5, "seed": 7, "tol": 1.0},
+    {"op": "bounce", "id": "card", "property": "y", "start": 300, "end": 1400, "freq": 3.0, "decay": 5.0, "tol": 1.0},
+    {"op": "loop", "id": "badge", "property": "scale", "mode": "pingpong", "start": 0, "slice_end": 600, "end": 3000},
+    {"op": "smooth", "id": "cam", "property": "x", "start": 0, "end": 2000, "window_ms": 120, "tol": 0.5},
+    {"op": "exp_scale", "id": "map", "property": "scale", "start": 0, "end": 2000, "from": 1.0, "to": 16.0, "tol": 0.005},
+    {"op": "audio", "id": "ring", "property": "scale", "audio_id": "beat", "start": 0, "end": 2000, "floor_db": -40.0, "peak_db": -6.0, "min_v": 1.0, "max_v": 1.35, "window_ms": 50, "tol": 0.01}
+  ]
+}
+```
+
+- **`wiggle`:** deterministic 1D/2D octave-summed value noise around the existing value or keyframe curve (`seed` makes re-runs byte-identical; `"stepped": true` emits `step` keyframes for posterized/glitch holds). <!-- guard-ok: wiggle seed stepped -->
+- **`bounce`:** inertial decay after the landing keyframe at `start` (`t1`), derived from incoming velocity $v_{\text{in}}$ via $v(t) = v(t_1) + v_{\text{in}} \cdot \frac{\sin(2\pi f \Delta t)}{2\pi f \cdot e^{d \Delta t}}$ until the amplitude falls below `tol`. <!-- guard-ok: bounce t1 tol -->
+- **`loop`:** repeats the keyframe slice in `[start, slice_end]` up to `end` in `cycle` (clocks/loaders, inserting a `step` reset at `t_m + 1`), `pingpong` (breathing/bobbing, reversing values and mirroring eases), or `offset` (cumulative stair-step walk cycles). <!-- guard-ok: slice_end cycle pingpong offset -->
+- **`smooth`:** symmetric box-filter moving average of width `window_ms` over a dense or jittery keyframe curve, followed by RDP thinning. <!-- guard-ok: smooth window_ms RDP -->
+- **`exp_scale`:** visually constant-rate zoom $s(t) = s_0 \cdot (s_1 / s_0)^{(t - t_0)/(t_1 - t_0)}$ so deep zooms (such as $1\times \to 16\times$, whose geometric midpoint at halfway is $\sqrt{s_0 s_1} = 4\times$) do not rush the start and stall at the end. <!-- guard-ok: exp_scale -->
+- **`audio`:** decodes the referenced `audio` or `video` element's clip slice (`source_start` to `source_end`, weighted by element `volume` and `audio.master`) with `ffmpeg`, computes per-frame RMS in dBFS, and maps `[floor_db, peak_db]` into `[min_v, max_v]`. Pass `--check` to verify whether baked audio keyframes are still in sync with the audio track. <!-- guard-ok: ffmpeg dBFS floor_db peak_db min_v max_v -->
+- **Look:** `preview` across the baked `[start, end]` window to confirm the motion settles cleanly at the boundaries.
+
+### Extrapolate after a keyframe (`loopOut("continue")`)
+
+To keep an element moving at its final keyframe's velocity after the last keyframe $t_n$ (After Effects' `loopOut("continue")`), do not run a per-frame script: compute the incoming velocity $v' = (v_n - v_{n-1}) / (t_n - t_{n-1})$ from the final two keyframes and append a single `linear` keyframe at $t_{\text{end}}$ with $v(t_{\text{end}}) = v_n + v' \cdot (t_{\text{end}} - t_n)$. For example, if `x` moves linearly from `200` at `t: 0` to `500` at `t: 500` ($v' = 0.6\text{ px/ms}$) and the element ends at `2000`, append `{"t": 2000, "v": 1400, "ease": "linear"}`.
+
+### Time-reverse keyframes
+
+To play a keyframe sequence $[t_0, t_m]$ backward over the same span (or back-to-back after an entrance):
+
+1. Reverse the keyframe values $v'_k = v_{m-k}$ and mirror the segment timestamps $t'_k = t_0 + (t_m - t_{m-k})$.
+2. Mirror each reversed segment's easing curve: `linear` and `step` stay unchanged, `ease-in` swaps with `ease-out`, `ease-in-out` stays `ease-in-out`, and a cubic bezier `[x1, y1, x2, y2]` becomes `[1 - x2, 1 - y2, 1 - x1, 1 - y1]`. <!-- guard-ok: x1 y1 x2 y2 -->
+3. To append a reversed pass automatically after an entrance or pulse, run `scripts/keyframes.py` with `"op": "loop"` and `"mode": "pingpong"` over two cycle lengths. <!-- guard-ok: op pingpong -->
+
+### Tapered strokes, boolean cutouts and path modifiers
+
+Montagent strokes have a single uniform `stroke_width`, `path` elements carry one contour, and procedural path operators do not run at render time (ADR-0226). Bake variable-width tapered strokes, boolean unions/intersections, offset outlines, pucker/bloat, radial twist, zig-zag ridges and seeded wiggles at write time with `python3 scripts/paths.py <project> <spec>` (run it with `--help` for the spec and Python functions): <!-- guard-ok: scripts -->
+
+- **Tapered and wave strokes (`taper`):** converts an open or closed curve into a closed, filled `path` outline (`"closed": true` with `fill` and no `stroke`) whose thickness ramps over `start_length` and `end_length` from `start_width` to `width_px` to `end_width`, shaped by `start_ease` and `end_ease`, with optional sinusoidal width modulation (`wave_amount`, `wave_length`, `wave_phase`) and `cap` (`butt`, `round`, `square`). <!-- guard-ok: taper start_length end_length start_width width_px end_width start_ease end_ease wave_amount wave_length wave_phase cap -->
+- **Boolean paths (`boolean`) and cutouts:** combines two or more polygons with `union`, `subtract`, `intersect` or `exclude`. For a shape with an interior hole (a ring, badge cutout or keyhole), either pass `"holes_as_mask": true` to `paths.py` or write the outer shape with an inner inverted `mask` (`"invert": true`) in `effects` so the hole punches cleanly through the fill: <!-- guard-ok: boolean union subtract intersect exclude holes_as_mask -->
+
+```json
+{
+  "frame": {"width": 1920, "height": 1080}, "fps": 30, "background": "#101418", "duration": 2000, "output": "out/cutout.mp4",
+  "tracks": [
+    {"name": "badge", "layer": 10, "elements": [
+      {"id": "donut-badge", "type": "path", "start": 0, "end": 2000, "x": 960, "y": 540, "origin": "center", "width": 320, "height": 320, "closed": true, "fill": "#FF5A36", "points": [{"at": [40, 40]}, {"at": [280, 40]}, {"at": [280, 280]}, {"at": [40, 280]}], "effects": [{"name": "mask", "shape": "path", "points": [{"at": [110, 110]}, {"at": [210, 110]}, {"at": [210, 210]}, {"at": [110, 210]}], "invert": true}]}
+    ]}
+  ]
+}
+```
+
+- **Procedural path modifiers (`offset`, `pucker_bloat`, `twist`, `zig_zag`, `wiggle`):** `offset` expands or contracts a contour by `distance` pixels with `miter`, `bevel` or `round` joins (`line_join`, `miter_limit`); `pucker_bloat` pulls vertices toward or away from `center` while pushing cubic handles (`in`, `out`) in the opposite radial direction; `twist` rotates vertices and handles around `center` by `angle` degrees decaying quadratically to `radius`; `zig_zag` subdivides segments into `ridges` alternating peaks of `size` pixels (corner vertices or `"smooth": true` spline handles); and `wiggle` displaces vertices from a deterministic `seed` (`octaves`, `amplitude`, `frequency`), outputting either a static vertex list or frame-aligned `points` keyframes when `"animate": true`. <!-- guard-ok: pucker_bloat twist zig_zag wiggle distance line_join miter_limit ridges smooth octaves amplitude frequency animate -->
+- **Look:** `frame` the baked element at rest to verify integer coordinates sit cleanly inside `width × height` with no self-intersection; for animated `wiggle` paths, `preview` across the span. <!-- guard-ok: wiggle -->
+
+### Simultaneous and sequential trim across sibling paths
+
+Each `path` element trims its own single contour from 0 to 1. To draw a multi-stroke icon, signature or diagram on screen, write one `path` element per contour on sibling tracks:
+
+- **Simultaneous trim:** give every sibling `path` the exact same `trim_end` (or `trim_start`) keyframe times and easing curve so all contours draw on together.
+- **Sequential trim (`trim_sequential`):** run `python3 scripts/paths.py <project> <spec>` with `"op": "trim_sequential"` (or call `paths.trim_sequential(paths, start=..., end=..., ease=...)`). It measures each contour's arc length and partitions `[trim_start_ms, trim_end_ms]` proportionally so the pen moves at a steady speed from one contour to the next: <!-- guard-ok: trim_sequential op trim_start_ms trim_end_ms -->
+
+```json
+{
+  "frame": {"width": 1920, "height": 1080}, "fps": 30, "background": "#101418", "duration": 2000, "output": "out/check-seq.mp4",
+  "tracks": [
+    {"name": "stem-1", "layer": 10, "elements": [
+      {"id": "check-short", "type": "path", "start": 0, "end": 2000, "x": 960, "y": 540, "origin": "center", "width": 400, "height": 300, "closed": false, "stroke": "#38BDF8", "stroke_width": 14, "stroke_cap": "round", "trim_start": 0, "trim_end": [{"t": 200, "v": 0}, {"t": 500, "v": 1, "ease": "linear"}], "points": [{"at": [80, 160]}, {"at": [160, 240]}]}
+    ]},
+    {"name": "stem-2", "layer": 11, "elements": [
+      {"id": "check-long", "type": "path", "start": 0, "end": 2000, "x": 960, "y": 540, "origin": "center", "width": 400, "height": 300, "closed": false, "stroke": "#38BDF8", "stroke_width": 14, "stroke_cap": "round", "trim_start": 0, "trim_end": [{"t": 500, "v": 0}, {"t": 1100, "v": 1, "ease": [0.65, 0, 0.35, 1]}], "points": [{"at": [160, 240]}, {"at": [320, 80]}]}
+    ]}
+  ]
+}
+```
+
+- **Look:** `frame` at the handoff instant between contours (`t = 500` here) to confirm the first contour is complete before the second starts; then `preview` the whole draw.
+
 ### Multi-point colour wash (4-Color Gradient), conic sweeps and off-axis highlights
 
 An atmospheric multi-colour wash (After Effects's 4-Color Gradient) is two to four full-frame `rect` elements over a dark `background`, each filled with a `radial` or `two_point_conical` gradient that fades from its spot colour to `#00000000` and blended `screen` (or `add`). Key each layer's `center` (and `focal`) slowly across the span so the colour pools drift without banding or hard seams.
@@ -359,3 +440,4 @@ An atmospheric multi-colour wash (After Effects's 4-Color Gradient) is two to fo
 - **Off-axis specular highlights (`two_point_conical`):** place `focal` between `center` and the light source (`0` offset sits at `focal`, `1` on the outer circle of `radius` around `center`) to shade spheres, badges and glossy cards, or to stretch one wash lobe toward a corner.
 - **Conic sweeps (`sweep`):** `{"gradient": "sweep", "center": [0.5, 0.5], "angle": 0, "stops": [...]}` starts at 12 o'clock and sweeps 360° clockwise. Match the first and last stop colours for a seamless colour wheel or sheen, or keep them distinct for a radar sweep or directional wipe and key `angle`.
 - **Look:** `frame` at the start and end of the drift, and check that foreground copy stays legible over the brightest overlap of the lobes.
+
