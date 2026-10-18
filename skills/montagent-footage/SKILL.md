@@ -231,4 +231,42 @@ ffmpeg -framerate 24 -i "sequence_%05d.exr" \
   conformed_footage.mov
 ```
 
+### 2D Point and Two-Point Tracking
 
+Tracking runs strictly outside `montagent render` during authoring ([ADR-0145](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0145-capcut-and-premiere-are-where-precedent-is-looked-for-first-and-a-capability-with-none-enters-by-the-entry-test.md), [ADR-0239](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0239-footage-analysis-and-cleanup-run-offline-and-emit-literal-keyframes-or-pre-rendered-alpha-footage.md)).
+To pin an element (`text`, `image`, `rect`, `nest`) to a feature in a `video` element:
+1. Run a 2D tracker (e.g. OpenCV CSRT or Lucas-Kanade) over the source video bounding box.
+2. Simplify the tracked trajectory using Douglas-Peucker (epsilon `0.5`–`1.0` px) to collapse redundant points into sparse keyframes.
+3. Write literal `x`, `y`, and optional `rotation`/`scale` keyframe arrays onto the target element in `project.json`.
+4. Validate with `montagent validate` and check placement across the track range with `frame --from <start> --to <end>`.
+
+### Camera Motion Stabilization
+
+In-engine mesh warping and warp stabilizers are refused ([ADR-0239](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0239-footage-analysis-and-cleanup-run-offline-and-emit-literal-keyframes-or-pre-rendered-alpha-footage.md)). Stabilize jittery handheld camera footage offline using FFmpeg's `vidstab` filter before placing as an ordinary `video` element:
+
+```bash
+# Pass 1: analyze camera motion vectors
+ffmpeg -i shaky.mp4 -vf vidstabdetect=stepsize=6:shakiness=8:accuracy=15:result=transforms.trf -f null -
+
+# Pass 2: apply smooth stabilization and zoom 5% to eliminate border artifacts
+ffmpeg -i shaky.mp4 -vf vidstabtransform=input=transforms.trf:zoom=5:smoothing=30 -c:v libx264 -crf 18 -c:a copy stabilized.mp4
+rm transforms.trf
+```
+
+### AI Rotoscoping (Subject Segmentation without Green Screen)
+
+Machine learning models (SAM 2, BiRefNet, rembg) are strictly prohibited inside `montagent render` ([ADR-0145](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0145-capcut-and-premiere-are-where-precedent-is-looked-for-first-and-a-capability-with-none-enters-by-the-entry-test.md), [ADR-0239](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0239-footage-analysis-and-cleanup-run-offline-and-emit-literal-keyframes-or-pre-rendered-alpha-footage.md)).
+To isolate a subject without green screen:
+1. Run the segmentation model offline over the source video frames.
+2. Encode the segmented subject with straight alpha into a single-file ProRes 4444 `.mov` master ([ADR-0203](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0203-prores-and-dnxhr-mezzanines-join-output-format.md)).
+3. Verify alpha via `montagent probe <clip.mov>` (`carries: true`).
+4. Place the clip as a standard `video` element over your background.
+
+### Video Denoise and Object Inpainting
+
+Temporal denoise filters (`hqdn3d`, `nlmeans`) and video inpainting (Content-Aware Fill) require multi-frame temporal buffers and are refused from runtime `effects[]` ([ADR-0149](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0149-ten-painters-render-in-parallel-and-every-frame-is-a-pure-function-of-the-clock.md), [ADR-0239](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0239-footage-analysis-and-cleanup-run-offline-and-emit-literal-keyframes-or-pre-rendered-alpha-footage.md)). Apply them upstream during ingest:
+
+```bash
+# High-quality temporal/spatial denoise before import
+ffmpeg -i noisy.mp4 -vf "hqdn3d=4.0:3.0:6.0:4.5" -c:v libx264 -crf 18 -c:a copy clean.mp4
+```
