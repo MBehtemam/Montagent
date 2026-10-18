@@ -65,6 +65,29 @@ fn every_adr_a_not_by_design_line_cites_is_still_accepted() {
     assert!(problems.is_empty(), "{}", problems.join("\n"));
 }
 
+#[test]
+fn drawn_frame_snap_formula_and_last_drawn_clamp_behave_accurately() {
+    let snap = |t_ms: f64, fps: f64| -> i64 {
+        let frame_idx = (t_ms * fps / 1000.0).round();
+        (frame_idx * 1000.0 / fps).floor() as i64
+    };
+    let last_drawn = |end_ms: f64, fps: f64| -> i64 {
+        let last_idx = (end_ms * fps / 1000.0).ceil() - 1.0;
+        (last_idx * 1000.0 / fps).floor() as i64
+    };
+
+    // At 30 fps: 266 ms is frame 8 (266.67 ms), not truncated to frame 7 (233 ms)
+    assert_eq!(snap(266.0, 30.0), 266);
+    // At 30 fps: element end at 1000 ms has last drawn frame at 966 ms (frame 29)
+    assert_eq!(last_drawn(1000.0, 30.0), 966);
+    // Safe keyframe instant clamps below element end
+    let safe_kf = |t_ms: f64, end_ms: f64, fps: f64| -> i64 {
+        snap(t_ms, fps).min(last_drawn(end_ms, fps))
+    };
+    assert_eq!(safe_kf(1000.0, 1000.0, 30.0), 966);
+    assert!(safe_kf(1000.0, 1000.0, 30.0) < 1000);
+}
+
 /// Each check, seen to fail on a deliberately stale skill — so a guard that has quietly
 /// stopped looking cannot pass by finding nothing.
 #[test]
