@@ -3810,7 +3810,7 @@
           "$ref": "#/$defs/Gradient"
         }
       ],
-      "description": "A paint: a colour, a keyframe list of colours, or a gradient object. A keyframe list never holds a gradient; a gradient's `angle`, `center`, `radius` and `stops` may each be keyed (ADR-0149)."
+      "description": "A paint: a colour, a keyframe list of colours, or a gradient object. A keyframe list never holds a gradient; a gradient's `angle`, `center`, `radius`, `focal` and `stops` may each be keyed (ADR-0149, ADR-0222)."
     },
     "Gradient": {
       "oneOf": [
@@ -3864,9 +3864,70 @@
             "stops"
           ],
           "description": "Out from a centre, as a circle in box fractions — an ellipse on a box that is not\nsquare."
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "center": {
+              "$ref": "#/$defs/AnimatableCenter",
+              "description": "`[fx, fy]`, fractions of the box from its top-left corner. Any numbers."
+            },
+            "angle": {
+              "$ref": "#/$defs/AnimatableAngle",
+              "description": "Degrees, CSS `conic-gradient` convention: `0` starts at 12 o'clock (top) and sweeps\nclockwise. Any number."
+            },
+            "stops": {
+              "$ref": "#/$defs/AnimatableStops"
+            },
+            "gradient": {
+              "type": "string",
+              "const": "sweep"
+            }
+          },
+          "required": [
+            "gradient",
+            "center",
+            "angle",
+            "stops"
+          ],
+          "description": "Around a centre in box fractions, starting at `angle` (`0` at 12 o'clock) and sweeping\n`360°` clockwise (ADR-0222 §1.1)."
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "center": {
+              "$ref": "#/$defs/AnimatableCenter",
+              "description": "`[fx, fy]`, fractions of the box from its top-left corner. Any numbers."
+            },
+            "radius": {
+              "$ref": "#/$defs/AnimatableGradientRadius",
+              "description": "A fraction of the distance from `center` to the box's farthest corner, in box\nfractions: `1` just reaches it. At or below `0` paints the last stop's colour\nover the box."
+            },
+            "focal": {
+              "$ref": "#/$defs/AnimatableCenter",
+              "description": "`[fx, fy]`, the inner focal point (offset `0`, radius `0`) in box fractions.\nClamped inside the outer circle at render time so the whole plane stays painted."
+            },
+            "stops": {
+              "$ref": "#/$defs/AnimatableStops"
+            },
+            "gradient": {
+              "type": "string",
+              "const": "two_point_conical"
+            }
+          },
+          "required": [
+            "gradient",
+            "center",
+            "radius",
+            "focal",
+            "stops"
+          ],
+          "description": "From a focal point of radius `0` (stop offset `0`) out to the outer circle around\n`center` of radius `radius × farthest_corner(center)` (stop offset `1`) in box\nfractions (ADR-0222 §1.1)."
         }
       ],
-      "description": "A `linear` or `radial` gradient, measured against the element's declared box (ADR-0149\n§1, §2). Every parameter is required: a wrong direction, centre or size gives a frame that\nlooks plausible, so none of them may default. Each takes a literal or a keyframe list\n(§3); the kind is fixed."
+      "description": "A `linear`, `radial`, `sweep`, or `two_point_conical` gradient, measured against the\nelement's declared box (ADR-0149 §1, §2; ADR-0222 §1.1). Every parameter is required: a\nwrong direction, centre, focal point or size gives a frame that looks plausible, so none of\nthem may default. Each takes a literal or a keyframe list (§3); the kind is fixed."
     },
     "AnimatableAngle": {
       "anyOf": [

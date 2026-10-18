@@ -415,4 +415,29 @@ Each `path` element trims its own single contour from 0 to 1. To draw a multi-st
 
 - **Look:** `frame` at the handoff instant between contours (`t = 500` here) to confirm the first contour is complete before the second starts; then `preview` the whole draw.
 
+### Multi-point colour wash (4-Color Gradient), conic sweeps and off-axis highlights
+
+An atmospheric multi-colour wash (After Effects's 4-Color Gradient) is two to four full-frame `rect` elements over a dark `background`, each filled with a `radial` or `two_point_conical` gradient that fades from its spot colour to `#00000000` and blended `screen` (or `add`). Key each layer's `center` (and `focal`) slowly across the span so the colour pools drift without banding or hard seams.
+
+```json
+{
+  "frame": {"width": 1920, "height": 1080}, "fps": 30, "background": "#0B0D14", "duration": 3000, "output": "out/wash.mp4",
+  "tracks": [
+    {"name": "lobe-1", "layer": 1, "elements": [
+      {"id": "lobe-warm", "type": "rect", "start": 0, "end": 3000, "x": 0, "y": 0, "origin": "top-left", "width": 1920, "height": 1080, "blend": "screen", "fill": {"gradient": "radial", "center": [{"t": 0, "v": [0.22, 0.28]}, {"t": 2966, "v": [0.32, 0.36], "ease": "ease-in-out"}], "radius": 0.75, "stops": [{"offset": 0, "color": "#FF5A36BF"}, {"offset": 1, "color": "#FF5A3600"}]}}
+    ]},
+    {"name": "lobe-2", "layer": 2, "elements": [
+      {"id": "lobe-cool", "type": "rect", "start": 0, "end": 3000, "x": 0, "y": 0, "origin": "top-left", "width": 1920, "height": 1080, "blend": "screen", "fill": {"gradient": "two_point_conical", "center": [0.76, 0.68], "radius": 0.8, "focal": [{"t": 0, "v": [0.64, 0.56]}, {"t": 2966, "v": [0.7, 0.62], "ease": "ease-in-out"}], "stops": [{"offset": 0, "color": "#2E86FFBF"}, {"offset": 1, "color": "#2E86FF00"}]}}
+    ]},
+    {"name": "lobe-3", "layer": 3, "elements": [
+      {"id": "lobe-violet", "type": "rect", "start": 0, "end": 3000, "x": 0, "y": 0, "origin": "top-left", "width": 1920, "height": 1080, "blend": "screen", "fill": {"gradient": "radial", "center": [0.78, 0.22], "radius": 0.65, "stops": [{"offset": 0, "color": "#8A3FFC99"}, {"offset": 1, "color": "#8A3FFC00"}]}}
+    ]}
+  ]
+}
+```
+
+- **Fade to the same hue at alpha zero:** write the outer stop as the spot colour with `00` alpha (`#FF5A3600`, not `#00000000`), and keep peak alpha around `99`–`CC` so overlapping `screen` lobes do not clip to white.
+- **Off-axis specular highlights (`two_point_conical`):** place `focal` between `center` and the light source (`0` offset sits at `focal`, `1` on the outer circle of `radius` around `center`) to shade spheres, badges and glossy cards, or to stretch one wash lobe toward a corner.
+- **Conic sweeps (`sweep`):** `{"gradient": "sweep", "center": [0.5, 0.5], "angle": 0, "stops": [...]}` starts at 12 o'clock and sweeps 360° clockwise. Match the first and last stop colours for a seamless colour wheel or sheen, or keep them distinct for a radar sweep or directional wipe and key `angle`.
+- **Look:** `frame` at the start and end of the drift, and check that foreground copy stays legible over the brightest overlap of the lobes.
 

@@ -62,6 +62,14 @@ fn radial(center: [f64; 2], radius: f64, stops: Value) -> Value {
     json!({"gradient": "radial", "center": center, "radius": radius, "stops": stops})
 }
 
+fn sweep(center: [f64; 2], angle: f64, stops: Value) -> Value {
+    json!({"gradient": "sweep", "center": center, "angle": angle, "stops": stops})
+}
+
+fn two_point_conical(center: [f64; 2], radius: f64, focal: [f64; 2], stops: Value) -> Value {
+    json!({"gradient": "two_point_conical", "center": center, "radius": radius, "focal": focal, "stops": stops})
+}
+
 fn two(from: &str, to: &str) -> Value {
     json!([{"offset": 0, "color": from}, {"offset": 1, "color": to}])
 }
@@ -153,12 +161,62 @@ fn the_schema_refuses_a_malformed_gradient() {
         r#"UNKNOWN-KEY: {"key": String("center")"#,
     );
     refused_saying(
+        refused_fill(
+            json!({"gradient": "linear", "angle": 0, "focal": [0.5, 0.5], "stops": stops}),
+        ),
+        r#"UNKNOWN-KEY: {"key": String("focal")"#,
+    );
+    refused_saying(
+        refused_fill(
+            json!({"gradient": "radial", "center": [0.5, 0.5], "radius": 1, "focal": [0.5, 0.5], "stops": stops}),
+        ),
+        r#"UNKNOWN-KEY: {"key": String("focal")"#,
+    );
+    refused_saying(
+        refused_fill(
+            json!({"gradient": "sweep", "center": [0.5, 0.5], "angle": 0, "radius": 1, "stops": stops}),
+        ),
+        r#"UNKNOWN-KEY: {"key": String("radius")"#,
+    );
+    refused_saying(
+        refused_fill(
+            json!({"gradient": "sweep", "center": [0.5, 0.5], "angle": 0, "focal": [0.5, 0.5], "stops": stops}),
+        ),
+        r#"UNKNOWN-KEY: {"key": String("focal")"#,
+    );
+    refused_saying(
+        refused_fill(
+            json!({"gradient": "two_point_conical", "center": [0.5, 0.5], "radius": 1, "focal": [0.2, 0.2], "angle": 0, "stops": stops}),
+        ),
+        r#"UNKNOWN-KEY: {"key": String("angle")"#,
+    );
+    refused_saying(
         refused_fill(json!({"gradient": "linear", "stops": stops})),
         "missing field `angle`",
     );
     refused_saying(
         refused_fill(json!({"gradient": "radial", "center": [0.5, 0.5], "stops": stops})),
         "missing field `radius`",
+    );
+    refused_saying(
+        refused_fill(json!({"gradient": "sweep", "center": [0.5, 0.5], "stops": stops})),
+        "missing field `angle`",
+    );
+    refused_saying(
+        refused_fill(json!({"gradient": "sweep", "angle": 0, "stops": stops})),
+        "missing field `center`",
+    );
+    refused_saying(
+        refused_fill(json!({"gradient": "two_point_conical", "center": [0.5, 0.5], "radius": 1, "stops": stops})),
+        "missing field `focal`",
+    );
+    refused_saying(
+        refused_fill(json!({"gradient": "two_point_conical", "center": [0.5, 0.5], "focal": [0.2, 0.2], "stops": stops})),
+        "missing field `radius`",
+    );
+    refused_saying(
+        refused_fill(json!({"gradient": "two_point_conical", "radius": 1, "focal": [0.2, 0.2], "stops": stops})),
+        "missing field `center`",
     );
     refused_saying(
         refused_fill(json!({"gradient": "linear", "angle": 0,
@@ -173,6 +231,12 @@ fn the_schema_refuses_a_malformed_gradient() {
     refused_saying(
         refused_fill(
             json!({"gradient": "radial", "center": [0.5, 0.5], "radius": -0.5, "stops": stops}),
+        ),
+        "`radius` is -0.5",
+    );
+    refused_saying(
+        refused_fill(
+            json!({"gradient": "two_point_conical", "center": [0.5, 0.5], "radius": -0.5, "focal": [0.5, 0.5], "stops": stops}),
         ),
         "`radius` is -0.5",
     );
@@ -631,3 +695,220 @@ fn a_radial_of_radius_zero_paints_the_last_colour_over_the_box() {
     near(pixel(&frame, 200, 100, 100), [0, 255, 0]);
     near(pixel(&frame, 200, 5, 55), [0, 255, 0]);
 }
+
+#[test]
+fn sweep_and_two_point_conical_validate_and_render_across_rect_ellipse_path_and_text() {
+    let body = project(
+        (400, 300),
+        json!([
+            {"id": "card", "type": "rect", "start": 0, "end": 1000, "x": 100, "y": 80,
+             "width": 160, "height": 100, "fill": sweep([0.5, 0.5], 0.0, two("#FF3366", "#3366FF")),
+             "stroke": two_point_conical([0.5, 0.5], 1.0, [0.3, 0.3], two("#FFFFFF", "#000000")), "stroke_width": 6},
+            {"id": "orb", "type": "ellipse", "start": 0, "end": 1000, "x": 300, "y": 80,
+             "width": 140, "height": 90, "fill": two_point_conical([0.5, 0.5], 0.9, [0.3, 0.25], two("#FFCC00", "#FF330000")),
+             "stroke": sweep([0.5, 0.5], 45.0, two("#FFFFFF", "#000000")), "stroke_width": 4},
+            {"id": "badge", "type": "path", "start": 0, "end": 1000, "x": 100, "y": 210,
+             "width": 120, "height": 80, "closed": true,
+             "points": [{"at": [10, 10]}, {"at": [110, 10]}, {"at": [60, 70]}],
+             "fill": sweep([0.5, 0.5], 90.0, two("#00FF88", "#0044FF")),
+             "stroke": two_point_conical([0.5, 0.5], 1.0, [0.2, 0.2], two("#FFFFFF", "#000000")), "stroke_width": 4},
+            {"id": "title", "type": "text", "start": 0, "end": 1000, "x": 280, "y": 220,
+             "width": 220, "height": 100, "font": "brand", "size": 60,
+             "color": sweep([0.5, 0.5], 180.0, two("#FFFFFF", "#00CCFF")),
+             "stroke": two_point_conical([0.5, 0.5], 1.0, [0.3, 0.3], two("#FF0066", "#000000")), "stroke_width": 2,
+             "runs": [{"text": "Hi"}], "caption": false}
+        ]),
+    );
+    let scratch = common::Scratch::beside_the_fixture(
+        "gradient-sweep-conical-all-elements",
+        &canonical(&body.to_string()),
+    );
+    let report = montagent_core::validate(scratch.path());
+    assert!(errors(&report).is_empty(), "{:#?}", errors(&report));
+
+    let rasters = paint_span(scratch.path(), 500, 600, Supplying::PerFrame).expect("it paints");
+    assert!(rasters.declined.is_empty(), "{:?}", rasters.declined);
+}
+
+#[test]
+fn a_sweep_gradient_starts_at_12_o_clock_sweeps_clockwise_and_maps_corners_diagonally() {
+    let dir = tempdir(line!());
+    // 200x100 rect at (0, 50)..(200, 150); centre in frame pixels is (100, 100).
+    let path = box_with(&dir, sweep([0.5, 0.5], 0.0, two("#000000", "#FFFFFF")));
+    let frame = painted_at(&path, 0);
+
+    // Just to the right of 12 o'clock (x=102, y=60): offset near 0 -> nearly black.
+    // Just to the left of 12 o'clock (x=98, y=60): offset near 1 -> nearly white.
+    assert!(pixel(&frame, 200, 102, 60)[0] < 20);
+    assert!(pixel(&frame, 200, 98, 60)[0] > 235);
+
+    // 3 o'clock (x=150, y=100): offset ~0.25 -> grey 64.
+    // 6 o'clock (x=100, y=140): offset ~0.50 -> grey 128.
+    // 9 o'clock (x=50, y=100):  offset ~0.75 -> grey 191.
+    let p3 = pixel(&frame, 200, 150, 100)[0];
+    let p6 = pixel(&frame, 200, 100, 140)[0];
+    let p9 = pixel(&frame, 200, 50, 100)[0];
+    assert!((61..=67).contains(&p3), "3 o'clock grey={p3}");
+    assert!((125..=131).contains(&p6), "6 o'clock grey={p6}");
+    assert!((188..=194).contains(&p9), "9 o'clock grey={p9}");
+
+    // On a 200x100 non-square box, the top-right corner ray (x=198, y=51) is at (0.99, 0.01)
+    // in box fractions, so dx = +0.49, dy = -0.49 -> 45° in box-fraction space -> offset 0.125
+    // (grey ~32), whereas isotropic pixel angles would put (98, -49) at ~63.4° (grey ~45).
+    let corner = pixel(&frame, 200, 198, 51)[0];
+    assert!((29..=35).contains(&corner), "top-right corner grey={corner}");
+
+    // Rotating `angle` to 90° moves offset 0 to 3 o'clock, so 6 o'clock becomes offset 0.25.
+    let dir90 = tempdir(line!());
+    let path90 = box_with(&dir90, sweep([0.5, 0.5], 90.0, two("#000000", "#FFFFFF")));
+    let frame90 = painted_at(&path90, 0);
+    let p6_90 = pixel(&frame90, 200, 100, 140)[0];
+    assert!((61..=67).contains(&p6_90), "6 o'clock at angle 90 grey={p6_90}");
+}
+
+#[test]
+fn two_point_conical_with_focal_at_center_paints_the_same_bytes_as_radial() {
+    let dir_r = tempdir(line!());
+    let path_r = box_with(&dir_r, radial([0.25, 0.5], 1.0, two("#000000", "#FFFFFF")));
+    let dir_c = tempdir(line!());
+    let path_c = box_with(
+        &dir_c,
+        two_point_conical([0.25, 0.5], 1.0, [0.25, 0.5], two("#000000", "#FFFFFF")),
+    );
+    assert_eq!(painted_at(&path_r, 0), painted_at(&path_c, 0));
+}
+
+#[test]
+fn two_point_conical_clamps_an_outside_focal_without_leaving_an_unpainted_wedge() {
+    // Background is pure green (#00FF00); the gradient only uses red and blue.
+    // With center=[0.5, 0.5], radius=0.5 (R = 0.5 * sqrt(0.5) ≈ 0.3535) and focal=[2.0, 0.5]
+    // far outside the outer circle, an unclamped two-point conical shader would leave a
+    // transparent wedge outside the cone, exposing the #00FF00 background. Clamping `focal`
+    // inside 0.999 * R keeps the entire rect painted.
+    let dir = tempdir(line!());
+    let body = json!({
+        "frame": {"width": 100, "height": 100}, "fps": 10, "background": "#00FF00",
+        "tracks": tracks(json!([{
+            "id": "box", "type": "rect", "start": 0, "end": 1000, "x": 50, "y": 50,
+            "width": 100, "height": 100,
+            "fill": two_point_conical([0.5, 0.5], 0.5, [2.0, 0.5], two("#FF0000", "#0000FF"))
+        }]))
+    });
+    let path = write_project(&dir, "p.json", &canonical(&body.to_string()));
+    let frame = painted_at(&path, 0);
+    for y in 0..100 {
+        for x in 0..100 {
+            let [r, g, b] = pixel(&frame, 100, x, y);
+            assert_eq!(g, 0, "unpainted wedge exposed background at ({x}, {y}): [{r}, {g}, {b}]");
+            assert!(r > 0 || b > 0, "unlit pixel at ({x}, {y})");
+        }
+    }
+    // And the highlight is pulled toward the right (`focal` side at x=65 vs left side at x=35).
+    assert!(pixel(&frame, 100, 65, 50)[0] > pixel(&frame, 100, 35, 50)[0]);
+}
+
+#[test]
+fn a_two_point_conical_of_radius_zero_paints_the_last_colour_and_is_reviewed() {
+    let dir = tempdir(line!());
+    let fill = two_point_conical([0.5, 0.5], 0.0, [0.2, 0.3], two("#FF0000", "#00FF00"));
+    let path = box_with(&dir, fill.clone());
+    let frame = painted_at(&path, 0);
+    near(pixel(&frame, 200, 100, 100), [0, 255, 0]);
+    near(pixel(&frame, 200, 5, 55), [0, 255, 0]);
+
+    let found = findings_for("R-GRADIENT-ONE-COLOUR", fill, None);
+    assert_eq!(found.len(), 1, "{found:?}");
+    assert_eq!(found[0].1["property"], json!("fill"));
+    assert_eq!(found[0].1["colour"], json!("#00FF00"));
+
+    let same_sweep = sweep([0.5, 0.5], 45.0, two("#FF3366", "#FF3366"));
+    let found_sweep = findings_for("R-GRADIENT-ONE-COLOUR", same_sweep, None);
+    assert_eq!(found_sweep.len(), 1, "{found_sweep:?}");
+}
+
+#[test]
+fn query_at_prints_sweep_and_two_point_conical_with_unclamped_focal_that_paste_back() {
+    let fill = json!({"gradient": "sweep", "center": [0.25, 0.75], "angle": 135, "stops": [
+        {"offset": 0, "color": "#FF3366"}, {"offset": 0.5, "color": "#FFCC00"},
+        {"offset": 1, "color": "#3366FF"}]});
+    // `focal` [2, -0.5] is well outside the outer circle; `query --at` prints the resolved
+    // unclamped parameter, not the render-time clamped shader point.
+    let stroke = json!({"gradient": "two_point_conical", "center": [0.5, 0.5], "radius": 0.5,
+        "focal": [2, -0.5], "stops": [
+        {"offset": 0, "color": "#FFFFFF"}, {"offset": 1, "color": "#000000"}]});
+    let element = |fill: &Value, stroke: &Value| {
+        json!([{"id": "card", "type": "rect", "start": 0, "end": 1000, "x": 100, "y": 100,
+                "width": 160, "height": 90, "fill": fill, "stroke": stroke, "stroke_width": 8}])
+    };
+    let dir = tempdir(line!());
+    let written = shapes(&dir, (200, 200), element(&fill, &stroke));
+
+    let printed_fill = printed(&written, "card", "fill", 500);
+    let printed_stroke = printed(&written, "card", "stroke", 500);
+    assert_eq!(printed_fill, fill);
+    assert_eq!(printed_stroke, stroke);
+    assert_eq!(printed_stroke["focal"], json!([2, -0.5]));
+
+    let dir = tempdir(line!());
+    let pasted = shapes(&dir, (200, 200), element(&printed_fill, &printed_stroke));
+    let report = montagent_core::validate(&pasted);
+    assert!(errors(&report).is_empty(), "{:#?}", errors(&report));
+    assert!(painted_at(&written, 500) == painted_at(&pasted, 500));
+}
+
+#[test]
+fn sweep_and_two_point_conical_paint_identical_bytes_on_one_and_ten_painters() {
+    use montagent_core::verbs::render::{Ask, Forced, Progress, force_painting, render, tap_frames};
+    if !common::has_ffprobe() {
+        return;
+    }
+    let dir = tempdir(line!());
+    let body = json!({
+        "frame": {"width": 200, "height": 120}, "fps": 10, "background": "#101418",
+        "output": "out/g.mp4",
+        "tracks": tracks(json!([
+            {"id": "bg", "type": "rect", "start": 0, "end": 1000, "x": 100, "y": 60,
+             "width": 200, "height": 120,
+             "fill": {
+                 "gradient": "sweep",
+                 "center": [{"t": 0, "v": [0.3, 0.4]}, {"t": 1000, "v": [0.7, 0.6], "ease": "ease-in-out"}],
+                 "angle": [{"t": 0, "v": 0}, {"t": 1000, "v": 360, "ease": "linear"}],
+                 "stops": two("#FF3366", "#3366FF")
+             }},
+            {"id": "orb", "type": "ellipse", "start": 0, "end": 1000, "x": 100, "y": 60,
+             "width": 120, "height": 90,
+             "fill": {
+                 "gradient": "two_point_conical",
+                 "center": [0.5, 0.5],
+                 "radius": [{"t": 0, "v": 0.4}, {"t": 1000, "v": 1.1, "ease": "linear"}],
+                 "focal": [{"t": 0, "v": [0.2, 0.2]}, {"t": 1000, "v": [1.8, 0.9], "ease": "ease-in-out"}],
+                 "stops": two("#FFFFFF", "#00000000")
+             }}
+        ]))
+    });
+    let path = write_project(&dir, "p.json", &canonical(&body.to_string()));
+    let run_hashes = |forced: Forced| -> Vec<u64> {
+        let path = path.clone();
+        let (tx, rx) = std::sync::mpsc::channel();
+        std::thread::spawn(move || {
+            let _forced = force_painting(forced);
+            let tap = tap_frames();
+            let answer = render(&path, &Ask::default(), &mut |_: Progress| {});
+            let _ = tx.send((answer.report().exit_code(), answer.to_json(), tap.hashes()));
+        });
+        let (exit, answer, hashes) = rx
+            .recv_timeout(std::time::Duration::from_secs(120))
+            .expect("the render finished");
+        assert_eq!(exit, montagent_core::report::ExitCode::Ok, "{answer}");
+        hashes
+    };
+    let one = run_hashes(Forced::OnePainter);
+    let ten = run_hashes(Forced::Chunks {
+        painters: 10,
+        chunk: 2,
+        window_bytes: None,
+    });
+    assert_eq!(one.len(), 10);
+    assert_eq!(one, ten);
+}
+
