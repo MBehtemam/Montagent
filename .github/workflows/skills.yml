@@ -40,6 +40,11 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: "1.90"
+      - uses: Swatinem/rust-cache@v2
+      - name: Install Skia's Linux link dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libfontconfig1-dev libfreetype6-dev
       - name: Run skills in-tree drift guard
         run: cargo test -p montagent --test skills -- --nocapture
 
