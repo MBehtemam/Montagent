@@ -45,6 +45,10 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y libfontconfig1-dev libfreetype6-dev
+      - name: Install ffmpeg at the floor (Linux)
+        run: |
+          ci/install_ffmpeg_floor.sh "$RUNNER_TEMP/ffmpeg-floor"
+          echo "$RUNNER_TEMP/ffmpeg-floor/bin" >> "$GITHUB_PATH"
       - name: Run skills in-tree drift guard
         run: cargo test -p montagent --test skills -- --nocapture
 
