@@ -44,6 +44,9 @@ served beside this one and each fitting one read. Read a page before you write w
   the stroke.
 - **`montagent://format/audio-dynamics.md`**: the `compressor` and `limiter` members of
   `audio_effects`. RMS levels, ranges, and why a faster compressor reads deeper.
+- **`montagent://format/nest.md`**: a `nest` element. Bounded offscreen containers, pixel
+  dimensions (`width`, `height`), absolute timeline clock containment, transforms, cycle/depth
+  limits, and multi-scene ProRes handover.
 
 ## How you edit a project
 

@@ -14,6 +14,8 @@ amends: 0040 (confirms the "own shape — likely id-targeting" prediction; the e
 > `crossfade`, with a required `direction` (the way the motion travels) and an optional
 > `ease`, and `validate` now checks the `from`/`to` references.
 
+> **Amended by [ADR-0243](./0243-native-transitions-between-nest-scenes-render-via-offscreen-surfaces.md)**: `transition.from` and `transition.to` may name elements of `type: "nest"`. Transitions bridging nested scenes render via two offscreen Skia surfaces allocated at the project's native dimensions.
+
 CapCut and Premiere both make transitions first-class; nothing in the settled model
 (ADR-0012's transform/keyframes, ADR-0040's effect model) could express one. This
 settles representation, scope, timing, and interaction with the track model —

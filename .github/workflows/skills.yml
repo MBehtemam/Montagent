@@ -31,6 +31,28 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: python3 ci/skills_workarounds.py --check
 
+  validate:
+    name: schema and snippet validation
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.90"
+      - uses: Swatinem/rust-cache@v2
+      - name: Install Skia's Linux link dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libfontconfig1-dev libfreetype6-dev
+      - name: Install ffmpeg at the floor (Linux)
+        run: |
+          ci/install_ffmpeg_floor.sh "$RUNNER_TEMP/ffmpeg-floor"
+          echo "$RUNNER_TEMP/ffmpeg-floor/bin" >> "$GITHUB_PATH"
+      - uses: astral-sh/setup-uv@v6
+      - name: Run skills in-tree drift guard
+        run: cargo test -p montagent --test skills -- --nocapture
+
   report:
     name: stale workarounds report
     if: github.event_name != 'pull_request'

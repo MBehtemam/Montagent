@@ -535,7 +535,13 @@ pub fn vendor(path: &Path, ask: &Vendor) -> Vendored {
     // ---- The copy. ------------------------------------------------------------------
     let target = match crate::fonts::evidence::confined(&base, &destination) {
         Ok(target) => target,
-        Err(reason) => return refused(evidence_refusal(project, document.path(), reason)),
+        Err(reason) => {
+            return refused(Report::rejected(
+                VENDOR,
+                project,
+                format!("`fonts vendor`: destination path invalid: {reason}"),
+            ));
+        }
     };
     if let Some(prepared) = &evidence {
         for (file, bytes) in &prepared.writes {
@@ -590,10 +596,14 @@ pub fn vendor(path: &Path, ask: &Vendor) -> Vendored {
             if let Some(parent) = target.parent()
                 && let Err(e) = std::fs::create_dir_all(parent)
             {
-                return refused(evidence_refusal(project, document.path(), e.to_string()));
+                let mut report = Report::new(VENDOR, project);
+                report.could_not_write(parent.display(), &e);
+                return refused(report);
             }
             if let Err(e) = write::atomically_bytes(&target, bytes) {
-                return refused(evidence_refusal(project, document.path(), e.to_string()));
+                let mut report = Report::new(VENDOR, project);
+                report.could_not_write(target.display(), &e);
+                return refused(report);
             }
         }
     }

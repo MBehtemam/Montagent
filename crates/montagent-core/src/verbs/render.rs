@@ -366,10 +366,16 @@ pub struct Video {
     /// choosable — no project field, flag or MCP parameter reaches them — and disclosed
     /// so that a file's bytes can be traced to what made them.
     pub encoder: &'static str,
-    pub preset: &'static str,
-    pub crf: u8,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub preset: Option<&'static str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub crf: Option<u8>,
     /// libx264's thread count, never `ffmpeg`'s automatic one.
     pub threads: u32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub video_profile: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pixel_format: Option<String>,
     /// The version the `ffmpeg` that encoded the file gives for itself, as it prints it;
     /// `null` where it printed something else. A label, not a capability check
     /// (ADR-0115's qualification is that).
@@ -815,9 +821,11 @@ fn run(
             encoded: None,
             bytes: 0,
             encoder: "none",
-            preset: "",
-            crf: 0,
+            preset: None,
+            crf: None,
             threads: 0,
+            video_profile: None,
+            pixel_format: None,
             ffmpeg_version: montagent_render::floor::version(&ffmpeg),
             wall_ms,
             realtime: if wall_ms == 0 {
@@ -1231,6 +1239,8 @@ impl Painted {
             preset: finished.settings.preset,
             crf: finished.settings.crf,
             threads: finished.settings.threads.get(),
+            video_profile: finished.settings.profile,
+            pixel_format: finished.settings.pix_fmt,
             ffmpeg_version: montagent_render::floor::version(span.ffmpeg),
             wall_ms,
             realtime: if wall_ms == 0 {
@@ -1318,7 +1328,7 @@ pub(crate) fn encode_span(
     }
     let mut settings = encode::Settings::PRODUCTION;
     if let Some(crf) = span.video_config.as_ref().and_then(|v| v.crf) {
-        settings.crf = crf;
+        settings.crf = Some(crf);
     }
     let mut encoder = match Encoder::start(
         span.ffmpeg,

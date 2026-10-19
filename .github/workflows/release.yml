@@ -35,8 +35,21 @@ permissions:
   contents: write
 
 jobs:
+  check-honesty:
+    name: check release honesty
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify release honesty and tag alignment
+        run: |
+          tag="${{ inputs.tag || github.ref_name }}"
+          bash ci/check_release_honesty.sh "$tag"
+
   build:
     name: build ${{ matrix.target }}
+    needs: check-honesty
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -328,3 +341,42 @@ jobs:
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
         run: cargo publish --workspace --locked
+
+  sync-skills:
+    name: sync skills mirror
+    needs: release
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+      - name: Check if SKILLS_DEPLOY_KEY is present
+        id: gate
+        run: echo "configured=${{ secrets.SKILLS_DEPLOY_KEY != '' }}" >> "$GITHUB_OUTPUT"
+      - name: Sync in-tree skills to distribution mirror
+        if: steps.gate.outputs.configured == 'true'
+        env:
+          DEPLOY_KEY: ${{ secrets.SKILLS_DEPLOY_KEY }}
+          TAG: ${{ inputs.tag || github.ref_name }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$DEPLOY_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan github.com >> ~/.ssh/known_hosts
+
+          git clone git@github.com:MBehtemam/montagent-skills.git /tmp/skills-mirror
+          cd /tmp/skills-mirror
+          git checkout -B main
+          rm -rf *
+          cp -r "$GITHUB_WORKSPACE/skills/"* .
+          cp "$GITHUB_WORKSPACE/LICENSE" .
+          [ -f "$GITHUB_WORKSPACE/skills/README.md" ] && cp "$GITHUB_WORKSPACE/skills/README.md" ./README.md
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --quiet && git diff --staged --quiet || git commit -m "sync: Montagent release ${TAG} (commit ${GITHUB_SHA})"
+          git tag -f "${TAG}"
+          git push -f origin main
+          git push -f origin "${TAG}"
+

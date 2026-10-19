@@ -16,6 +16,8 @@ amends: 0059 (discharges its deferral: `wipe`, `slide` and `push` join `crossfad
 > `direction`); generalises `Bridge.cut` to an aperture enum painted with aliased clipping; confirms `feather` is refused
 > on transitions and soft reveals stay on element-local masks.
 
+> **Amended by [ADR-0243](./0243-native-transitions-between-nest-scenes-render-via-offscreen-surfaces.md)**: `wipe`, `slide`, and `push` transitions admit elements of `type: "nest"`, rendering offscreen surfaces rather than translating or clipping child elements within nested scene coordinate spaces directly.
+
 [#678](https://github.com/MBehtemam/Montagent/issues/678), on the map
 [#663](https://github.com/MBehtemam/Montagent/issues/663).
 [ADR-0059](0059-transitions-element-type-crossfade-only-exact-window.md) made a transition

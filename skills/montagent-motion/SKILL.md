@@ -333,3 +333,36 @@ A panel hinged on one edge: put `origin` on the hinge and key `swivel`. With `"o
 - **Perspective:** more than the distance from the hinge's midpoint to the far corners (577 px here), or `E-PROJECTION-EYE` names the value that passes; at least twice it keeps the near edge sharp. 4–5 × the width reads as a natural lens.
 - **Length:** 800–1200 ms, with the door held shut for a beat first.
 - **Look:** `frame` at the widest swing and check the hinge edge has not moved; then `preview` the swing.
+
+### Multi-scene transitions via ProRes handover
+
+When creating push, wipe, slide, or crossfade transitions between complex multi-element scenes:
+
+1. **Pre-render individual scenes to ProRes 422**:
+   ```sh
+   montagent render scenes/scene_a.montagent.json --output intermediates/scene_a.mov
+   montagent render scenes/scene_b.montagent.json --output intermediates/scene_b.mov
+   ```
+2. <!-- guard-ok: scene_a scene_b -->**Assemble in the master project as `video` elements on staggered tracks**:
+   Place `scene_a` on track 1 and `scene_b` on track 2 with an overlapping window `[t_trans_start, t_trans_end]`.
+3. **Add native transition element**:
+   ```json fragment
+   {
+     "id": "trans-scene-a-to-b",
+     "type": "transition",
+     "from": "scene-a",
+     "to": "scene-b",
+     "start": 5500,
+     "end": 6000,
+     "kind": "push",
+     "direction": "left",
+     "ease": "ease-out"
+   }
+   ```
+
+<!-- guard-ok: yuv422p10le -->
+**Operational costs to disclose:**
+- **Two render passes**: each scene must be rendered prior to the master timeline render.
+- **Intermediate disk overhead**: ~58 MB per 6-second 1080p30 scene in ProRes 422 standard (`yuv422p10le`).
+- **Cache invalidation**: edits made to a nested scene file do NOT automatically invalidate or update the intermediate `.mov`; the scene must be explicitly re-rendered.
+

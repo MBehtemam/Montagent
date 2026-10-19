@@ -93,10 +93,17 @@ fn cli_fmt_writes_and_exits_0() {
     let out = montagent(&["fmt", project.to_str().unwrap()]);
 
     assert_eq!(out.code, Some(0), "{}{}", out.stdout, out.stderr);
+    assert!(out.stdout.contains("montagent fmt: 1 change applied (1 rule) to"), "{}", out.stdout);
+    assert!(!out.stdout.contains("Run montagent fmt"), "{}", out.stdout);
+    assert!(!out.stdout.contains("NOT CHECKED"), "{}", out.stdout);
     assert_eq!(
         std::fs::read_to_string(&project).unwrap(),
         "{\n  \"frame\": {\"width\": 1080, \"height\": 1920},\n  \"fps\": 25,\n  \"tracks\": []\n}\n"
     );
+
+    let out2 = montagent(&["fmt", project.to_str().unwrap()]);
+    assert_eq!(out2.code, Some(0), "{}{}", out2.stdout, out2.stderr);
+    assert!(out2.stdout.contains("montagent fmt: 0 changes applied to"), "{}", out2.stdout);
 }
 
 #[test]
@@ -616,6 +623,35 @@ fn cli_fonts_vendor_reaches_the_gate_and_the_copy() {
     );
 }
 
+#[test]
+fn cli_fonts_vendor_with_bare_project_filename_succeeds() {
+    let project = scratch("cli-fonts-vendor-bare", "p.montagent.json", HEADER_ONLY);
+    let project_dir = project.parent().unwrap();
+    let font = open_runde();
+
+    let out = Command::new(binary())
+        .current_dir(project_dir)
+        .args(&[
+            "fonts",
+            "vendor",
+            "p.montagent.json",
+            font.to_str().unwrap(),
+            "--licence",
+            "OFL-1.1",
+        ])
+        .output()
+        .expect("run montagent");
+
+    assert_eq!(
+        out.status.code(),
+        Some(0),
+        "stdout: {}, stderr: {}",
+        String::from_utf8_lossy(&out.stdout),
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert!(project_dir.join("fonts/OpenRunde-Bold.otf").is_file());
+}
+
 fn open_runde() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../fixtures/en-halloween-decorating/fonts/OpenRunde-Bold.otf")
@@ -1076,6 +1112,25 @@ fn cli_frame_reaches_the_verb_and_writes_the_picture() {
     );
     let written = std::fs::read(&out_file).expect("the picture was written");
     assert_eq!(&written[..2], &[0xFF, 0xD8], "JPEG by default");
+}
+
+#[test]
+fn cli_frame_accepts_output_alias_identically_to_out() {
+    let dir = scratch_dir("cli-frame-alias");
+    let out_file = dir.join("look-alias.jpg");
+    let fixture = fixture_dir().join("en-halloween-decorating.montagent.json");
+    let out = montagent(&[
+        "frame",
+        fixture.to_str().unwrap(),
+        "--at",
+        "11000",
+        "--output",
+        out_file.to_str().unwrap(),
+    ]);
+
+    assert_eq!(out.code, Some(0), "{}{}", out.stdout, out.stderr);
+    assert!(out.stdout.contains("FRAME  at 11000"), "{}", out.stdout);
+    assert!(out_file.exists(), "file was written via --output alias");
 }
 
 #[test]
@@ -1576,6 +1631,32 @@ fn cli_render_on_a_project_with_an_error_is_exit_1_and_writes_nothing() {
 }
 
 #[test]
+fn cli_render_accepts_out_alias() {
+    if montagent_core::media::tools::resolve().is_err() {
+        eprintln!("skipping: no ffmpeg/ffprobe on PATH");
+        return;
+    }
+    let dir = scratch_dir("cli-render-alias");
+    let project = dir.join("p.montagent.json");
+    let out_file = dir.join("render_custom_out.mp4");
+    std::fs::write(
+        &project,
+        "{\n  \"frame\": {\"width\": 200, \"height\": 100},\n  \"fps\": 25,\n  \
+         \"duration\": 200,\n  \"output\": \"out/p.mp4\",\n  \"tracks\": []\n}\n",
+    )
+    .unwrap();
+    let out = montagent(&[
+        "render",
+        project.to_str().unwrap(),
+        "--out",
+        out_file.to_str().unwrap(),
+    ]);
+
+    assert_eq!(out.code, Some(0), "{}{}", out.stdout, out.stderr);
+    assert!(out_file.is_file(), "file was written via --out alias");
+}
+
+#[test]
 fn cli_render_offers_no_flag_that_skips_the_checks_or_scales_the_output() {
     // ADR-0006 makes the check engine the thing `render` runs before it draws anything,
     // and ADR-0021 makes the deliverable the one output that is never downsampled. The
@@ -1656,6 +1737,32 @@ fn cli_preview_discloses_its_tier_and_keeps_adr_0011s_split() {
     assert!(out.stdout.contains("PREVIEW  "), "{}", out.stdout);
     assert!(out.stdout.contains("tier        720p"), "{}", out.stdout);
     assert!(out.stdout.contains("NOT CHECKED"), "{}", out.stdout);
+}
+
+#[test]
+fn cli_preview_accepts_out_alias() {
+    if montagent_core::media::tools::resolve().is_err() {
+        eprintln!("skipping: no ffmpeg/ffprobe on PATH");
+        return;
+    }
+    let dir = scratch_dir("cli-preview-alias");
+    let project = dir.join("p.montagent.json");
+    let out_file = dir.join("custom_out.mp4");
+    std::fs::write(
+        &project,
+        "{\n  \"frame\": {\"width\": 200, \"height\": 100},\n  \"fps\": 25,\n  \
+         \"duration\": 200,\n  \"output\": \"out/p.mp4\",\n  \"tracks\": []\n}\n",
+    )
+    .unwrap();
+    let out = montagent(&[
+        "preview",
+        project.to_str().unwrap(),
+        "--out",
+        out_file.to_str().unwrap(),
+    ]);
+
+    assert_eq!(out.code, Some(0), "{}{}", out.stdout, out.stderr);
+    assert!(out_file.is_file(), "file was written via --out alias");
 }
 
 #[test]
