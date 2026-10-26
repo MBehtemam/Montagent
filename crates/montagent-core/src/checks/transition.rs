@@ -118,7 +118,7 @@ fn references(element: &Value, visual: &[&str], sounding: &[&str]) -> Option<Vec
         true => (sounding, "an audio or video element"),
         false => (
             visual,
-            "a visual element (image, video, text, rect, ellipse or path)",
+            "a visual element (image, video, text, rect, ellipse, path or nest)",
         ),
     };
     let subject = subject_of(element.get("id").and_then(Value::as_str));

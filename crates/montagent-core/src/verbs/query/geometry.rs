@@ -195,7 +195,7 @@ pub(crate) fn origin_fraction(origin: Origin) -> (f64, f64) {
 pub(crate) fn covers_the_frame(kind: Option<&str>) -> bool {
     matches!(
         kind,
-        Some("image" | "video" | "text" | "rect" | "ellipse" | "path")
+        Some("image" | "video" | "text" | "rect" | "ellipse" | "path" | "nest")
     )
 }
 

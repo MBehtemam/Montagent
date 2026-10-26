@@ -28,8 +28,9 @@ where the two disagree.
   circular nest references are forbidden via DAG cycle detection (`E-NEST-CIRCULAR`), and
   nesting depth is clamped to a maximum of 4 (`E-NEST-DEPTH`). IDs within nests must be unique
   across the entire document (`E-ID-DUPLICATE`, ADR-0019).
-- **Transitions between nests in v0.4.x**:
-  native `transition` elements between two `nest` elements are not supported directly in
-  v0.4.x (scheduled for v0.5.0 under ADR-0243). When bridging complex multi-element scenes with
-  push, wipe, or slide transitions, use the verified **Multi-Scene ProRes Handover Recipe**
-  documented in `skills/montagent-motion/SKILL.md`.
+- **Transitions between nests (ADR-0243)**:
+  `nest` elements are admitted as valid visual targets (`from` / `to`) for transitions
+  (`crossfade`, `wipe`, `slide`, `push`). During transition windows, nested scenes render to
+  offscreen surfaces and composite as atomic texture quads, eliminating intra-scene bleed,
+  coordinate tearing, and manual intermediate ProRes pre-rendering passes.
+

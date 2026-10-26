@@ -597,3 +597,566 @@ fn rendering_frame_with_nest_opacity_composites_onto_background() {
         center[2]
     );
 }
+
+#[test]
+fn native_transitions_between_nest_scenes_validate_cleanly() {
+    let dir = tempdir(line!());
+    let project = r##"{
+      "frame": {"width": 400, "height": 200},
+      "fps": 25,
+      "background": "#000000",
+      "duration": 3000,
+      "output": "out.mp4",
+      "tracks": [
+        {
+          "name": "scene_a",
+          "layer": 0,
+          "elements": [
+            {
+              "id": "scene1",
+              "type": "nest",
+              "start": 0,
+              "end": 2000,
+              "x": 200,
+              "y": 100,
+              "width": 400,
+              "height": 200,
+              "elements": [
+                {
+                  "id": "bg1",
+                  "type": "rect",
+                  "start": 0,
+                  "end": 2000,
+                  "x": 200,
+                  "y": 100,
+                  "width": 400,
+                  "height": 200,
+                  "fill": "#FF0000"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "scene_b",
+          "layer": 1,
+          "elements": [
+            {
+              "id": "scene2",
+              "type": "nest",
+              "start": 1000,
+              "end": 3000,
+              "x": 200,
+              "y": 100,
+              "width": 400,
+              "height": 200,
+              "elements": [
+                {
+                  "id": "bg2",
+                  "type": "rect",
+                  "start": 1000,
+                  "end": 3000,
+                  "x": 200,
+                  "y": 100,
+                  "width": 400,
+                  "height": 200,
+                  "fill": "#0000FF"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "bridge",
+          "layer": 2,
+          "elements": [
+            {
+              "id": "trans",
+              "type": "transition",
+              "start": 1000,
+              "end": 2000,
+              "kind": "push",
+              "direction": "left",
+              "from": "scene1",
+              "to": "scene2"
+            }
+          ]
+        }
+      ]
+    }"##;
+
+    let path = write_project(&dir, "nest_transition.montagent.json", project);
+    let report = validate(&path);
+
+    assert_eq!(report.summary().error, 0, "findings: {:?}", report.findings);
+    assert_eq!(report.exit_code(), ExitCode::Ok);
+}
+
+#[test]
+fn native_push_transition_between_nest_scenes_renders_expected_halves() {
+    let dir = tempdir(line!());
+    let project = r##"{
+      "frame": {"width": 400, "height": 200},
+      "fps": 25,
+      "background": "#000000",
+      "duration": 3000,
+      "output": "out.mp4",
+      "tracks": [
+        {
+          "name": "scene_a",
+          "layer": 0,
+          "elements": [
+            {
+              "id": "scene1",
+              "type": "nest",
+              "start": 0,
+              "end": 2000,
+              "x": 200,
+              "y": 100,
+              "width": 400,
+              "height": 200,
+              "elements": [
+                {
+                  "id": "bg1",
+                  "type": "rect",
+                  "start": 0,
+                  "end": 2000,
+                  "x": 200,
+                  "y": 100,
+                  "width": 400,
+                  "height": 200,
+                  "fill": "#FF0000"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "scene_b",
+          "layer": 1,
+          "elements": [
+            {
+              "id": "scene2",
+              "type": "nest",
+              "start": 1000,
+              "end": 3000,
+              "x": 200,
+              "y": 100,
+              "width": 400,
+              "height": 200,
+              "elements": [
+                {
+                  "id": "bg2",
+                  "type": "rect",
+                  "start": 1000,
+                  "end": 3000,
+                  "x": 200,
+                  "y": 100,
+                  "width": 400,
+                  "height": 200,
+                  "fill": "#0000FF"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "bridge",
+          "layer": 2,
+          "elements": [
+            {
+              "id": "trans",
+              "type": "transition",
+              "start": 1000,
+              "end": 2000,
+              "kind": "push",
+              "direction": "left",
+              "from": "scene1",
+              "to": "scene2"
+            }
+          ]
+        }
+      ]
+    }"##;
+
+    let path = write_project(&dir, "nest_push.montagent.json", project);
+    let ask = Ask {
+        at: Some(1500),
+        png: true,
+        full: true,
+        ..Ask::default()
+    };
+
+    let answer = frame(&path, &ask);
+    assert_eq!(answer.report().exit_code(), ExitCode::Ok);
+    let bytes = answer.image().expect("frame png bytes").bytes.clone();
+    let img = image::load_from_memory(&bytes).expect("valid png image");
+    let rgba = img.to_rgba8();
+
+    // At t=1500 (halfway through push left):
+    // Left half (x=100, y=100) shows scene1 (red #FF0000)
+    let left_pixel = rgba.get_pixel(100, 100);
+    assert_eq!(left_pixel[0], 255, "left pixel red");
+    assert_eq!(left_pixel[1], 0, "left pixel green");
+    assert_eq!(left_pixel[2], 0, "left pixel blue");
+
+    // Right half (x=300, y=100) shows scene2 (blue #0000FF)
+    let right_pixel = rgba.get_pixel(300, 100);
+    assert_eq!(right_pixel[0], 0, "right pixel red");
+    assert_eq!(right_pixel[1], 0, "right pixel green");
+    assert_eq!(right_pixel[2], 255, "right pixel blue");
+}
+
+#[test]
+fn native_crossfade_transition_between_nest_scenes_blends_pixels() {
+    let dir = tempdir(line!());
+    let project = r##"{
+      "frame": {"width": 400, "height": 200},
+      "fps": 25,
+      "background": "#000000",
+      "duration": 3000,
+      "output": "out.mp4",
+      "tracks": [
+        {
+          "name": "scene_a",
+          "layer": 0,
+          "elements": [
+            {
+              "id": "scene1",
+              "type": "nest",
+              "start": 0,
+              "end": 2000,
+              "x": 200,
+              "y": 100,
+              "width": 400,
+              "height": 200,
+              "elements": [
+                {
+                  "id": "bg1",
+                  "type": "rect",
+                  "start": 0,
+                  "end": 2000,
+                  "x": 200,
+                  "y": 100,
+                  "width": 400,
+                  "height": 200,
+                  "fill": "#FF0000"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "scene_b",
+          "layer": 1,
+          "elements": [
+            {
+              "id": "scene2",
+              "type": "nest",
+              "start": 1000,
+              "end": 3000,
+              "x": 200,
+              "y": 100,
+              "width": 400,
+              "height": 200,
+              "elements": [
+                {
+                  "id": "bg2",
+                  "type": "rect",
+                  "start": 1000,
+                  "end": 3000,
+                  "x": 200,
+                  "y": 100,
+                  "width": 400,
+                  "height": 200,
+                  "fill": "#0000FF"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "bridge",
+          "layer": 2,
+          "elements": [
+            {
+              "id": "trans",
+              "type": "transition",
+              "start": 1000,
+              "end": 2000,
+              "kind": "crossfade",
+              "from": "scene1",
+              "to": "scene2"
+            }
+          ]
+        }
+      ]
+    }"##;
+
+    let path = write_project(&dir, "nest_crossfade.montagent.json", project);
+    let ask = Ask {
+        at: Some(1500),
+        png: true,
+        full: true,
+        ..Ask::default()
+    };
+
+    let answer = frame(&path, &ask);
+    assert_eq!(answer.report().exit_code(), ExitCode::Ok);
+    let bytes = answer.image().expect("frame png bytes").bytes.clone();
+    let img = image::load_from_memory(&bytes).expect("valid png image");
+    let rgba = img.to_rgba8();
+
+    // At t=1500 (halfway through crossfade):
+    // Scene 1 opacity 0.5 (red) + Scene 2 opacity 0.5 (blue) on black.
+    // In Porter-Duff SrcOver: scene 1 paints red at 128 over black, then scene 2 composites
+    // blue at 128 over scene 1, attenuating the red underneath by (1 - 0.5) -> ~64 red.
+    let center = rgba.get_pixel(200, 100);
+    assert!(
+        (center[0] as i32 - 64).abs() <= 3,
+        "expected ~64 red, got {}",
+        center[0]
+    );
+    assert_eq!(center[1], 0, "green is 0");
+    assert!(
+        (center[2] as i32 - 128).abs() <= 3,
+        "expected ~128 blue, got {}",
+        center[2]
+    );
+}
+
+#[test]
+fn native_wipe_transition_between_nest_scenes_renders_sharp_edge() {
+    let dir = tempdir(line!());
+    let project = r##"{
+      "frame": {"width": 400, "height": 200},
+      "fps": 25,
+      "background": "#000000",
+      "duration": 3000,
+      "output": "out.mp4",
+      "tracks": [
+        {
+          "name": "scene_a",
+          "layer": 0,
+          "elements": [
+            {
+              "id": "scene1",
+              "type": "nest",
+              "start": 0,
+              "end": 2000,
+              "x": 200,
+              "y": 100,
+              "width": 400,
+              "height": 200,
+              "elements": [
+                {
+                  "id": "bg1",
+                  "type": "rect",
+                  "start": 0,
+                  "end": 2000,
+                  "x": 200,
+                  "y": 100,
+                  "width": 400,
+                  "height": 200,
+                  "fill": "#FF0000"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "scene_b",
+          "layer": 1,
+          "elements": [
+            {
+              "id": "scene2",
+              "type": "nest",
+              "start": 1000,
+              "end": 3000,
+              "x": 200,
+              "y": 100,
+              "width": 400,
+              "height": 200,
+              "elements": [
+                {
+                  "id": "bg2",
+                  "type": "rect",
+                  "start": 1000,
+                  "end": 3000,
+                  "x": 200,
+                  "y": 100,
+                  "width": 400,
+                  "height": 200,
+                  "fill": "#0000FF"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "bridge",
+          "layer": 2,
+          "elements": [
+            {
+              "id": "trans",
+              "type": "transition",
+              "start": 1000,
+              "end": 2000,
+              "kind": "wipe",
+              "direction": "left",
+              "from": "scene1",
+              "to": "scene2"
+            }
+          ]
+        }
+      ]
+    }"##;
+
+    let path = write_project(&dir, "nest_wipe.montagent.json", project);
+    let ask = Ask {
+        at: Some(1500),
+        png: true,
+        full: true,
+        ..Ask::default()
+    };
+
+    let answer = frame(&path, &ask);
+    assert_eq!(answer.report().exit_code(), ExitCode::Ok);
+    let bytes = answer.image().expect("frame png bytes").bytes.clone();
+    let img = image::load_from_memory(&bytes).expect("valid png image");
+    let rgba = img.to_rgba8();
+
+    // At t=1500: wipe left travels leftward, edge is at midpoint (x=200).
+    // The wipe travels towards the left, so:
+    // Left half (x=100, y=100) is not yet reached: outgoing scene1 (red #FF0000)
+    // Right half (x=300, y=100) is passed: incoming scene2 (blue #0000FF)
+    let left_pixel = rgba.get_pixel(100, 100);
+    assert_eq!(left_pixel[0], 255, "left pixel red");
+    assert_eq!(left_pixel[1], 0, "left pixel green");
+    assert_eq!(left_pixel[2], 0, "left pixel blue");
+
+    let right_pixel = rgba.get_pixel(300, 100);
+    assert_eq!(right_pixel[0], 0, "right pixel red");
+    assert_eq!(right_pixel[1], 0, "right pixel green");
+    assert_eq!(right_pixel[2], 255, "right pixel blue");
+}
+
+#[test]
+fn native_slide_transition_between_nest_scenes_slides_incoming_over_outgoing() {
+    let dir = tempdir(line!());
+    let project = r##"{
+      "frame": {"width": 400, "height": 200},
+      "fps": 25,
+      "background": "#000000",
+      "duration": 3000,
+      "output": "out.mp4",
+      "tracks": [
+        {
+          "name": "scene_a",
+          "layer": 0,
+          "elements": [
+            {
+              "id": "scene1",
+              "type": "nest",
+              "start": 0,
+              "end": 2000,
+              "x": 200,
+              "y": 100,
+              "width": 400,
+              "height": 200,
+              "elements": [
+                {
+                  "id": "bg1",
+                  "type": "rect",
+                  "start": 0,
+                  "end": 2000,
+                  "x": 200,
+                  "y": 100,
+                  "width": 400,
+                  "height": 200,
+                  "fill": "#FF0000"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "scene_b",
+          "layer": 1,
+          "elements": [
+            {
+              "id": "scene2",
+              "type": "nest",
+              "start": 1000,
+              "end": 3000,
+              "x": 200,
+              "y": 100,
+              "width": 400,
+              "height": 200,
+              "elements": [
+                {
+                  "id": "bg2",
+                  "type": "rect",
+                  "start": 1000,
+                  "end": 3000,
+                  "x": 200,
+                  "y": 100,
+                  "width": 400,
+                  "height": 200,
+                  "fill": "#0000FF"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "bridge",
+          "layer": 2,
+          "elements": [
+            {
+              "id": "trans",
+              "type": "transition",
+              "start": 1000,
+              "end": 2000,
+              "kind": "slide",
+              "direction": "left",
+              "from": "scene1",
+              "to": "scene2"
+            }
+          ]
+        }
+      ]
+    }"##;
+
+    let path = write_project(&dir, "nest_slide.montagent.json", project);
+    let ask = Ask {
+        at: Some(1500),
+        png: true,
+        full: true,
+        ..Ask::default()
+    };
+
+    let answer = frame(&path, &ask);
+    assert_eq!(answer.report().exit_code(), ExitCode::Ok);
+    let bytes = answer.image().expect("frame png bytes").bytes.clone();
+    let img = image::load_from_memory(&bytes).expect("valid png image");
+    let rgba = img.to_rgba8();
+
+    // At t=1500 (halfway through slide left):
+    // scene1 (red) stays in place on layer 0.
+    // scene2 (blue) on layer 1 is halfway in from the right, covering [200, 400].
+    // Left half (x=100, y=100) still shows outgoing scene1 (red #FF0000).
+    let left_pixel = rgba.get_pixel(100, 100);
+    assert_eq!(left_pixel[0], 255, "left pixel red");
+    assert_eq!(left_pixel[1], 0, "left pixel green");
+    assert_eq!(left_pixel[2], 0, "left pixel blue");
+
+    // Right half (x=300, y=100) shows incoming scene2 (blue #0000FF).
+    let right_pixel = rgba.get_pixel(300, 100);
+    assert_eq!(right_pixel[0], 0, "right pixel red");
+    assert_eq!(right_pixel[1], 0, "right pixel green");
+    assert_eq!(right_pixel[2], 255, "right pixel blue");
+}
+
+
+
