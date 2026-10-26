@@ -15,7 +15,7 @@ members = [
 ]
 
 [workspace.package]
-version = "0.4.1"
+version = "0.5.0"
 edition = "2024"
 rust-version = "1.90"
 license = "MIT"
@@ -34,10 +34,10 @@ readme = "README.md"
 # for how the text is shipped instead.
 
 [workspace.dependencies]
-montagent-core = { path = "crates/montagent-core", version = "0.4.1" }
-montagent-text = { path = "crates/montagent-text", version = "0.4.1" }
-montagent-render = { path = "crates/montagent-render", version = "0.4.1" }
-montagent-interchange = { path = "crates/montagent-interchange", version = "0.4.1" }
+montagent-core = { path = "crates/montagent-core", version = "0.5.0" }
+montagent-text = { path = "crates/montagent-text", version = "0.5.0" }
+montagent-render = { path = "crates/montagent-render", version = "0.5.0" }
+montagent-interchange = { path = "crates/montagent-interchange", version = "0.5.0" }
 schemars = "1"
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order"] }
