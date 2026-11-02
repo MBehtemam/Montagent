@@ -45,7 +45,37 @@ impl Wire {
 /// every adapter an error to mishandle, say so in the output and print the canonical
 /// JSON, which is the one form that cannot itself fail.
 pub fn render(report: &Report, form: Wire) -> String {
-    in_form(&report.to_json(), form)
+    let mut json = report.to_json();
+    apply_quiet_filter(&mut json, report);
+    in_form(&json, form)
+}
+
+/// Apply presentation-layer quieting to a serialized report JSON (#1138, #1142).
+pub(crate) fn apply_quiet_filter(json: &mut serde_json::Value, report: &Report) {
+    let review_quieted = report
+        .findings
+        .iter()
+        .filter(|f| f.class == crate::finding::Class::Review && report.is_finding_quieted(f))
+        .count();
+    let note_quieted = report
+        .findings
+        .iter()
+        .filter(|f| f.class == crate::finding::Class::Note && report.is_finding_quieted(f))
+        .count();
+    if review_quieted > 0 || note_quieted > 0 {
+        let visible: Vec<&crate::finding::Finding> = report
+            .findings
+            .iter()
+            .filter(|f| !report.is_finding_quieted(f))
+            .collect();
+        json["findings"] = serde_json::json!(visible);
+        if review_quieted > 0 {
+            json["summary"]["review_quieted"] = serde_json::json!(review_quieted);
+        }
+        if note_quieted > 0 {
+            json["summary"]["note_quieted"] = serde_json::json!(note_quieted);
+        }
+    }
 }
 
 /// Render a `probe` answer in one wire form.

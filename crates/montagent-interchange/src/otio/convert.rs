@@ -242,6 +242,7 @@ pub fn otio_to_project(otio_json: &str) -> Result<Project, OtioError> {
         output: None,
         master: None,
         effects: None,
+        quiet: None,
         fonts: None,
         font_vendor: None,
         tracks,

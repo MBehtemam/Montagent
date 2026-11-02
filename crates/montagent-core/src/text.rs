@@ -237,7 +237,9 @@ pub fn render(report: &Value, options: Options) -> Result<String, RenderError> {
         .as_array()
         .ok_or_else(|| RenderError("report has no `findings` array".into()))?;
 
-    let expand = expansion(report["tool"].as_str().unwrap_or(""));
+    let tool = report["tool"].as_str().unwrap_or("");
+    let expand = expansion(tool);
+    let can_quiet = tool == "validate";
     for class in [
         Class::Error,
         Class::Review,
@@ -261,7 +263,7 @@ pub fn render(report: &Value, options: Options) -> Result<String, RenderError> {
         } else if class.bounded_by_repetition() {
             // The class is not inert, so its findings print in full — but only up to
             // `FULL_INSTANCES` of any one code. ADR-0099.
-            out.push_str(&bounded(&of_class, expand)?);
+            out.push_str(&bounded(&of_class, expand, can_quiet)?);
         } else if class.prints_in_full() {
             // `Drift`: the findings are the answer, so no bound applies. ADR-0099 §6.
             for finding in of_class {
@@ -447,7 +449,17 @@ fn summary_line(report: &Value) -> Result<String, RenderError> {
     .into_iter()
     .filter(|&class| count(class) > 0 || ran.iter().any(|set| set.classes().any(|c| c == class)))
     .map(|class| match class {
-        Class::Error | Class::Review | Class::Note => plural(count(class), class.as_str()),
+        Class::Review | Class::Note => {
+            let base = plural(count(class), class.as_str());
+            let key = format!("{}_quieted", class.as_str());
+            let quieted = summary[&key].as_u64().unwrap_or(0);
+            if quieted > 0 {
+                format!("{base} ({quieted} quieted)")
+            } else {
+                base
+            }
+        }
+        Class::Error => plural(count(class), class.as_str()),
         _ => format!("{} {}", count(class), class.as_str()),
     })
     .collect();
@@ -559,8 +571,12 @@ fn count_in(counted: &[(&str, usize)], code: &str) -> usize {
 /// The one line a collapse leaves behind. The **count survives** — that is what makes the
 /// collapse a filter on output rather than on analysis, which is the half of ADR-0006's
 /// *"output may be filtered; analysis may not"* that licenses any of this.
-fn collapsed_line(class: &str, code: &str, count: usize, expand: &str) -> String {
-    format!("{class}  {code}  {count} — {expand}\n")
+fn collapsed_line(class: &str, code: &str, count: usize, expand: &str, can_quiet: bool) -> String {
+    if can_quiet && expand == "expand with --verbose" && class == "review" {
+        format!("{class}  {code}  {count} — {expand} or quiet with --quiet {code}\n")
+    } else {
+        format!("{class}  {code}  {count} — {expand}\n")
+    }
 }
 
 /// One counted line carrying the code, per class-and-code, for the informational
@@ -571,7 +587,7 @@ fn collapsed(findings: &[&Value], expand: &str) -> String {
     let class = findings[0]["class"].as_str().unwrap_or("?");
     tally(findings.iter().map(|f| f["code"].as_str().unwrap_or("?")))
         .into_iter()
-        .map(|(code, count)| collapsed_line(class, code, count, expand))
+        .map(|(code, count)| collapsed_line(class, code, count, expand, false))
         .collect()
 }
 
@@ -586,7 +602,7 @@ fn collapsed(findings: &[&Value], expand: &str) -> String {
 /// A code past the bound prints **no instance at all** rather than the first three and an
 /// "and N more". A sample would make the printed set arbitrary — it is whichever instances
 /// the check happened to reach first, which is not a ranking and must not read as one.
-fn bounded(findings: &[&Value], expand: &str) -> Result<String, RenderError> {
+fn bounded(findings: &[&Value], expand: &str, can_quiet: bool) -> Result<String, RenderError> {
     let counted = tally(findings.iter().map(|f| f["code"].as_str().unwrap_or("?")));
     let class = findings[0]["class"].as_str().unwrap_or("?");
 
@@ -599,7 +615,7 @@ fn bounded(findings: &[&Value], expand: &str) -> Result<String, RenderError> {
             out.push_str(&full(finding)?);
         } else if !announced.contains(&code) {
             announced.push(code);
-            out.push_str(&collapsed_line(class, code, count, expand));
+            out.push_str(&collapsed_line(class, code, count, expand, can_quiet));
         }
     }
     Ok(out)

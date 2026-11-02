@@ -117,6 +117,12 @@ pub struct Report {
     not_checked_also: Vec<String>,
     terminal: Option<Terminal>,
     pub fmt_written: bool,
+    /// Review and note finding codes declared in the project's `quiet` array or CLI `--quiet` (#1138, #1142).
+    pub quiet: Vec<String>,
+    /// Quiet all `Class::Review` findings in wire presentation (`--quiet-reviews`).
+    pub quiet_reviews: bool,
+    /// Override project-level and invocation-level quieting (`--no-quiet`).
+    pub no_quiet: bool,
 }
 
 impl Report {
@@ -131,6 +137,9 @@ impl Report {
             not_checked_also: Vec::new(),
             terminal: None,
             fmt_written: false,
+            quiet: Vec::new(),
+            quiet_reviews: false,
+            no_quiet: false,
         }
     }
 
@@ -148,6 +157,9 @@ impl Report {
             not_checked_also: Vec::new(),
             terminal: Some(Terminal::Unparseable),
             fmt_written: false,
+            quiet: Vec::new(),
+            quiet_reviews: false,
+            no_quiet: false,
         }
     }
 
@@ -169,6 +181,9 @@ impl Report {
             not_checked_also: Vec::new(),
             terminal: Some(Terminal::BadInvocation),
             fmt_written: false,
+            quiet: Vec::new(),
+            quiet_reviews: false,
+            no_quiet: false,
         }
     }
 
@@ -252,6 +267,9 @@ impl Report {
             not_checked_also: Vec::new(),
             terminal: Some(Terminal::Internal),
             fmt_written: false,
+            quiet: Vec::new(),
+            quiet_reviews: false,
+            no_quiet: false,
         }
     }
 
@@ -276,6 +294,9 @@ impl Report {
             // did not finish either way.
             terminal: Some(Terminal::Internal),
             fmt_written: false,
+            quiet: Vec::new(),
+            quiet_reviews: false,
+            no_quiet: false,
         }
     }
 
@@ -378,6 +399,47 @@ impl Report {
         &self.check_sets
     }
 
+    /// Apply invocation-level quiet configuration (`--quiet`, `--quiet-reviews`, `--no-quiet`).
+    /// Attempting to quiet an `error`-class or unknown code emits `E-QUIET-FORBIDDEN` (#1138, #1142).
+    pub fn apply_quiet(&mut self, codes: &[String], quiet_reviews: bool, no_quiet: bool) {
+        self.quiet_reviews = quiet_reviews;
+        self.no_quiet = no_quiet;
+        for code in codes {
+            match crate::checks::schema::is_quietable_code(code) {
+                Ok(()) => {
+                    if !self.quiet.iter().any(|c| c == code) {
+                        self.quiet.push(code.clone());
+                    }
+                }
+                Err(reason) => {
+                    let file = self
+                        .project
+                        .clone()
+                        .unwrap_or_else(|| "project.montagent.json".to_string());
+                    self.push(
+                        Finding::new("E-QUIET-FORBIDDEN")
+                            .at_file(file)
+                            .field("code", json!(code))
+                            .field("reason", json!(reason)),
+                    );
+                }
+            }
+        }
+    }
+
+    pub(crate) fn is_finding_quieted(&self, finding: &Finding) -> bool {
+        if self.no_quiet {
+            return false;
+        }
+        if finding.class != Class::Review && finding.class != Class::Note {
+            return false;
+        }
+        if self.quiet_reviews && finding.class == Class::Review {
+            return true;
+        }
+        self.quiet.iter().any(|c| c == &finding.code)
+    }
+
     pub fn summary(&self) -> Summary {
         let mut summary = Summary::default();
         for finding in &self.findings {
@@ -459,6 +521,7 @@ impl Report {
             // against, since the next exception argues from this one.
             "not_checked": NOT_CHECKED,
         });
+        crate::wire::apply_quiet_filter(&mut json, self);
         if !self.not_checked_also.is_empty() {
             let lines: Vec<&str> = self.not_checked_also.iter().map(String::as_str).collect();
             extend_boundary(&mut json, &lines);

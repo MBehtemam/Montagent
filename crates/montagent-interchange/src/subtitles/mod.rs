@@ -476,6 +476,7 @@ pub fn import_subtitles(
         output: None,
         master: None,
         effects: None,
+        quiet: None,
         fonts: None,
         font_vendor: None,
         tracks: vec![track],
