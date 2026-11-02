@@ -3911,6 +3911,18 @@ shorten the gloss text.",
         census: None,
         sets: &[],
     },
+    // ---- Review filtering & quieting (#1138 / #1142). ------------------------------------------
+    CheckSpec {
+        code: "E-QUIET-FORBIDDEN",
+        classes: &[Error],
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0006",
+        template: "`{code}` cannot be quieted: {reason}.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
 ];
 
 

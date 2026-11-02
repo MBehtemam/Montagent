@@ -78,7 +78,16 @@ static COMMANDS: &[CommandDef] = &[
         name: "validate",
         aliases: &[],
         subcommands: &[],
-        flags: &["--json", "--verbose", "-h", "--help"],
+        flags: &[
+            "--quiet",
+            "--quiet-review",
+            "--quiet-reviews",
+            "--no-quiet",
+            "--json",
+            "--verbose",
+            "-h",
+            "--help",
+        ],
     },
     CommandDef {
         name: "create-project",

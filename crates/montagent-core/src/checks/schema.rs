@@ -66,9 +66,44 @@ use crate::report::Report;
 
 /// Every place this document does not fit the format, as findings.
 pub fn check(document: &Loose, report: &mut Report) {
+    for code in quiet_codes(document.value()) {
+        if is_quietable_code(code).is_ok() && !report.quiet.iter().any(|c| c == code) {
+            report.quiet.push(code.to_string());
+        }
+    }
     for finding in findings(document) {
         report.push(finding);
     }
+}
+
+fn quiet_codes(root: &Value) -> impl Iterator<Item = &str> {
+    root.get("quiet")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter_map(Value::as_str)
+}
+
+/// Validate whether a finding code is allowed in `quiet` (#1138, #1142).
+/// Only registered `Class::Review` and `Class::Note` codes that never emit `Class::Error` may be quieted.
+pub fn is_quietable_code(code: &str) -> Result<(), String> {
+    let Some(spec) = crate::registry::spec(code) else {
+        return Err(format!(
+            "`{code}` is not a registered finding code; only `review` and `note` codes may be quieted"
+        ));
+    };
+    if spec.may_error()
+        || !spec
+            .classes
+            .iter()
+            .all(|&c| c == crate::finding::Class::Review || c == crate::finding::Class::Note)
+    {
+        return Err(format!(
+            "`{code}` is `{}`-class; `error` findings are non-bypassable and only `review` and `note` codes may be quieted (ADR-0006, ADR-0043)",
+            spec.default_class().as_str()
+        ));
+    }
+    Ok(())
 }
 
 /// The same findings, as a list.
@@ -126,10 +161,23 @@ pub fn findings(document: &Loose) -> Vec<Finding> {
     }
 
     let retired = crate::checks::retired::named(document);
-    faults
+    let mut out: Vec<Finding> = faults
         .into_iter()
         .filter_map(|(fault, locus)| fault.into_finding(document, &locus, &retired))
-        .collect()
+        .collect();
+
+    for code in quiet_codes(document.value()) {
+        if let Err(reason) = is_quietable_code(code) {
+            out.push(
+                Finding::new("E-QUIET-FORBIDDEN")
+                    .at_file(document.path())
+                    .field("code", json!(code))
+                    .field("reason", json!(reason)),
+            );
+        }
+    }
+
+    out
 }
 
 /// One thing `serde` refused, already stripped of the prefix that would repeat the locus.

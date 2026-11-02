@@ -482,6 +482,9 @@ pub struct Project {
     /// Project-level master visual effects executed at the device boundary (ADR-0205).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub effects: Option<Vec<Effect>>,
+    /// Review and note finding codes suppressed in report presentation (#1138, #1142).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub quiet: Option<Vec<String>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub fonts: Option<BTreeMap<String, Vec<FontFile>>>,
     #[serde(

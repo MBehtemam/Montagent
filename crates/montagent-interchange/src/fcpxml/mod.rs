@@ -511,6 +511,7 @@ pub fn fcpxml_to_project(xml_text: &str) -> Result<Project, FcpxmlError> {
         output: None,
         master: None,
         effects: None,
+        quiet: None,
         fonts: None,
         font_vendor: None,
         tracks,

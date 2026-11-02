@@ -47,6 +47,15 @@ fn advertised<T: schemars::JsonSchema>()
 pub struct ValidateParams {
     /// Path to the project file.
     pub project: String,
+    /// Review or note finding codes to suppress in report presentation.
+    #[serde(default)]
+    pub quiet: Vec<String>,
+    /// Suppress all review-class detailed findings across the board.
+    #[serde(default)]
+    pub quiet_reviews: bool,
+    /// Override project-level quiet configuration and print all findings.
+    #[serde(default, alias = "all_findings")]
+    pub no_quiet: bool,
     /// Return the canonical JSON *instead of* the text report, never alongside it.
     #[serde(default)]
     pub json: bool,
@@ -582,7 +591,8 @@ impl Montagent {
             dispatch::Call::of("validate", &context),
             dispatch::Slot::Free,
             move |_sink, _cancel| {
-                let report = montagent_core::validate(&PathBuf::from(&params.project));
+                let mut report = montagent_core::validate(&PathBuf::from(&params.project));
+                report.apply_quiet(&params.quiet, params.quiet_reviews, params.no_quiet);
                 let form = Wire::from_flags(params.json, params.verbose);
 
                 // An `error` finding is an answer, not a protocol failure — ADR-0006's whole

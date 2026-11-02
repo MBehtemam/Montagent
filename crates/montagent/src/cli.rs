@@ -30,6 +30,15 @@ enum Command {
     Validate {
         /// The project file.
         project: PathBuf,
+        /// Suppress detailed presentation and repetition lines for a review or note code (repeatable).
+        #[arg(long = "quiet", alias = "quiet-review", value_name = "CODE")]
+        quiet: Vec<String>,
+        /// Suppress all review-class detailed findings across the board.
+        #[arg(long = "quiet-reviews")]
+        quiet_reviews: bool,
+        /// Override project-level quiet configuration and print all findings.
+        #[arg(long = "no-quiet")]
+        no_quiet: bool,
         /// Print the canonical JSON *instead of* the text report, never alongside it.
         #[arg(long)]
         json: bool,
@@ -764,11 +773,18 @@ where
     match cli.command {
         Command::Validate {
             project,
+            quiet,
+            quiet_reviews,
+            no_quiet,
             json,
             verbose,
         } => {
             let form = Wire::from_flags(json, verbose);
-            match run_verb(|| montagent_core::validate(&project)) {
+            match run_verb(|| {
+                let mut report = montagent_core::validate(&project);
+                report.apply_quiet(&quiet, quiet_reviews, no_quiet);
+                report
+            }) {
                 Ok(report) => {
                     // `println!`, not `print!`: the JSON form ends without a newline.
                     println!("{}", montagent_core::wire::render(&report, form).trim_end());
