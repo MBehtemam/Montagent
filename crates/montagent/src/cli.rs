@@ -515,6 +515,25 @@ enum Command {
         command: FontsCommand,
     },
 
+    /// Inspect and verify installed agent skills against the active binary (ADR-0244).
+    Skills {
+        #[command(subcommand)]
+        command: SkillsCommand,
+    },
+
+    /// Inspect and verify installed agent skills against the active binary (ADR-0244).
+    #[command(name = "skills-check", hide = true)]
+    SkillsCheck {
+        /// Specific skill file or directory to inspect.
+        target: Option<PathBuf>,
+        /// Print the canonical JSON *instead of* the text report, never alongside it.
+        #[arg(long)]
+        json: bool,
+        /// Expand the informational classes that collapse to one counted line.
+        #[arg(long)]
+        verbose: bool,
+    },
+
     /// Ingest an external timeline or subtitle format into a Montagent project document (ADR-0209).
     Import {
         /// External file to import (.srt, .vtt, .otio, .edl, .fcpxml, .xml).
@@ -656,6 +675,21 @@ enum FontsCommand {
         resolution: Option<PathBuf>,
         #[arg(long)]
         face_index: Option<u32>,
+        /// Print the canonical JSON *instead of* the text report, never alongside it.
+        #[arg(long)]
+        json: bool,
+        /// Expand the informational classes that collapse to one counted line.
+        #[arg(long)]
+        verbose: bool,
+    },
+}
+
+#[derive(Subcommand)]
+enum SkillsCommand {
+    /// Inspect and verify installed agent skills against the active binary (ADR-0244).
+    Check {
+        /// Specific skill file or directory to inspect.
+        target: Option<PathBuf>,
         /// Print the canonical JSON *instead of* the text report, never alongside it.
         #[arg(long)]
         json: bool,
@@ -1359,6 +1393,34 @@ where
                         montagent_core::wire::render_fonts_vendor(&answer, form).trim_end()
                     );
                     exit_code(answer.report())
+                }
+                Err(report) => {
+                    eprint!("{}", montagent_core::wire::render(&report, PLAIN));
+                    exit_code(&report)
+                }
+            }
+        }
+        Command::Skills {
+            command: SkillsCommand::Check {
+                target,
+                json,
+                verbose,
+            },
+        }
+        | Command::SkillsCheck {
+            target,
+            json,
+            verbose,
+        } => {
+            let form = Wire::from_flags(json, verbose);
+            let options = montagent_core::skills_check::CheckOptions {
+                target,
+                root: None,
+            };
+            match run_verb(|| montagent_core::skills_check::check(&options)) {
+                Ok(report) => {
+                    println!("{}", montagent_core::wire::render(&report, form).trim_end());
+                    exit_code(&report)
                 }
                 Err(report) => {
                     eprint!("{}", montagent_core::wire::render(&report, PLAIN));

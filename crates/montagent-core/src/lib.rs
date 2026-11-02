@@ -65,6 +65,7 @@ pub mod resolve;
 pub mod resources;
 pub mod schema;
 pub mod schema_index;
+pub mod skills_check;
 pub mod slack;
 pub mod stack;
 pub mod stroke;
