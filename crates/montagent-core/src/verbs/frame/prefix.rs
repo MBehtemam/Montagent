@@ -87,7 +87,10 @@ const STATIC_EFFECTS: [&str; 10] = [
 /// their parameters, and, on a `text`, no `units` stagger and no `highlight` window.
 pub(crate) fn invariant(element: &Value) -> bool {
     let kind = element.get("type").and_then(Value::as_str);
-    if !matches!(kind, Some("image" | "text" | "rect" | "ellipse" | "path")) {
+    if !matches!(
+        kind,
+        Some("image" | "text" | "rect" | "ellipse" | "path" | "nest")
+    ) {
         return false;
     }
     if element
@@ -114,6 +117,24 @@ pub(crate) fn invariant(element: &Value) -> bool {
             .is_some_and(|name| STATIC_EFFECTS.contains(&name))
     }) {
         return false;
+    }
+    if kind == Some("nest") {
+        let (Some(nest_start), Some(nest_end), Some(children)) = (
+            element.get("start").and_then(Value::as_i64),
+            element.get("end").and_then(Value::as_i64),
+            element.get("elements").and_then(Value::as_array),
+        ) else {
+            return false;
+        };
+        return children.iter().all(|child| {
+            let child_kind = child.get("type").and_then(Value::as_str);
+            if matches!(child_kind, Some("audio")) {
+                return true;
+            }
+            child.get("start").and_then(Value::as_i64) == Some(nest_start)
+                && child.get("end").and_then(Value::as_i64) == Some(nest_end)
+                && invariant(child)
+        });
     }
     let highlighted = element
         .get("runs")

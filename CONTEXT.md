@@ -1183,12 +1183,14 @@ What `frame` owes the agent alongside every picture: **the agent must be able to
 what it sees to what produced it, without a second call**
 ([ADR-0097](docs/adr/0097-the-range-is-from-to-on-both-surfaces-and-the-caption-becomes-an-attribution-obligation.md),
 amending [ADR-0011](docs/adr/0011-tool-surface-reads-checks-renders.md)). It is discharged
-differently at the two scales. When the image is **one frame**, it is the `query --at` block
-printed unconditionally beside it — unchanged, and still with no flag that suppresses it. When
-the image is a **contact sheet**, eighteen such blocks would cost 28,410 characters against a
+differently at the two scales. When the image is **one frame** (a single `--at <MS>`), it is
+the `query --at` block printed unconditionally beside it — unchanged, and still with no flag
+that suppresses it. When the image is a **contact sheet** — either a range sheet
+(`--from <MS> --to <MS>`) or a **multi-instant contact sheet** (two or more strictly
+ascending `--at <MS>` instants) — eighteen such blocks would cost 28,410 characters against a
 whole sheet answer's 1,413, so it is discharged instead by the fitted per-tile label
-**together with** a range-level provenance list: one line per tile carrying the sampled
-instant, the run boundary and the presence set as element ids. Both halves are required —
+**together with** a sheet-level provenance list: one line per tile carrying the sampled
+instant (plus the run boundary on a range sheet) and the presence set as element ids. Both halves are required —
 a label fitted to a 140 px tile can carry an instant and little else, so it **cannot** name
 the presence set on its own — measurement later showed it cannot name it at the **180 px
 target** either ([ADR-0098](docs/adr/0098-the-tile-label-is-a-floored-fitted-line-naming-the-change-at-its-own-boundary.md)), so the split rests on a number rather than a prediction.
@@ -1204,8 +1206,10 @@ the `--describe` block, suppressing the stack
 The one line beneath each tile on a contact sheet — in a **gutter strip** of 11% of tile
 height, never burned over the tile's own pixels, because an overlay's legibility would depend
 on the content it describes and the tile would stop being a faithful crop of what `frame --at`
-returns ([ADR-0098](docs/adr/0098-the-tile-label-is-a-floored-fitted-line-naming-the-change-at-its-own-boundary.md)). Five fields in a **fixed order on every tile**: index, class
-sigil, sampled instant, **signed boundary offset**, and a **signed element id**. Fixed arity is
+returns ([ADR-0098](docs/adr/0098-the-tile-label-is-a-floored-fitted-line-naming-the-change-at-its-own-boundary.md)). On a range sheet, five fields in a **fixed order on every tile**: index, class
+sigil, sampled instant, **signed boundary offset**, and a **signed element id**; on a
+multi-instant `--at` sheet, where tiles are chosen by explicit instant rather than visual-state
+boundaries, two fields: `<index> <instant>ms`. Fixed arity is
 load-bearing — a field that is sometimes absent is ambiguous between *"this tile has no such
 element"* and *"the label ran out of room"*, and a variable-length field spreads served type
 1.46× across one sheet with the smallest type landing on the busiest tile. The boundary is an
@@ -2079,3 +2083,18 @@ cleanly; the ruling belongs to an ADR
 ([#228](https://github.com/MBehtemam/Montagent/issues/228)). The spelling sits on the text
 element as often as on a run — the one real project file carried `"weight": "bold"` on all
 22 of its text elements.
+
+**Nest scene cache**:
+The content-addressed cache of a `nest` element's offscreen child composite (`width × height`
+8-bit premultiplied RGBA plus the child paint records `painted`, `not_painted`,
+`painted_partially`, `declined`, `sources`, `fonts`), shared across frames within a render and
+persisted across renders under `<cache_dir>/nest-cache/` ([ADR-0245](docs/adr/0245-nested-scenes-cache-their-offscreen-child-composites-by-relative-subgraph-hash.md)). Keyed on the `nest`'s
+**relative sub-graph hash** — child elements normalized by subtracting `nest.start` from every
+child `start`, `end`, and keyframe `t`, combined with the project `fps`, offscreen `extent`,
+referenced `fonts` entries, and `(size, mtime_ns, content)` identities of every local source or
+font file the children read — so `montagent shift`, parent-level transforms/effects/opacity, and
+parent transitions ([ADR-0243](docs/adr/0243-native-transitions-between-nest-scenes-render-via-offscreen-surfaces.md)) leave the cache hot. Static child visual states store a single entry per
+state rather than per frame; time-invariant `nest` elements also join the bottom **static prefix**
+([ADR-0195](docs/adr/0195-time-invariant-bottom-layers-share-a-byte-identical-prefix-composite.md)). Cleared alongside `probe-cache.json` by `montagent cache clear` ([ADR-0092](docs/adr/0092-a-probe-is-matched-on-an-observed-identity-and-guarded-by-its-contents.md)) and
+credited to `frames_reused` in `render.profile` ([ADR-0194](docs/adr/0194-render-profile-says-where-the-painters-cpu-went-by-element-type-and-effect.md)).
+_Avoid_: pre-render chunk, baked scene video, render cache flag

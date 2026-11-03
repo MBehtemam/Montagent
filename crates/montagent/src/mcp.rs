@@ -179,8 +179,21 @@ pub struct QueryParams {
     pub json: bool,
 }
 
-/// `frame`'s arguments: one instant and the three knobs ADR-0011 names, or a span and the
-/// sheet's two opt-ins (ADR-0097, ADR-0106). Which of them may go together is the verb's rule,
+/// One instant (`50`) or an explicit list of instants (`[50, 250, 650]`) for `frame`'s `at`
+/// parameter (ADR-0244).
+#[derive(Debug, Clone, serde::Deserialize, schemars::JsonSchema)]
+#[serde(untagged)]
+pub enum FrameAt {
+    /// A single instant in absolute milliseconds.
+    One(i64),
+    /// Two or more strictly ascending instants in absolute milliseconds to composite into a
+    /// caller-selected contact sheet.
+    Many(Vec<i64>),
+}
+
+/// `frame`'s arguments: one instant and the three knobs ADR-0011 names, a list of instants
+/// for a caller-selected contact sheet (ADR-0244), or a span and the sheet's two opt-ins
+/// (ADR-0097, ADR-0106). Which of them may go together is the verb's rule,
 /// so both surfaces refuse the same calls: `at` is optional here for that reason alone.
 ///
 /// There is deliberately **no argument that suppresses the caption**. ADR-0011: *"`frame`
@@ -195,10 +208,11 @@ pub struct QueryParams {
 pub struct FrameParams {
     /// Path to the project file.
     pub project: String,
-    /// The instant to draw, in absolute milliseconds on the project's one clock. Give this
-    /// or `from`/`to`, never both.
+    /// The instant to draw (an integer) or two or more strictly ascending instants to
+    /// composite into a contact sheet (an array of integers), in absolute milliseconds on
+    /// the project's one clock. Give this or `from`/`to`, never both.
     #[serde(default)]
-    pub at: Option<i64>,
+    pub at: Option<FrameAt>,
     /// Draw a contact sheet of the span from this instant, in absolute milliseconds, instead
     /// of one instant: one labelled tile per visual state. Asked for with `to`.
     #[serde(default)]
@@ -774,10 +788,17 @@ impl Montagent {
             dispatch::Call::of("frame", &context),
             dispatch::Slot::Free,
             move |_sink, _cancel| {
+                let (at, instants) = match params.at {
+                    Some(FrameAt::One(ms)) => (Some(ms), Vec::new()),
+                    Some(FrameAt::Many(list)) if list.len() == 1 => (Some(list[0]), Vec::new()),
+                    Some(FrameAt::Many(list)) => (None, list),
+                    None => (None, Vec::new()),
+                };
                 let answer = montagent_core::verbs::frame::frame(
                     &PathBuf::from(&params.project),
                     &montagent_core::verbs::frame::Ask {
-                        at: params.at,
+                        at,
+                        instants,
                         crop: params.crop,
                         full: params.full,
                         png: params.png,

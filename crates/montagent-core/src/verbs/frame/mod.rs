@@ -134,6 +134,8 @@ use crate::verbs::query::geometry::{self, Rect};
 mod ink;
 mod keyframes;
 mod label;
+#[doc(hidden)]
+pub mod nest_cache;
 pub(crate) mod prefix;
 mod sheet;
 mod sizing;
@@ -154,6 +156,10 @@ pub struct Ask {
     /// The instant to draw, in absolute milliseconds. Required — there is no default
     /// instant, and a verb that chose one would be choosing what the agent is looking at.
     pub at: Option<i64>,
+    /// Multiple instants to draw as a caller-selected contact sheet (ADR-0244). When two or
+    /// more strictly ascending non-negative instants are passed, `frame` composites them into
+    /// a contact sheet; a single instant behaves identically to [`Ask::at`].
+    pub instants: Vec<i64>,
     /// `x,y,w,h` in frame space at true pixels, as the caller wrote it. Parsed here rather
     /// than in an adapter, so the MCP surface and argv reject the same strings.
     ///
@@ -570,6 +576,9 @@ pub fn frame(path: &FilePath, ask: &Ask) -> Answer {
     // "fix the command" is never read as "fix the project".
     let (instant, crop) = match request(ask) {
         Ok(Mode::At { instant, crop }) => (instant, crop),
+        Ok(Mode::Instants { instants }) => {
+            return sheet::instants_sheet(path, ask, instants);
+        }
         Ok(Mode::Range { from, to, ceiling }) => {
             return sheet::sheet(path, ask, from, to, ceiling);
         }
@@ -814,11 +823,15 @@ pub fn frame(path: &FilePath, ask: &Ask) -> Answer {
     }
 }
 
-/// What the flags ask for: one frame, or a sheet of a span.
+/// What the flags ask for: one frame, a sheet of caller-selected instants, or a sheet of a
+/// span.
 enum Mode {
     At {
         instant: i64,
         crop: Option<Region>,
+    },
+    Instants {
+        instants: Vec<i64>,
     },
     Range {
         from: i64,
@@ -841,13 +854,21 @@ fn request(ask: &Ask) -> Result<Mode, String> {
     if ask.from.is_some() || ask.to.is_some() {
         return range_request(ask);
     }
-    let (instant, crop) = at_request(ask)?;
+    let mut all_instants = Vec::new();
+    if let Some(at) = ask.at {
+        all_instants.push(at);
+    }
+    all_instants.extend_from_slice(&ask.instants);
+    if all_instants.len() >= 2 {
+        return instants_request(ask, all_instants);
+    }
+    let (instant, crop) = at_request(ask, all_instants.first().copied())?;
     Ok(Mode::At { instant, crop })
 }
 
 /// A range call's flags (ADR-0097, ADR-0103, ADR-0105 §3).
 fn range_request(ask: &Ask) -> Result<Mode, String> {
-    if ask.at.is_some() {
+    if ask.at.is_some() || !ask.instants.is_empty() {
         return Err(
             "`--at` draws one frame and `--from`/`--to` draw a contact sheet of a span; ask \
              for one or the other"
@@ -868,21 +889,23 @@ fn range_request(ask: &Ask) -> Result<Mode, String> {
         );
     }
     if ask.full {
-        // ADR-0097 §4: the tier fact, in one line.
-        return Err(
-            "`--full` has nothing to buy on a contact sheet: its tiles are already painted at \
-             true project pixels, and the sheet is drawn at the size the standard tier serves \
-             (1568 px on its long edge) at every tile count, so a larger one would be \
-             downscaled to the same picture. Drop `--full`, or use `frame --at <instant> \
-             --full` for one frame"
-                .into(),
-        );
+        return Err(refuse_full_on_sheet());
     }
     let ceiling = match &ask.infill_ceiling {
         Some(spelling) => Some(infill_ceiling(spelling)?),
         None => None,
     };
     Ok(Mode::Range { from, to, ceiling })
+}
+
+/// ADR-0097 §4: the tier fact, in one line, shared by range and multi-instant sheets.
+fn refuse_full_on_sheet() -> String {
+    "`--full` has nothing to buy on a contact sheet: its tiles are already painted at \
+     true project pixels, and the sheet is drawn at the size the standard tier serves \
+     (1568 px on its long edge) at every tile count, so a larger one would be \
+     downscaled to the same picture. Drop `--full`, or use `frame --at <instant> \
+     --full` for one frame"
+        .into()
 }
 
 /// A whole number of milliseconds, more than zero: ADR-0106 D14's ceiling, refused rather
@@ -912,8 +935,61 @@ fn infill_ceiling(spelling: &str) -> Result<i64, String> {
     }
 }
 
+/// A multi-instant `--at` contact sheet call's flags (ADR-0244).
+fn instants_request(ask: &Ask, instants: Vec<i64>) -> Result<Mode, String> {
+    if let Some(&negative) = instants.iter().find(|&&t| t < 0) {
+        return Err(format!(
+            "`--at {negative}` is negative: multi-instant `--at` contact sheets require \
+             non-negative instants in strictly ascending order"
+        ));
+    }
+    for pair in instants.windows(2) {
+        if pair[0] == pair[1] {
+            return Err(format!(
+                "`--at {}` is repeated: multi-instant `--at` contact sheets require \
+                 strictly ascending, distinct instants",
+                pair[0]
+            ));
+        }
+        if pair[0] > pair[1] {
+            return Err(format!(
+                "`--at {},{}` is out of order: multi-instant `--at` contact sheets require \
+                 strictly ascending instants so tile order matches clock order",
+                pair[0], pair[1]
+            ));
+        }
+    }
+    if ask.crop.is_some() {
+        return Err(
+            "`--crop` does not compose with multiple `--at` instants, and never will: a \
+             contact sheet is whole frames by design. Locate with a contact sheet, then look \
+             closely with `frame --crop --at <instant>` for a single instant"
+                .into(),
+        );
+    }
+    if ask.full {
+        return Err(refuse_full_on_sheet());
+    }
+    if ask.keyframes {
+        return Err(
+            "`--keyframes` adds keyframe tiles to a range contact sheet, and needs \
+             `--from`/`--to`; a multi-instant `--at` sheet draws the exact instants asked for"
+                .into(),
+        );
+    }
+    if ask.infill_ceiling.is_some() {
+        return Err(
+            "`--infill-ceiling` bounds the span between tiles of a range contact sheet, and \
+             needs `--from`/`--to`; a multi-instant `--at` sheet draws the exact instants \
+             asked for"
+                .into(),
+        );
+    }
+    Ok(Mode::Instants { instants })
+}
+
 /// The instant and the crop, or the one sentence saying why the flags ask for no frame.
-fn at_request(ask: &Ask) -> Result<(i64, Option<Region>), String> {
+fn at_request(ask: &Ask, single_instant: Option<i64>) -> Result<(i64, Option<Region>), String> {
     // Every instant is a legal question, including one before the project starts and one
     // after it ends — the answer there is the background and an empty caption, which is a
     // fact about the document rather than a malformed call. `query --at` takes the same
@@ -934,7 +1010,7 @@ fn at_request(ask: &Ask) -> Result<(i64, Option<Region>), String> {
                 .into(),
         );
     }
-    let Some(instant) = ask.at else {
+    let Some(instant) = single_instant else {
         // ADR-0097: the refusal is where the range mode is taught, since no argument's name
         // says "sheet" — and over MCP an argument the schema does not know is dropped, so a
         // guessed one lands here rather than at an unknown-argument refusal.
@@ -1178,6 +1254,13 @@ pub(crate) struct Painter<'a> {
     /// The last prefix this painter composited. Carried across paint chunks, which changes
     /// no pixel and no report (`painters.rs`'s module doc).
     pub(crate) prefix: prefix::Shared,
+    /// ADR-0245: whether `nest` offscreen child composites are cached across frames and runs.
+    nest_cache: bool,
+    /// Shared in-memory map of `nest` child composites across painters.
+    pub(crate) nest: nest_cache::Shared,
+    /// Set by [`Painter::nest`] when the current `nest` restored its child composite from
+    /// [`nest_cache`] instead of rasterizing its children.
+    nest_reused: bool,
 }
 
 impl<'a> Painter<'a> {
@@ -1201,6 +1284,7 @@ impl<'a> Painter<'a> {
     ) -> Painter<'a> {
         let mut painter = Painter::at_class(document, instant, frame, Class::Error, supplier);
         painter.prefix_cache = prefix::enabled();
+        painter.nest_cache = nest_cache::enabled();
         painter
     }
 
@@ -1254,6 +1338,9 @@ impl<'a> Painter<'a> {
             profile: None,
             prefix_cache: false,
             prefix: Default::default(),
+            nest_cache: false,
+            nest: Default::default(),
+            nest_reused: false,
         }
     }
 
@@ -1387,21 +1474,7 @@ impl<'a> Painter<'a> {
         let cached = self.prefix.lock().unwrap().clone();
         if let Some(cached) = cached.filter(|cached| cached.key == key) {
             canvas.restore(&cached.pixels);
-            let record = cached.record.clone();
-            self.painted.extend(record.painted);
-            self.not_painted.extend(record.not_painted);
-            self.painted_partially.extend(record.painted_partially);
-            self.declined.extend(record.declined);
-            for source in record.sources {
-                if !self.sources.contains(&source) {
-                    self.sources.push(source);
-                }
-            }
-            for font in record.fonts {
-                if !self.fonts.contains(&font) {
-                    self.fonts.push(font);
-                }
-            }
+            self.replay_record(cached.record.clone());
             if self.profile.is_some() {
                 for present in layers {
                     self.profile_reused(&present.named);
@@ -1409,51 +1482,93 @@ impl<'a> Painter<'a> {
             }
             return;
         }
-        let before = (
-            self.painted.len(),
-            self.not_painted.len(),
-            self.painted_partially.len(),
-            self.declined.len(),
-        );
         // A shared entry must contain only files this prefix uses, including files this
         // painter had already opened. Isolate provenance and font registration while
         // constructing it, then restore the painter's cumulative first-use order.
-        let mut sources = std::mem::take(&mut self.sources);
-        let mut fonts = std::mem::take(&mut self.fonts);
-        let registry = std::mem::replace(&mut self.registry, montagent_text::Fonts::new());
+        let isolated = self.isolate_provenance();
         for present in layers {
             self.paint_present(canvas, present);
         }
-        let prefix_sources = std::mem::take(&mut self.sources);
-        let prefix_fonts = std::mem::take(&mut self.fonts);
-        self.registry = registry;
-        for source in &prefix_sources {
-            if !sources.contains(source) {
-                sources.push(source.clone());
-            }
-        }
-        for font in &prefix_fonts {
-            if !fonts.contains(font) {
-                fonts.push(font.clone());
-            }
-        }
-        self.sources = sources;
-        self.fonts = fonts;
+        let record = self.finish_isolated_record(isolated);
         if self.internal.is_some() || self.tool_missing.is_some() {
             return;
         }
         *self.prefix.lock().unwrap() = Some(std::sync::Arc::new(prefix::Cached {
             key,
             pixels: canvas.snapshot(),
-            record: prefix::Record {
-                painted: self.painted[before.0..].to_vec(),
-                not_painted: self.not_painted[before.1..].to_vec(),
-                painted_partially: self.painted_partially[before.2..].to_vec(),
-                declined: self.declined[before.3..].to_vec(),
-                sources: prefix_sources,
-                fonts: prefix_fonts,
-            },
+            record,
         }));
+    }
+
+    fn replay_record(&mut self, record: prefix::Record) {
+        self.painted.extend(record.painted);
+        self.not_painted.extend(record.not_painted);
+        self.painted_partially.extend(record.painted_partially);
+        self.declined.extend(record.declined);
+        for source in record.sources {
+            if !self.sources.contains(&source) {
+                self.sources.push(source);
+            }
+        }
+        for font in record.fonts {
+            if !self.fonts.contains(&font) {
+                self.fonts.push(font);
+            }
+        }
+    }
+
+    fn isolate_provenance(
+        &mut self,
+    ) -> (
+        (usize, usize, usize, usize),
+        Vec<String>,
+        Vec<String>,
+        montagent_text::Fonts,
+    ) {
+        let before = (
+            self.painted.len(),
+            self.not_painted.len(),
+            self.painted_partially.len(),
+            self.declined.len(),
+        );
+        let sources = std::mem::take(&mut self.sources);
+        let fonts = std::mem::take(&mut self.fonts);
+        let registry = std::mem::replace(&mut self.registry, montagent_text::Fonts::new());
+        (before, sources, fonts, registry)
+    }
+
+    fn finish_isolated_record(
+        &mut self,
+        (before, mut sources, mut fonts, registry): (
+            (usize, usize, usize, usize),
+            Vec<String>,
+            Vec<String>,
+            montagent_text::Fonts,
+        ),
+    ) -> prefix::Record {
+        let local_sources = std::mem::take(&mut self.sources);
+        let local_fonts = std::mem::take(&mut self.fonts);
+        self.registry = registry;
+        for source in &local_sources {
+            if !sources.contains(source) {
+                sources.push(source.clone());
+            }
+        }
+        for font in &local_fonts {
+            if !fonts.contains(font) {
+                fonts.push(font.clone());
+            }
+        }
+        self.sources = sources;
+        self.fonts = fonts;
+        prefix::Record {
+            painted: self.painted[before.0..].to_vec(),
+            not_painted: self.not_painted[before.1..].to_vec(),
+            painted_partially: self.painted_partially[before.2..].to_vec(),
+            declined: self.declined[before.3..].to_vec(),
+            sources: local_sources,
+            fonts: local_fonts,
+        }
     }
 
     /// ADR-0195: the frame restored this element instead of painting it.
@@ -1501,6 +1616,7 @@ impl<'a> Painter<'a> {
                 self.painted.len(),
             )
         });
+        self.nest_reused = false;
         self.element(canvas, &name, element, playhead);
         if let Some((started, decoding, painted)) = timing {
             // ADR-0194: the time spent waiting on decoded frames is the `decode` stage's,
@@ -1511,7 +1627,12 @@ impl<'a> Painter<'a> {
             let drawn = self.painted.len() > painted;
             let kind = element.get("type").and_then(Value::as_str).unwrap_or("?");
             if let Some(profile) = self.profile.as_mut() {
-                profile.element(&name, kind, spent, drawn);
+                if self.nest_reused {
+                    profile.element(&name, kind, spent, false);
+                    profile.reused(&name, kind);
+                } else {
+                    profile.element(&name, kind, spent, drawn);
+                }
                 for (effect, spent) in montagent_render::canvas::effect_clock::take() {
                     profile.effect(effect, spent);
                 }
@@ -2055,8 +2176,9 @@ impl<'a> Painter<'a> {
         self.painted.push(name.to_string());
     }
 
-    /// A bounded nested sequence (ADR-0201): an isolated container rendering active child
-    /// elements into an offscreen surface on the absolute timeline.
+    /// A bounded nested sequence (ADR-0201, ADR-0245): an isolated container rendering active
+    /// child elements into an offscreen surface on the absolute timeline, cached across frames
+    /// and runs by relative sub-graph hash.
     fn nest(&mut self, canvas: &mut Canvas, name: &str, element: &Value, _playhead: Playhead) {
         let Some(extent) = self.extent(element) else {
             self.collapsed(name, element);
@@ -2065,12 +2187,6 @@ impl<'a> Painter<'a> {
         let Some(children) = element.get("elements").and_then(Value::as_array) else {
             return;
         };
-
-        let Some(mut nest_canvas) = Canvas::new(extent.width as i64, extent.height as i64) else {
-            self.collapsed(name, element);
-            return;
-        };
-        nest_canvas.background(Rgba([0, 0, 0, 0]));
 
         // Filter active children at self.instant: child.start <= self.instant < child.end
         // and sort by layer (ascending, document order on ties).
@@ -2090,6 +2206,47 @@ impl<'a> Painter<'a> {
             layer_a.cmp(&layer_b).then_with(|| idx_a.cmp(idx_b))
         });
 
+        let cache_key = if self.nest_cache {
+            let nest_start = element.get("start").and_then(Value::as_i64).unwrap_or(0);
+            nest_cache::subgraph_key(
+                element,
+                extent,
+                self.fps,
+                self.document.value(),
+                &self.project_dir,
+            )
+            .and_then(|(subgraph, persist)| {
+                let slot = nest_cache::slot_key(nest_start, self.instant, self.sampling, &active)?;
+                Some((subgraph, slot, persist))
+            })
+        } else {
+            None
+        };
+
+        if let Some((ref subgraph, ref slot, persist)) = cache_key
+            && let Some(cached) = nest_cache::load(&self.nest, subgraph, slot, persist)
+        {
+            self.replay_record(cached.record.clone());
+            let effects = self.effects_of(name, element);
+            canvas.raster(
+                &cached.pixels,
+                extent,
+                &self.transform(element),
+                self.clip(element),
+                &effects,
+            );
+            self.painted.push(name.to_string());
+            self.nest_reused = true;
+            return;
+        }
+
+        let Some(mut nest_canvas) = Canvas::new(extent.width as i64, extent.height as i64) else {
+            self.collapsed(name, element);
+            return;
+        };
+        nest_canvas.background(Rgba([0, 0, 0, 0]));
+
+        let isolated = self.isolate_provenance();
         let saved_frame = self.frame;
         self.frame = (extent.width as i64, extent.height as i64);
 
@@ -2111,8 +2268,26 @@ impl<'a> Painter<'a> {
         }
 
         self.frame = saved_frame;
+        self.nest_reused = false;
+        let record = self.finish_isolated_record(isolated);
 
         let raster = nest_canvas.snapshot();
+        if let Some((subgraph, slot, persist)) = cache_key
+            && self.internal.is_none()
+            && self.tool_missing.is_none()
+        {
+            nest_cache::store(
+                &self.nest,
+                subgraph,
+                slot,
+                persist,
+                std::sync::Arc::new(nest_cache::Cached {
+                    pixels: raster.clone(),
+                    record,
+                }),
+            );
+        }
+
         let effects = self.effects_of(name, element);
         canvas.raster(
             &raster,

@@ -1268,6 +1268,49 @@ impl Raster {
             image: images::raster_from_data(&info, Data::new_copy(rgba), width as usize * 4)?,
         })
     }
+
+    /// Wrap premultiplied RGBA8 pixels — a cached offscreen surface snapshot (ADR-0245).
+    pub fn from_premul_rgba(rgba: &[u8], width: u32, height: u32) -> Option<Raster> {
+        if rgba.len() != (width as usize) * (height as usize) * 4 {
+            return None;
+        }
+        let info = ImageInfo::new(
+            ISize::new(width as i32, height as i32),
+            ColorType::RGBA8888,
+            AlphaType::Premul,
+            None,
+        );
+        Some(Raster {
+            image: images::raster_from_data(&info, Data::new_copy(rgba), width as usize * 4)?,
+        })
+    }
+
+    /// Extract premultiplied RGBA8 pixels and `(width, height)` for persistent caching (ADR-0245).
+    pub fn to_premul_rgba(&self) -> Option<(u32, u32, Vec<u8>)> {
+        let width = self.image.width();
+        let height = self.image.height();
+        if width <= 0 || height <= 0 {
+            return None;
+        }
+        let info = ImageInfo::new(
+            ISize::new(width, height),
+            ColorType::RGBA8888,
+            AlphaType::Premul,
+            None,
+        );
+        let row = width as usize * 4;
+        let mut rgba = vec![0u8; row * height as usize];
+        if !self.image.read_pixels(
+            &info,
+            &mut rgba,
+            row,
+            (0, 0),
+            skia_safe::image::CachingHint::Allow,
+        ) {
+            return None;
+        }
+        Some((width as u32, height as u32, rgba))
+    }
 }
 
 /// The running sum of N motion-blur samples, byte by byte (ADR-0155 §4).

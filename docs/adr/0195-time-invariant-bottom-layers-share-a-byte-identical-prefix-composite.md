@@ -5,6 +5,8 @@ amends: 0144 (§2/§6 by reference, §7's shared painter state), 0194 (decision 
 
 # Time-invariant bottom layers share a byte-identical prefix composite
 
+> **Amended by [ADR-0245](./0245-nested-scenes-cache-their-offscreen-child-composites-by-relative-subgraph-hash.md)**: Nested scenes cache their offscreen child composites by relative sub-graph hash and time-invariant `nest` elements join the bottom static prefix (#1144).
+
 > **Amended by [ADR-0205](./0205-project-level-master-effects-filter-the-composite-at-the-device-boundary.md)**: Project-level master effects filter the composite at the device boundary.
 
 > **Amended by [ADR-0201](./0201-nested-sequences-are-bounded-containers-rendering-to-an-isolated-surface-on-an-absolute-timeline.md)**: Nested sequences are bounded containers rendering to an isolated surface on an absolute timeline.

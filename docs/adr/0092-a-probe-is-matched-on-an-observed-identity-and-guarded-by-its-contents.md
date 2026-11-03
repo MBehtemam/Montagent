@@ -5,6 +5,9 @@ amends: 0069 (adds `Probe::identity` and the value-side content guard to the sid
 
 # A probe is matched on an identity it observed, guarded by its contents — and the cache has a clear command
 
+> **Amended by [ADR-0245](0245-nested-scenes-cache-their-offscreen-child-composites-by-relative-subgraph-hash.md):**
+> `montagent cache clear` removes `<cache_dir>/nest-cache` alongside `probe-cache.json` (#1144).
+
 [#385](https://github.com/MBehtemam/Montagent/issues/385) arrives from the first real
 end-to-end build through this tool: an eleven-minute cut shipped with 134 of 217 audio
 elements silently missing, at `0 errors`, twice, on the same project. It blames the probe

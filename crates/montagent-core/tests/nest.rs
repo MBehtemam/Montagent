@@ -1158,5 +1158,451 @@ fn native_slide_transition_between_nest_scenes_slides_incoming_over_outgoing() {
     assert_eq!(right_pixel[2], 255, "right pixel blue");
 }
 
+#[test]
+fn nest_scene_cache_reuses_offscreen_composite_across_frames_shifts_and_rerenders_byte_identically()
+{
+    use montagent_core::verbs::render::{
+        Ask as RenderAsk, Forced, Progress, force_nest_cache, force_painting, force_prefix_cache,
+        render, tap_frames,
+    };
+    use montagent_core::verbs::shift::{Ask as ShiftAsk, shift};
 
+    let dir = tempdir(line!());
+    let cache_dir = dir.join("cache-dir");
+    // A multi-scene project where `scene1` is above an animated bottom element (`bg_mover`)
+    // so the bottom static-prefix cache (ADR-0195) does not cover `scene1`, isolating
+    // `nest` scene caching (ADR-0245).
+    let project = r##"{
+      "frame": {"width": 320, "height": 180},
+      "fps": 25,
+      "background": "#000000",
+      "duration": 480,
+      "output": "out/sizzle.mp4",
+      "tracks": [
+        {
+          "name": "underlay",
+          "layer": 0,
+          "elements": [
+            {
+              "id": "bg_mover",
+              "type": "rect",
+              "start": 0,
+              "end": 480,
+              "x": [{"t": 0, "v": 40}, {"t": 440, "v": 280, "ease": "linear"}],
+              "y": 90,
+              "width": 60,
+              "height": 60,
+              "fill": "#222222"
+            }
+          ]
+        },
+        {
+          "name": "scenes",
+          "layer": 1,
+          "elements": [
+            {
+              "id": "scene1",
+              "type": "nest",
+              "start": 0,
+              "end": 200,
+              "x": [{"t": 0, "v": 150}, {"t": 160, "v": 170, "ease": "linear"}],
+              "y": 90,
+              "width": 200,
+              "height": 100,
+              "elements": [
+                {
+                  "id": "s1_card",
+                  "type": "rect",
+                  "start": 0,
+                  "end": 200,
+                  "x": 100,
+                  "y": 50,
+                  "width": 160,
+                  "height": 80,
+                  "fill": "#FF0000"
+                }
+              ]
+            },
+            {
+              "id": "scene2",
+              "type": "nest",
+              "start": 200,
+              "end": 400,
+              "x": 160,
+              "y": 90,
+              "width": 200,
+              "height": 100,
+              "elements": [
+                {
+                  "id": "s2_card",
+                  "type": "rect",
+                  "start": 200,
+                  "end": 400,
+                  "x": 100,
+                  "y": 50,
+                  "width": 160,
+                  "height": 80,
+                  "fill": "#00FF00"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }"##;
 
+    let path = write_project(&dir, "sizzle.montagent.json", project);
+
+    // 1. Render with nest cache OFF to capture baseline frame hashes and answer.
+    let (uncached_hashes, uncached_json) = {
+        let _p = force_painting(Forced::OnePainter);
+        let _prefix = force_prefix_cache(false);
+        let _nest = force_nest_cache(false);
+        let tap = tap_frames();
+        let ans = render(
+            &path,
+            &RenderAsk {
+                profile: true,
+                ..RenderAsk::default()
+            },
+            &mut |_: Progress| {},
+        );
+        assert_eq!(ans.report().exit_code(), ExitCode::Ok);
+        (tap.hashes(), ans.to_json())
+    };
+    assert_eq!(uncached_hashes.len(), 12);
+
+    // 2. Render with nest cache ON (and persistent cache dir set):
+    // Within the first render, `scene1` (5 frames) paints frame 0 and reuses 4 frames;
+    // `scene2` (5 frames) paints frame 0 and reuses 4 frames.
+    let (first_cached_hashes, first_cached_json) = {
+        let _p = force_painting(Forced::Chunks {
+            painters: 2,
+            chunk: 2,
+            window_bytes: None,
+        });
+        let _prefix = force_prefix_cache(false);
+        let _nest = force_nest_cache(true);
+        let _dir =
+            montagent_core::verbs::frame::nest_cache::force_cache_dir(Some(cache_dir.clone()));
+        let tap = tap_frames();
+        let ans = render(
+            &path,
+            &RenderAsk {
+                profile: true,
+                ..RenderAsk::default()
+            },
+            &mut |_: Progress| {},
+        );
+        assert_eq!(ans.report().exit_code(), ExitCode::Ok);
+        (tap.hashes(), ans.to_json())
+    };
+    assert_eq!(
+        first_cached_hashes, uncached_hashes,
+        "cached render must be byte-identical at encoder input"
+    );
+    assert_eq!(
+        first_cached_json["render"]["painted"],
+        uncached_json["render"]["painted"]
+    );
+    assert!(
+        cache_dir.join("nest-cache").is_dir(),
+        "persistent nest-cache directory was populated"
+    );
+
+    // 3. Shift `scene2` forward by +40 ms using `montagent shift --at 200 --delta 40`:
+    // Because `scene2`'s child timestamps are normalized relative to `scene2.start`,
+    // re-rendering in a fresh session reuses all 5 frames of `scene1` AND all 5 frames of
+    // shifted `scene2` from `<cache_dir>/nest-cache/`!
+    let shift_report = shift(
+        &path,
+        &ShiftAsk {
+            at: 200,
+            delta: 40,
+            scope: Some("scenes".to_string()),
+            delete: false,
+            release: vec![(400, 480)],
+        },
+    );
+    assert_eq!(
+        shift_report.report().exit_code(),
+        ExitCode::Ok,
+        "findings: {:?}",
+        shift_report.report().findings
+    );
+
+    let second_json = {
+        let _p = force_painting(Forced::OnePainter);
+        let _prefix = force_prefix_cache(false);
+        let _nest = force_nest_cache(true);
+        let _dir =
+            montagent_core::verbs::frame::nest_cache::force_cache_dir(Some(cache_dir.clone()));
+        let ans = render(
+            &path,
+            &RenderAsk {
+                profile: true,
+                ..RenderAsk::default()
+            },
+            &mut |_: Progress| {},
+        );
+        assert_eq!(ans.report().exit_code(), ExitCode::Ok);
+        ans.to_json()
+    };
+
+    let elements = second_json["render"]["profile"]["elements"]
+        .as_array()
+        .expect("profile elements");
+    let scene2_row = elements
+        .iter()
+        .find(|row| row["id"] == "scene2")
+        .expect("scene2 row");
+    assert_eq!(
+        scene2_row["frames_reused"].as_u64(),
+        Some(5),
+        "shifted scene2 reused all 5 frames from disk cache: {scene2_row}"
+    );
+}
+
+#[test]
+fn nest_scene_cache_invalidates_when_child_or_referenced_asset_changes() {
+    use montagent_core::verbs::render::{
+        Ask as RenderAsk, Forced, Progress, force_nest_cache, force_painting, force_prefix_cache,
+        render, tap_frames,
+    };
+
+    let dir = tempdir(line!());
+    let cache_dir = dir.join("cache-dir");
+    let badge_path = dir.join("badge.png");
+    image::RgbaImage::from_pixel(40, 40, image::Rgba([255, 0, 0, 255]))
+        .save(&badge_path)
+        .expect("write red badge.png");
+
+    let project = r##"{
+      "frame": {"width": 200, "height": 120},
+      "fps": 25,
+      "background": "#000000",
+      "duration": 160,
+      "output": "out/asset.mp4",
+      "tracks": [
+        {
+          "name": "underlay",
+          "layer": 0,
+          "elements": [
+            {
+              "id": "bg_mover",
+              "type": "rect",
+              "start": 0,
+              "end": 160,
+              "x": [{"t": 0, "v": 20}, {"t": 120, "v": 160, "ease": "linear"}],
+              "y": 60,
+              "width": 30,
+              "height": 30,
+              "fill": "#111111"
+            }
+          ]
+        },
+        {
+          "name": "scenes",
+          "layer": 1,
+          "elements": [
+            {
+              "id": "scene1",
+              "type": "nest",
+              "start": 0,
+              "end": 160,
+              "x": 100,
+              "y": 60,
+              "width": 100,
+              "height": 80,
+              "elements": [
+                {
+                  "id": "badge",
+                  "type": "image",
+                  "start": 0,
+                  "end": 160,
+                  "source": "badge.png",
+                  "x": 50,
+                  "y": 40,
+                  "width": 40,
+                  "height": 40,
+                  "fit": "literal"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }"##;
+
+    let path = write_project(&dir, "asset.montagent.json", project);
+
+    let render_once = || {
+        let _p = force_painting(Forced::OnePainter);
+        let _prefix = force_prefix_cache(false);
+        let _nest = force_nest_cache(true);
+        let _dir =
+            montagent_core::verbs::frame::nest_cache::force_cache_dir(Some(cache_dir.clone()));
+        let tap = tap_frames();
+        let ans = render(
+            &path,
+            &RenderAsk {
+                profile: true,
+                ..RenderAsk::default()
+            },
+            &mut |_: Progress| {},
+        );
+        assert_eq!(ans.report().exit_code(), ExitCode::Ok);
+        (tap.hashes(), ans.to_json())
+    };
+
+    let (hashes_red, _) = render_once();
+    let (_, warm_red_json) = render_once();
+    let warm_row = warm_red_json["render"]["profile"]["elements"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|row| row["id"] == "scene1")
+        .unwrap();
+    assert_eq!(
+        warm_row["frames_reused"].as_u64(),
+        Some(4),
+        "warm render reuses all 4 frames from disk cache: {warm_row}"
+    );
+
+    // Overwrite `badge.png` with a different size/content so its `(path, size, mtime_ns)`
+    // identity changes: the nest sub-graph hash must invalidate and paint the new asset.
+    image::RgbaImage::from_pixel(44, 44, image::Rgba([0, 0, 255, 255]))
+        .save(&badge_path)
+        .expect("write blue badge.png");
+
+    let (hashes_blue, invalidated_json) = render_once();
+    assert_ne!(
+        hashes_red, hashes_blue,
+        "updated child image asset must invalidate the nest cache and paint new pixels"
+    );
+    let invalidated_row = invalidated_json["render"]["profile"]["elements"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|row| row["id"] == "scene1")
+        .unwrap();
+    assert_eq!(
+        invalidated_row["frames_painted"].as_u64(),
+        Some(1),
+        "first frame of invalidated nest must be freshly painted: {invalidated_row}"
+    );
+}
+
+#[test]
+fn static_bottom_nest_is_admitted_to_the_static_prefix_cache() {
+    use montagent_core::verbs::render::{
+        Ask as RenderAsk, Forced, Progress, force_nest_cache, force_painting, force_prefix_cache,
+        render, tap_frames,
+    };
+
+    let dir = tempdir(line!());
+    let project = r##"{
+      "frame": {"width": 200, "height": 120},
+      "fps": 25,
+      "background": "#000000",
+      "duration": 200,
+      "output": "out/prefix_nest.mp4",
+      "tracks": [
+        {
+          "name": "bg_scene",
+          "layer": 0,
+          "elements": [
+            {
+              "id": "static_nest",
+              "type": "nest",
+              "start": 0,
+              "end": 200,
+              "x": 100,
+              "y": 60,
+              "width": 160,
+              "height": 100,
+              "elements": [
+                {
+                  "id": "plate",
+                  "type": "rect",
+                  "start": 0,
+                  "end": 200,
+                  "x": 80,
+                  "y": 50,
+                  "width": 140,
+                  "height": 80,
+                  "fill": "#336699"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "fg",
+          "layer": 1,
+          "elements": [
+            {
+              "id": "fg_mover",
+              "type": "rect",
+              "start": 0,
+              "end": 200,
+              "x": [{"t": 0, "v": 20}, {"t": 160, "v": 180, "ease": "linear"}],
+              "y": 60,
+              "width": 20,
+              "height": 20,
+              "fill": "#FFAA00"
+            }
+          ]
+        }
+      ]
+    }"##;
+
+    let path = write_project(&dir, "prefix_nest.montagent.json", project);
+
+    // Even with the standalone `nest_cache` disabled, ADR-0195's bottom static-prefix cache
+    // admits `static_nest` (ADR-0245) and reuses 4 of its 5 frames.
+    let (hashes_on, json_on) = {
+        let _p = force_painting(Forced::OnePainter);
+        let _prefix = force_prefix_cache(true);
+        let _nest = force_nest_cache(false);
+        let tap = tap_frames();
+        let ans = render(
+            &path,
+            &RenderAsk {
+                profile: true,
+                ..RenderAsk::default()
+            },
+            &mut |_: Progress| {},
+        );
+        assert_eq!(ans.report().exit_code(), ExitCode::Ok);
+        (tap.hashes(), ans.to_json())
+    };
+    let (hashes_off, _) = {
+        let _p = force_painting(Forced::OnePainter);
+        let _prefix = force_prefix_cache(false);
+        let _nest = force_nest_cache(false);
+        let tap = tap_frames();
+        let ans = render(
+            &path,
+            &RenderAsk {
+                profile: true,
+                ..RenderAsk::default()
+            },
+            &mut |_: Progress| {},
+        );
+        assert_eq!(ans.report().exit_code(), ExitCode::Ok);
+        (tap.hashes(), ans.to_json())
+    };
+    assert_eq!(hashes_on, hashes_off);
+    let row = json_on["render"]["profile"]["elements"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|row| row["id"] == "static_nest")
+        .unwrap();
+    assert_eq!(
+        row["frames_reused"].as_u64(),
+        Some(4),
+        "static bottom nest is reused by the static-prefix cache: {row}"
+    );
+}

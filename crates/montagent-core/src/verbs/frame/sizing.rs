@@ -231,6 +231,30 @@ pub(crate) fn size(
         })
         .collect();
     let tiles: usize = weights.iter().sum();
+    match size_tiles(frame, tiles, labels) {
+        Ok(fit) => Ok(fit),
+        Err(mut overflow) => {
+            let fits = |n: usize| fits_tile_count(frame, n, labels.core);
+            overflow.sub_ranges =
+                split(states, &weights, overflow.admitted, &fits).unwrap_or_default();
+            Err(overflow)
+        }
+    }
+}
+
+fn fits_tile_count(frame: (i64, i64), n: usize, core_width: u32) -> bool {
+    let refusal = Rung::Degraded.px(frame.0);
+    let fit = grid(frame, n);
+    fit.tile_width >= refusal && type_px(&fit, core_width) >= TYPE_FLOOR_PX
+}
+
+/// Size a sheet of `tiles` caller-selected or pre-counted tiles for a `frame`-sized picture
+/// whose longest label is `labels` wide (ADR-0095, ADR-0098, ADR-0244).
+pub(crate) fn size_tiles(
+    frame: (i64, i64),
+    tiles: usize,
+    labels: LabelWidths,
+) -> Result<Fit, Overflow> {
     let target = Rung::Target.px(frame.0);
     let refusal = Rung::Degraded.px(frame.0);
     let fit = grid(frame, tiles);
@@ -265,18 +289,13 @@ pub(crate) fn size(
         Some(_) => Limit::TypeFloor,
         None => Limit::TileWidth,
     };
-    // A sub-range's labels are never longer than these: the same instants and offsets,
-    // and an index counted from 1 again. So a share that fits `labels.core` fits.
-    let fits = |n: usize| {
-        let fit = grid(frame, n);
-        fit.tile_width >= refusal && type_px(&fit, labels.core) >= TYPE_FLOOR_PX
-    };
+    let fits = |n: usize| fits_tile_count(frame, n, labels.core);
     let admitted = admitted(frame, tiles, refusal, &fits);
     Err(Overflow {
         tiles,
         admitted,
         limit,
-        sub_ranges: split(states, &weights, admitted, &fits).unwrap_or_default(),
+        sub_ranges: Vec::new(),
     })
 }
 

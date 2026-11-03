@@ -789,3 +789,28 @@ fn an_infill_tile_is_frame_at_its_painted_millisecond() {
         tile_is_frame_at(&path, &json, &drawn, tile);
     }
 }
+
+#[test]
+fn a_caller_selected_instant_tile_is_frame_at_its_millisecond() {
+    // ADR-0244: each tile of a multi-instant `--at` sheet is `frame --at <instant>` resampled
+    // into its cell, and its presence set is `query --at <instant>`'s visual stack.
+    use montagent_core::verbs::frame::{Ask, frame};
+    let path = common::long_state_fixture();
+    let answer = frame(
+        &path,
+        &Ask {
+            instants: vec![0, 1500, 4040],
+            png: true,
+            ..Ask::default()
+        },
+    );
+    let json = answer.to_json();
+    let drawn = image::load_from_memory(&answer.image().expect("a drawn sheet").bytes)
+        .unwrap()
+        .to_rgba8();
+    let tiles = json["sheet"]["provenance"].as_array().unwrap();
+    assert_eq!(tiles.len(), 3);
+    for tile in tiles {
+        tile_is_frame_at(&path, &json, &drawn, tile);
+    }
+}

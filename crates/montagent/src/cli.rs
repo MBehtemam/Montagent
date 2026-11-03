@@ -221,9 +221,16 @@ enum Command {
     Frame {
         /// The project file.
         project: PathBuf,
-        /// The instant to draw, in absolute milliseconds.
-        #[arg(long, value_name = "MS")]
-        at: Option<i64>,
+        /// The instant to draw, in absolute milliseconds. Pass two or more strictly
+        /// ascending instants (repeated `--at <MS>` or `--at <MS>,<MS>,...`) to draw a
+        /// caller-selected contact sheet (ADR-0244).
+        #[arg(
+            long,
+            value_name = "MS",
+            value_delimiter = ',',
+            allow_hyphen_values = true
+        )]
+        at: Vec<i64>,
         /// Draw a contact sheet of the span from this instant, in absolute milliseconds,
         /// instead of one instant. Asked for with `--to`.
         #[arg(long, value_name = "MS")]
@@ -956,8 +963,14 @@ where
             // `--crop`, `--at` beside `--from`/`--to` — is the verb's rule and not argv's:
             // the MCP surface takes the same arguments with no `clap` to arrange them, and a
             // `clap` requirement here would leave that surface uncovered (ADR-0011).
+            let (single_at, instants) = if at.len() == 1 {
+                (Some(at[0]), Vec::new())
+            } else {
+                (None, at)
+            };
             let ask = montagent_core::verbs::frame::Ask {
-                at,
+                at: single_at,
+                instants,
                 crop,
                 full,
                 png,

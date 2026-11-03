@@ -34,6 +34,8 @@ amends: 0094 (decision 2's "the label prints both the sampled instant and the ru
 
 # The tile label is a floored, fitted line that names the change at its own boundary
 
+> **Amended by [ADR-0244](0244-multi-instant-at-lists-draw-caller-selected-contact-sheets.md).** On a caller-selected multi-instant `--at` sheet, where tiles are chosen by explicit millisecond rather than visual-state boundaries, each tile's label is `<index> <instant>ms` with no boundary offset or entrant id.
+
 > **Amended by [ADR-0128](0128-the-tile-label-is-fitted-at-one-size-per-sheet-and-names-the-topmost-entrant.md).** Section 8's candidates are the entrants, and a departure only
 > where nothing entered; a tie goes to the greatest element id. Section 4's fit is one type size
 > per sheet, the label and a space inside the tile and its em inside the strip. Section 2's
