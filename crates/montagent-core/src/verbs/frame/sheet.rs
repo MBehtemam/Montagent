@@ -69,6 +69,12 @@ const RULE_SENTENCE: &str = "one tile per visual state (query's cut list over th
 audio members dropped and equal neighbours merged), sampled at the first frame the grid \
 paints inside it, the least n with \u{230A}n\u{B7}1000/fps\u{230B} in [start, end)";
 
+/// ADR-0244's rule for caller-selected multi-instant `--at` contact sheets.
+const INSTANTS_RULE: &str = "caller-selected-instants";
+const INSTANTS_RULE_VERSION: u32 = 1;
+const INSTANTS_RULE_SENTENCE: &str =
+    "one tile per caller-requested instant, painted at the exact millisecond asked for";
+
 /// The colour of the sheet around and beneath its tiles: the label strips, and any cell the
 /// grid has no tile for.
 const GUTTER: Rgba = Rgba([0x1A, 0x1A, 0x1A, 0xFF]);
@@ -122,11 +128,16 @@ fn reader_sentence(label: &str) -> String {
     )
 }
 
-/// A range answer's record: everything the sheet shows, and everything it does not.
+/// A range or multi-instant answer's record: everything the sheet shows, and everything it
+/// does not.
 #[derive(Debug, Clone, Serialize)]
 pub struct Sheet {
-    pub from: i64,
-    pub to: i64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub from: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub to: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub instants: Option<Vec<i64>>,
     pub rule: Rule,
     /// The picture, or `null` where no state in the range holds a painted frame.
     pub picture: Option<SheetPicture>,
@@ -142,19 +153,23 @@ pub struct Sheet {
     /// How many tiles of each class, zeros asserted (ADR-0098 §6).
     pub classes: Classes,
     /// The keyframe change points interior to a state on a visible element, split by
-    /// whether a tile of this sheet shows them: on every answer, flag or not (ADR-0106 D8).
-    pub keyframes: KeyframeCensus,
+    /// whether a tile of this sheet shows them: on every range answer, flag or not (ADR-0106 D8).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub keyframes: Option<KeyframeCensus>,
     /// The ceiling asked for and the one the sheet honours: present only when
     /// `--infill-ceiling` was passed (ADR-0106 D6).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub infill: Option<InfillCeiling>,
     /// Every state in the range that drew no tile, and every one whose infill tiles the
     /// sheet had no room for, and why (ADR-0105 §4).
-    pub skipped: Vec<Skipped>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub skipped: Option<Vec<Skipped>>,
     /// The boundaries inside the range that only audio crosses, which the selection drops
     /// (ADR-0094 §6, on ADR-0074's measurement).
-    pub audio_boundaries_dropped: Dropped,
-    pub coverage: Coverage,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub audio_boundaries_dropped: Option<Dropped>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub coverage: Option<Coverage>,
     pub blind_to: Vec<BlindSpot>,
     /// Every media file and font file opened, over all tiles.
     pub sources: Vec<String>,
@@ -217,16 +232,19 @@ pub struct Tile {
     pub index: usize,
     /// The painted millisecond: `frame --at` this reproduces the tile.
     pub instant_ms: i64,
-    /// The visual state the tile stands for.
-    pub run: Span,
+    /// The visual state the tile stands for (on range sheets).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub run: Option<Span>,
     /// Why the tile exists: `boundary`, a visual state's own opening; `keyframe`, a change
-    /// point inside it; or `infill`, a span longer than the infill ceiling.
+    /// point inside it; `infill`, a span longer than the infill ceiling; or `requested`, an
+    /// explicit `--at` instant (ADR-0244).
     pub why: &'static str,
-    /// The unabbreviated class token: `run`, `keyframe` or `infill`.
+    /// The unabbreviated class token: `run`, `keyframe`, `infill` or `instant`.
     pub class: &'static str,
     /// The change points this tile shows, as `element.property@t`, in clock order. A run or
     /// infill tile's are the points sampled at its frame; it keeps its class (ADR-0106 D11).
-    pub keyframes: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub keyframes: Option<Vec<String>>,
     /// The exact string drawn in the strip beneath the tile, after the sheet-wide elision.
     pub label: String,
     /// The visual presence set as element ids, in full on every line (ADR-0098 §7).
@@ -246,6 +264,8 @@ pub struct Classes {
     pub run: usize,
     pub keyframe: usize,
     pub infill: usize,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub instant: Option<usize>,
 }
 
 /// A state that drew no tile, or none of the infill tiles asked for inside it.
@@ -476,9 +496,10 @@ pub(super) fn sheet(
         report.push(finding);
     }
 
-    let mut record = Sheet {
-        from,
-        to,
+    let record = Sheet {
+        from: Some(from),
+        to: Some(to),
+        instants: None,
         rule: Rule {
             name: RULE,
             version: RULE_VERSION,
@@ -498,19 +519,20 @@ pub(super) fn sheet(
                 .iter()
                 .filter(|tile| tile.class == Class::Infill)
                 .count(),
+            instant: None,
         },
-        keyframes: placed.census_over(&states),
+        keyframes: Some(placed.census_over(&states)),
         infill,
-        skipped: skipped_states(&states, &skipped, &evicted),
-        audio_boundaries_dropped: dropped(&cut_list.intervals, &states),
-        coverage: Coverage {
+        skipped: Some(skipped_states(&states, &skipped, &evicted)),
+        audio_boundaries_dropped: Some(dropped(&cut_list.intervals, &states)),
+        coverage: Some(Coverage {
             range_ms: to - from,
             states: states.len(),
             tiled: runs.len(),
             skipped: skipped.len(),
             depicted_ms: runs.iter().map(|(state, _)| state.duration_ms).sum(),
             not_depicted_ms: skipped.iter().map(|state| state.duration_ms).sum(),
-        },
+        }),
         blind_to: BLIND_TO
             .iter()
             .map(|&(token, sentence)| BlindSpot { token, sentence })
@@ -540,6 +562,19 @@ pub(super) fn sheet(
         Some(painted) => painted,
         None => return Answer::refused(report),
     };
+    finish_sheet(painted, frame, fit, ask, record, report)
+}
+
+/// Encode, optionally write to `--out`, and populate `record.picture`, `reader_check`,
+/// `provenance`, `sources`, and `fonts`.
+fn finish_sheet(
+    painted: Painted,
+    frame: (i64, i64),
+    fit: Fit,
+    ask: &Ask,
+    mut record: Sheet,
+    mut report: Report,
+) -> Answer {
     let Painted {
         mut canvas,
         tiles,
@@ -604,6 +639,127 @@ pub(super) fn sheet(
     }
 }
 
+/// Partition `instants` into balanced sub-lists when a multi-instant sheet overflows.
+fn instants_sub_ranges(instants: &[i64], admitted: usize) -> Vec<Value> {
+    if admitted < 2 || instants.is_empty() {
+        return Vec::new();
+    }
+    let k = instants.len().div_ceil(admitted);
+    let mut ranges = Vec::with_capacity(k);
+    let base = instants.len() / k;
+    let extra = instants.len() % k;
+    let mut start = 0;
+    for i in 0..k {
+        let len = base + usize::from(i < extra);
+        let chunk = &instants[start..start + len];
+        start += len;
+        if let (Some(&first), Some(&last)) = (chunk.first(), chunk.last()) {
+            ranges.push(json!({
+                "from": first,
+                "to": last,
+                "states": chunk.len(),
+            }));
+        }
+    }
+    ranges
+}
+
+/// Draw a caller-selected contact sheet of `instants` (`--at` with two or more instants,
+/// ADR-0244). The flags and ascending order are already verified.
+pub(super) fn instants_sheet(path: &FilePath, ask: &Ask, instants: Vec<i64>) -> Answer {
+    let project = Some(path.display().to_string());
+    let document = match parse::read(path) {
+        Ok(document) => document,
+        Err(finding) => return Answer::refused(Report::unparseable(TOOL, project, *finding)),
+    };
+    let mut report = Report::new(TOOL, project.clone());
+    if let Err(not_a_project) = document.shape() {
+        report.push(Finding::not_a_project(
+            document.path(),
+            &not_a_project,
+            "point frame at the project file",
+        ));
+        return Answer::refused(report);
+    }
+    let Some(frame) = at::frame_dimensions(&document) else {
+        report.push(not_a_frame(&document));
+        return Answer::refused(report);
+    };
+
+    let planned: Vec<Planned<'_>> = instants
+        .iter()
+        .enumerate()
+        .map(|(i, &instant)| Planned {
+            state: None,
+            instant,
+            class: Class::Instant,
+            points: Vec::new(),
+            label: Label::instant(i + 1, instant),
+        })
+        .collect();
+
+    let fit = match sizing::size_tiles(frame, planned.len(), widths(&planned)) {
+        Ok(fit) => fit,
+        Err(overflow) => {
+            let from = instants.first().copied().unwrap_or(0);
+            let to = instants.last().copied().unwrap_or(0);
+            let sub_ranges = instants_sub_ranges(&instants, overflow.admitted);
+            let refusal = Finding::new("E-SHEET-OVERFLOW")
+                .field("from", json!(from))
+                .field("to", json!(to))
+                .field("states", json!(instants.len()))
+                .field("fits", json!(overflow.admitted))
+                .field("limit", json!(overflow.limit.as_str()))
+                .field("limit_px", json!(overflow.limit.px()))
+                .field("sub_ranges", json!(sub_ranges));
+            return Answer::refused(Report::refused_invocation(TOOL, project, refusal));
+        }
+    };
+
+    let drawn: Vec<String> = planned.iter().map(|tile| tile.label.core.clone()).collect();
+    let painted = match paint(&document, frame, fit, &planned, &drawn, &mut report) {
+        Some(painted) => painted,
+        None => return Answer::refused(report),
+    };
+
+    let record = Sheet {
+        from: None,
+        to: None,
+        instants: Some(instants.clone()),
+        rule: Rule {
+            name: INSTANTS_RULE,
+            version: INSTANTS_RULE_VERSION,
+            sentence: INSTANTS_RULE_SENTENCE,
+        },
+        picture: None,
+        reader_check: None,
+        rasterized: Rasterized {
+            width: frame.0,
+            height: frame.1,
+        },
+        provenance: Vec::new(),
+        classes: Classes {
+            run: 0,
+            keyframe: 0,
+            infill: 0,
+            instant: Some(instants.len()),
+        },
+        keyframes: None,
+        infill: None,
+        skipped: None,
+        audio_boundaries_dropped: None,
+        coverage: None,
+        blind_to: BLIND_TO
+            .iter()
+            .map(|&(token, sentence)| BlindSpot { token, sentence })
+            .collect(),
+        sources: Vec::new(),
+        fonts: Vec::new(),
+    };
+
+    finish_sheet(painted, frame, fit, ask, record, report)
+}
+
 /// The first painted millisecond inside `state`, or `None` where the grid paints none.
 ///
 /// The same predicate [`quantization::unpainted_states`] skips on, so a state is either
@@ -624,36 +780,40 @@ enum Class {
     Keyframe,
     /// A painted frame inside a span longer than the infill ceiling.
     Infill,
+    /// An explicit `--at` instant on a multi-instant contact sheet (ADR-0244).
+    Instant,
 }
 
 impl Class {
-    /// What put the instant on the sheet (ADR-0094 §6).
+    /// What put the instant on the sheet (ADR-0094 §6, ADR-0244).
     fn why(self) -> &'static str {
         match self {
             Class::Run => "boundary",
             Class::Keyframe => "keyframe",
             Class::Infill => "infill",
+            Class::Instant => "requested",
         }
     }
 
-    /// The unabbreviated class token (ADR-0098 §6).
+    /// The unabbreviated class token (ADR-0098 §6, ADR-0244).
     fn token(self) -> &'static str {
         match self {
             Class::Run => "run",
             Class::Keyframe => "keyframe",
             Class::Infill => "infill",
+            Class::Instant => "instant",
         }
     }
 
-    /// Whether its strip carries the mark: a run tile is the unmarked default.
+    /// Whether its strip carries the mark: a run or caller-selected instant tile is unmarked.
     fn marked(self) -> bool {
-        self != Class::Run
+        matches!(self, Class::Keyframe | Class::Infill)
     }
 }
 
 /// One tile the sheet will draw, before it is painted.
 struct Planned<'a> {
-    state: &'a Interval,
+    state: Option<&'a Interval>,
     instant: i64,
     class: Class,
     /// The change points it shows.
@@ -718,7 +878,7 @@ fn plan<'a>(
         .into_iter()
         .enumerate()
         .map(|(i, (state, instant, class, points))| Planned {
-            state,
+            state: Some(state),
             instant,
             class,
             label: match class {
@@ -730,6 +890,7 @@ fn plan<'a>(
                     state.start,
                     changes.at(state.start).as_ref(),
                 ),
+                Class::Instant => Label::instant(i + 1, instant),
             },
             points,
         })
@@ -868,15 +1029,24 @@ fn paint(
             report.fail_internally(reason);
             return None;
         }
+        let present = match state {
+            Some(state) => ids(state),
+            None => view
+                .stack
+                .iter()
+                .filter(|entry| entry.named.kind.as_deref() != Some("audio"))
+                .map(|entry| id(&entry.named))
+                .collect(),
+        };
         tiles.push(Tile {
             index: i + 1,
             instant_ms: *instant,
-            run: span(state),
+            run: state.map(span),
             why: planned.class.why(),
             class: planned.class.token(),
-            keyframes: planned.points.iter().map(Point::name).collect(),
+            keyframes: state.map(|_| planned.points.iter().map(Point::name).collect()),
             label: labels[i].clone(),
-            present: ids(state),
+            present,
             not_painted: painter.not_painted.clone(),
             painted_partially: painter.painted_partially.clone(),
         });

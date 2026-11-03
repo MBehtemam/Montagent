@@ -64,6 +64,8 @@ amends: 0074 (names `frame`'s range mode as the caller its `type` filter anticip
 > merged away is invisible and one wrongly split is not. The filter and re-merge are one function,
 > `query::cuts::visual_states`, which `validate` uses and `frame`'s range mode is to share.
 
+> **Amended by [ADR-0244](0244-multi-instant-at-lists-draw-caller-selected-contact-sheets.md).** Passing two or more strictly ascending `--at <MS>` instants draws a caller-selected contact sheet of those exact milliseconds alongside range mode, without reopening this ADR's rejection of a count-based `--n` sampler.
+
 [#398](https://github.com/MBehtemam/Montagent/issues/398), on the map
 [#395](https://github.com/MBehtemam/Montagent/issues/395). Resolved by a jury of three
 independent models (Opus 5, Sonnet 5, Fable 5.1) put to six sub-questions; ballots verbatim

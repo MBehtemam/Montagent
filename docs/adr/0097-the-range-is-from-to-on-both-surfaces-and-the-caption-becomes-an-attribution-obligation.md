@@ -18,6 +18,8 @@ amends: 0011 (the verb table's `frame` row gains range arguments and the counts 
 > **Amended by [ADR-0125](0125-the-sheets-first-build-spells-its-record-and-its-refusals.md).** `frame` reads its range through **`render`'s rule**, and a range call's refusals come in a fixed order: a mix
 > with `--at`, then the pair, then `--crop`, then `--full`. **`--crop` outranks `--full`.**
 
+> **Amended by [ADR-0244](0244-multi-instant-at-lists-draw-caller-selected-contact-sheets.md).** `--at <MS>` on the CLI (repeatable or comma-delimited) and `at` on MCP (`integer | integer[]`) also draw a contact sheet when given two or more strictly ascending non-negative instants, discharging the attribution obligation via the same fitted label + provenance list split.
+
 # The range is `--from`/`--to` on both surfaces, and `frame`'s caption obligation becomes an attribution obligation
 
 > **Amended by [ADR-0098](0098-the-tile-label-is-a-floored-fitted-line-naming-the-change-at-its-own-boundary.md).** Section 7 left the attribution guarantee discharged

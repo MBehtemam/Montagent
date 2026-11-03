@@ -1183,12 +1183,14 @@ What `frame` owes the agent alongside every picture: **the agent must be able to
 what it sees to what produced it, without a second call**
 ([ADR-0097](docs/adr/0097-the-range-is-from-to-on-both-surfaces-and-the-caption-becomes-an-attribution-obligation.md),
 amending [ADR-0011](docs/adr/0011-tool-surface-reads-checks-renders.md)). It is discharged
-differently at the two scales. When the image is **one frame**, it is the `query --at` block
-printed unconditionally beside it — unchanged, and still with no flag that suppresses it. When
-the image is a **contact sheet**, eighteen such blocks would cost 28,410 characters against a
+differently at the two scales. When the image is **one frame** (a single `--at <MS>`), it is
+the `query --at` block printed unconditionally beside it — unchanged, and still with no flag
+that suppresses it. When the image is a **contact sheet** — either a range sheet
+(`--from <MS> --to <MS>`) or a **multi-instant contact sheet** (two or more strictly
+ascending `--at <MS>` instants) — eighteen such blocks would cost 28,410 characters against a
 whole sheet answer's 1,413, so it is discharged instead by the fitted per-tile label
-**together with** a range-level provenance list: one line per tile carrying the sampled
-instant, the run boundary and the presence set as element ids. Both halves are required —
+**together with** a sheet-level provenance list: one line per tile carrying the sampled
+instant (plus the run boundary on a range sheet) and the presence set as element ids. Both halves are required —
 a label fitted to a 140 px tile can carry an instant and little else, so it **cannot** name
 the presence set on its own — measurement later showed it cannot name it at the **180 px
 target** either ([ADR-0098](docs/adr/0098-the-tile-label-is-a-floored-fitted-line-naming-the-change-at-its-own-boundary.md)), so the split rests on a number rather than a prediction.
@@ -1204,8 +1206,10 @@ the `--describe` block, suppressing the stack
 The one line beneath each tile on a contact sheet — in a **gutter strip** of 11% of tile
 height, never burned over the tile's own pixels, because an overlay's legibility would depend
 on the content it describes and the tile would stop being a faithful crop of what `frame --at`
-returns ([ADR-0098](docs/adr/0098-the-tile-label-is-a-floored-fitted-line-naming-the-change-at-its-own-boundary.md)). Five fields in a **fixed order on every tile**: index, class
-sigil, sampled instant, **signed boundary offset**, and a **signed element id**. Fixed arity is
+returns ([ADR-0098](docs/adr/0098-the-tile-label-is-a-floored-fitted-line-naming-the-change-at-its-own-boundary.md)). On a range sheet, five fields in a **fixed order on every tile**: index, class
+sigil, sampled instant, **signed boundary offset**, and a **signed element id**; on a
+multi-instant `--at` sheet, where tiles are chosen by explicit instant rather than visual-state
+boundaries, two fields: `<index> <instant>ms`. Fixed arity is
 load-bearing — a field that is sometimes absent is ambiguous between *"this tile has no such
 element"* and *"the label ran out of room"*, and a variable-length field spreads served type
 1.46× across one sheet with the smallest type landing on the busiest tile. The boundary is an

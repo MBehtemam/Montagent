@@ -1758,6 +1758,7 @@ fn sheet_block(sheet: &Value) -> String {
             .unwrap_or_default()
     };
     let (from, to) = (number(&sheet["from"]), number(&sheet["to"]));
+    let instants = sheet["instants"].as_array().cloned();
     let provenance = sheet["provenance"].as_array().cloned().unwrap_or_default();
     let coverage = &sheet["coverage"];
     let picture = &sheet["picture"];
@@ -1766,20 +1767,40 @@ fn sheet_block(sheet: &Value) -> String {
     if let Some(sentence) = sheet["reader_check"]["sentence"].as_str() {
         out.push_str(&format!("\nREADER CHECK  {sentence}\n"));
     }
-    out.push_str(&if picture.is_null() {
-        format!("\nSHEET  [{from}, {to}) \u{2014} no tile: no frame is painted in [{from}, {to})\n")
-    } else {
-        format!(
-            "\nSHEET  [{from}, {to}) \u{2014} {} of {}, {} {}x{}, {} x {}\n",
+    if let Some(instants) = &instants {
+        let list = instants
+            .iter()
+            .map(|t| format!("{} ms", number(t)))
+            .collect::<Vec<_>>()
+            .join(", ");
+        out.push_str(&format!(
+            "\nSHEET  {} ({list}) \u{2014} {}, {} {}x{}, {} x {}\n",
+            plural(instants.len() as u64, "instant"),
             plural(provenance.len() as u64, "tile"),
-            plural(number(&coverage["states"]) as u64, "visual state"),
             picture["encoding"].as_str().unwrap_or("?"),
             number(&picture["width"]),
             number(&picture["height"]),
             plural(number(&picture["columns"]) as u64, "column"),
             plural(number(&picture["rows"]) as u64, "row"),
-        )
-    });
+        ));
+    } else {
+        out.push_str(&if picture.is_null() {
+            format!(
+                "\nSHEET  [{from}, {to}) \u{2014} no tile: no frame is painted in [{from}, {to})\n"
+            )
+        } else {
+            format!(
+                "\nSHEET  [{from}, {to}) \u{2014} {} of {}, {} {}x{}, {} x {}\n",
+                plural(provenance.len() as u64, "tile"),
+                plural(number(&coverage["states"]) as u64, "visual state"),
+                picture["encoding"].as_str().unwrap_or("?"),
+                number(&picture["width"]),
+                number(&picture["height"]),
+                plural(number(&picture["columns"]) as u64, "column"),
+                plural(number(&picture["rows"]) as u64, "row"),
+            )
+        });
+    }
     out.push_str(&row(format!(
         "rule        {} v{}: {}",
         named(&sheet["rule"]["name"]),
@@ -1828,17 +1849,29 @@ fn sheet_block(sheet: &Value) -> String {
         out.push_str(&row("no tiles".to_string()));
     }
     for tile in &provenance {
-        out.push_str(&row(format!(
-            "{:>3}  {}  {}  at {} ms  state {}..{}  label `{}`  {}",
-            number(&tile["index"]),
-            named(&tile["class"]),
-            named(&tile["why"]),
-            number(&tile["instant_ms"]),
-            number(&tile["run"]["start"]),
-            number(&tile["run"]["end"]),
-            named(&tile["label"]),
-            ids(&tile["present"]),
-        )));
+        if tile.get("run").is_some_and(|run| !run.is_null()) {
+            out.push_str(&row(format!(
+                "{:>3}  {}  {}  at {} ms  state {}..{}  label `{}`  {}",
+                number(&tile["index"]),
+                named(&tile["class"]),
+                named(&tile["why"]),
+                number(&tile["instant_ms"]),
+                number(&tile["run"]["start"]),
+                number(&tile["run"]["end"]),
+                named(&tile["label"]),
+                ids(&tile["present"]),
+            )));
+        } else {
+            out.push_str(&row(format!(
+                "{:>3}  {}  {}  at {} ms  label `{}`  {}",
+                number(&tile["index"]),
+                named(&tile["class"]),
+                named(&tile["why"]),
+                number(&tile["instant_ms"]),
+                named(&tile["label"]),
+                ids(&tile["present"]),
+            )));
+        }
         let points = ids(&tile["keyframes"]);
         if !points.is_empty() {
             out.push_str(&row(format!("       keyframes {points}")));
@@ -1857,108 +1890,114 @@ fn sheet_block(sheet: &Value) -> String {
         }
     }
     let classes = &sheet["classes"];
-    out.push_str(&row(format!(
-        "classes     {} run, {} keyframe, {} infill",
-        number(&classes["run"]),
-        number(&classes["keyframe"]),
-        number(&classes["infill"]),
-    )));
-
-    out.push_str("\nDISCLOSED\n");
-    let skipped = sheet["skipped"].as_array().cloned().unwrap_or_default();
-    if skipped.is_empty() {
-        out.push_str(&row("skipped     none".to_string()));
-    }
-    for (i, state) in skipped.iter().enumerate() {
+    if let Some(instant_count) = classes.get("instant").and_then(Value::as_i64) {
+        out.push_str(&row(format!("classes     {instant_count} instant")));
+    } else {
         out.push_str(&row(format!(
-            "{}{}..{}  {}{} \u{2014} present: {}",
-            if i == 0 {
-                "skipped     "
-            } else {
-                "            "
-            },
-            number(&state["run"]["start"]),
-            number(&state["run"]["end"]),
-            named(&state["reason"]),
-            match state["evicted"].as_u64() {
-                Some(evicted) => format!(", {}", plural(evicted, "tile")),
-                None => String::new(),
-            },
-            ids(&state["present"]),
+            "classes     {} run, {} keyframe, {} infill",
+            number(&classes["run"]),
+            number(&classes["keyframe"]),
+            number(&classes["infill"]),
         )));
     }
-    let dropped = &sheet["audio_boundaries_dropped"];
-    let count = number(&dropped["count"]);
-    let named_boundaries: Vec<String> = dropped["boundaries"]
-        .as_array()
-        .into_iter()
-        .flatten()
-        .map(|boundary| {
-            let signed = |key: &str, sign: char| -> Vec<String> {
-                boundary[key]
-                    .as_array()
-                    .into_iter()
-                    .flatten()
-                    .map(|id| format!("{sign}{}", named(id)))
-                    .collect()
-            };
-            let mut changed = signed("leaving", '-');
-            changed.extend(signed("entering", '+'));
-            format!("{} ms ({})", number(&boundary["at"]), changed.join(" "))
-        })
-        .collect();
-    out.push_str(&row(format!(
-        "audio       {} dropped{}",
-        match count {
-            1 => "1 audio-only boundary".to_string(),
-            n => format!("{n} audio-only boundaries"),
-        },
-        if named_boundaries.is_empty() {
-            String::new()
-        } else {
-            format!(": {}", named_boundaries.join(", "))
+
+    if instants.is_none() {
+        out.push_str("\nDISCLOSED\n");
+        let skipped = sheet["skipped"].as_array().cloned().unwrap_or_default();
+        if skipped.is_empty() {
+            out.push_str(&row("skipped     none".to_string()));
         }
-    )));
-    out.push_str(&row(format!(
-        "coverage    {} ms in {}: {} tiled, {} skipped; {} ms depicted, {} ms not depicted",
-        number(&coverage["range_ms"]),
-        plural(number(&coverage["states"]) as u64, "visual state"),
-        number(&coverage["tiled"]),
-        number(&coverage["skipped"]),
-        number(&coverage["depicted_ms"]),
-        number(&coverage["not_depicted_ms"]),
-    )));
-
-    // The census, on every answer, flag or not (ADR-0106 D8): every untiled change point by
-    // name, beside `skipped` and never in it, because none is a finding (ADR-0129).
-    let census = &sheet["keyframes"];
-    out.push_str(&row(format!(
-        "keyframes   {} tiled, {} untiled",
-        number(&census["tiled"]),
-        number(&census["untiled"]),
-    )));
-    for point in census["untiled_points"].as_array().into_iter().flatten() {
+        for (i, state) in skipped.iter().enumerate() {
+            out.push_str(&row(format!(
+                "{}{}..{}  {}{} \u{2014} present: {}",
+                if i == 0 {
+                    "skipped     "
+                } else {
+                    "            "
+                },
+                number(&state["run"]["start"]),
+                number(&state["run"]["end"]),
+                named(&state["reason"]),
+                match state["evicted"].as_u64() {
+                    Some(evicted) => format!(", {}", plural(evicted, "tile")),
+                    None => String::new(),
+                },
+                ids(&state["present"]),
+            )));
+        }
+        let dropped = &sheet["audio_boundaries_dropped"];
+        let count = number(&dropped["count"]);
+        let named_boundaries: Vec<String> = dropped["boundaries"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .map(|boundary| {
+                let signed = |key: &str, sign: char| -> Vec<String> {
+                    boundary[key]
+                        .as_array()
+                        .into_iter()
+                        .flatten()
+                        .map(|id| format!("{sign}{}", named(id)))
+                        .collect()
+                };
+                let mut changed = signed("leaving", '-');
+                changed.extend(signed("entering", '+'));
+                format!("{} ms ({})", number(&boundary["at"]), changed.join(" "))
+            })
+            .collect();
         out.push_str(&row(format!(
-            "            {} at {} ms, state {}..{} \u{2014} {}",
-            named(&point["point"]),
-            number(&point["sample_ms"]),
-            number(&point["run"]["start"]),
-            number(&point["run"]["end"]),
-            named(&point["reason"]),
-        )));
-    }
-
-    // Only when the ceiling was passed (ADR-0106 D6).
-    let infill = &sheet["infill"];
-    if !infill.is_null() {
-        out.push_str(&row(format!(
-            "infill      requested {} ms, {}",
-            number(&infill["requested_ms"]),
-            match infill["achieved_ms"].as_i64() {
-                Some(achieved) => format!("achieved {achieved} ms"),
-                None => "achieved: none".to_string(),
+            "audio       {} dropped{}",
+            match count {
+                1 => "1 audio-only boundary".to_string(),
+                n => format!("{n} audio-only boundaries"),
             },
+            if named_boundaries.is_empty() {
+                String::new()
+            } else {
+                format!(": {}", named_boundaries.join(", "))
+            }
         )));
+        out.push_str(&row(format!(
+            "coverage    {} ms in {}: {} tiled, {} skipped; {} ms depicted, {} ms not depicted",
+            number(&coverage["range_ms"]),
+            plural(number(&coverage["states"]) as u64, "visual state"),
+            number(&coverage["tiled"]),
+            number(&coverage["skipped"]),
+            number(&coverage["depicted_ms"]),
+            number(&coverage["not_depicted_ms"]),
+        )));
+
+        // The census, on every answer, flag or not (ADR-0106 D8): every untiled change point by
+        // name, beside `skipped` and never in it, because none is a finding (ADR-0129).
+        let census = &sheet["keyframes"];
+        out.push_str(&row(format!(
+            "keyframes   {} tiled, {} untiled",
+            number(&census["tiled"]),
+            number(&census["untiled"]),
+        )));
+        for point in census["untiled_points"].as_array().into_iter().flatten() {
+            out.push_str(&row(format!(
+                "            {} at {} ms, state {}..{} \u{2014} {}",
+                named(&point["point"]),
+                number(&point["sample_ms"]),
+                number(&point["run"]["start"]),
+                number(&point["run"]["end"]),
+                named(&point["reason"]),
+            )));
+        }
+
+        // Only when the ceiling was passed (ADR-0106 D6).
+        let infill = &sheet["infill"];
+        if !infill.is_null() {
+            out.push_str(&row(format!(
+                "infill      requested {} ms, {}",
+                number(&infill["requested_ms"]),
+                match infill["achieved_ms"].as_i64() {
+                    Some(achieved) => format!("achieved {achieved} ms"),
+                    None => "achieved: none".to_string(),
+                },
+            )));
+        }
     }
 
     out.push_str("\nBLIND TO\n");

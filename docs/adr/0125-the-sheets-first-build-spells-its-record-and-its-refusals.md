@@ -20,6 +20,8 @@ amends: 0094 (section 6's structured disclosure is spelled — the JSON key name
 > `infill {requested_ms, achieved_ms}` when the ceiling is passed, and an `infill-evicted` entry in
 > `skipped[]` carries `evicted`, its count.
 
+> **Amended by [ADR-0244](0244-multi-instant-at-lists-draw-caller-selected-contact-sheets.md).** On a caller-selected multi-instant `--at` sheet, `sheet` carries `instants: [i64]` in place of `from`/`to`, `rule.name: "caller-selected-instants"`, and `why: "requested"` / `class: "instant"`, omitting range-only fields (`skipped`, `audio_boundaries_dropped`, `coverage`, `keyframes`, `infill`).
+
 [#488](https://github.com/MBehtemam/Montagent/issues/488), the tracer bullet under spec
 [#486](https://github.com/MBehtemam/Montagent/issues/486). It builds `frame --from --to`: one
 contact sheet with one tile per visual state, its disclosure, and its refusals. The ADRs from

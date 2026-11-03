@@ -154,6 +154,10 @@ pub struct Ask {
     /// The instant to draw, in absolute milliseconds. Required — there is no default
     /// instant, and a verb that chose one would be choosing what the agent is looking at.
     pub at: Option<i64>,
+    /// Multiple instants to draw as a caller-selected contact sheet (ADR-0244). When two or
+    /// more strictly ascending non-negative instants are passed, `frame` composites them into
+    /// a contact sheet; a single instant behaves identically to [`Ask::at`].
+    pub instants: Vec<i64>,
     /// `x,y,w,h` in frame space at true pixels, as the caller wrote it. Parsed here rather
     /// than in an adapter, so the MCP surface and argv reject the same strings.
     ///
@@ -570,6 +574,9 @@ pub fn frame(path: &FilePath, ask: &Ask) -> Answer {
     // "fix the command" is never read as "fix the project".
     let (instant, crop) = match request(ask) {
         Ok(Mode::At { instant, crop }) => (instant, crop),
+        Ok(Mode::Instants { instants }) => {
+            return sheet::instants_sheet(path, ask, instants);
+        }
         Ok(Mode::Range { from, to, ceiling }) => {
             return sheet::sheet(path, ask, from, to, ceiling);
         }
@@ -814,11 +821,15 @@ pub fn frame(path: &FilePath, ask: &Ask) -> Answer {
     }
 }
 
-/// What the flags ask for: one frame, or a sheet of a span.
+/// What the flags ask for: one frame, a sheet of caller-selected instants, or a sheet of a
+/// span.
 enum Mode {
     At {
         instant: i64,
         crop: Option<Region>,
+    },
+    Instants {
+        instants: Vec<i64>,
     },
     Range {
         from: i64,
@@ -841,13 +852,21 @@ fn request(ask: &Ask) -> Result<Mode, String> {
     if ask.from.is_some() || ask.to.is_some() {
         return range_request(ask);
     }
-    let (instant, crop) = at_request(ask)?;
+    let mut all_instants = Vec::new();
+    if let Some(at) = ask.at {
+        all_instants.push(at);
+    }
+    all_instants.extend_from_slice(&ask.instants);
+    if all_instants.len() >= 2 {
+        return instants_request(ask, all_instants);
+    }
+    let (instant, crop) = at_request(ask, all_instants.first().copied())?;
     Ok(Mode::At { instant, crop })
 }
 
 /// A range call's flags (ADR-0097, ADR-0103, ADR-0105 §3).
 fn range_request(ask: &Ask) -> Result<Mode, String> {
-    if ask.at.is_some() {
+    if ask.at.is_some() || !ask.instants.is_empty() {
         return Err(
             "`--at` draws one frame and `--from`/`--to` draw a contact sheet of a span; ask \
              for one or the other"
@@ -868,21 +887,23 @@ fn range_request(ask: &Ask) -> Result<Mode, String> {
         );
     }
     if ask.full {
-        // ADR-0097 §4: the tier fact, in one line.
-        return Err(
-            "`--full` has nothing to buy on a contact sheet: its tiles are already painted at \
-             true project pixels, and the sheet is drawn at the size the standard tier serves \
-             (1568 px on its long edge) at every tile count, so a larger one would be \
-             downscaled to the same picture. Drop `--full`, or use `frame --at <instant> \
-             --full` for one frame"
-                .into(),
-        );
+        return Err(refuse_full_on_sheet());
     }
     let ceiling = match &ask.infill_ceiling {
         Some(spelling) => Some(infill_ceiling(spelling)?),
         None => None,
     };
     Ok(Mode::Range { from, to, ceiling })
+}
+
+/// ADR-0097 §4: the tier fact, in one line, shared by range and multi-instant sheets.
+fn refuse_full_on_sheet() -> String {
+    "`--full` has nothing to buy on a contact sheet: its tiles are already painted at \
+     true project pixels, and the sheet is drawn at the size the standard tier serves \
+     (1568 px on its long edge) at every tile count, so a larger one would be \
+     downscaled to the same picture. Drop `--full`, or use `frame --at <instant> \
+     --full` for one frame"
+        .into()
 }
 
 /// A whole number of milliseconds, more than zero: ADR-0106 D14's ceiling, refused rather
@@ -912,8 +933,61 @@ fn infill_ceiling(spelling: &str) -> Result<i64, String> {
     }
 }
 
+/// A multi-instant `--at` contact sheet call's flags (ADR-0244).
+fn instants_request(ask: &Ask, instants: Vec<i64>) -> Result<Mode, String> {
+    if let Some(&negative) = instants.iter().find(|&&t| t < 0) {
+        return Err(format!(
+            "`--at {negative}` is negative: multi-instant `--at` contact sheets require \
+             non-negative instants in strictly ascending order"
+        ));
+    }
+    for pair in instants.windows(2) {
+        if pair[0] == pair[1] {
+            return Err(format!(
+                "`--at {}` is repeated: multi-instant `--at` contact sheets require \
+                 strictly ascending, distinct instants",
+                pair[0]
+            ));
+        }
+        if pair[0] > pair[1] {
+            return Err(format!(
+                "`--at {},{}` is out of order: multi-instant `--at` contact sheets require \
+                 strictly ascending instants so tile order matches clock order",
+                pair[0], pair[1]
+            ));
+        }
+    }
+    if ask.crop.is_some() {
+        return Err(
+            "`--crop` does not compose with multiple `--at` instants, and never will: a \
+             contact sheet is whole frames by design. Locate with a contact sheet, then look \
+             closely with `frame --crop --at <instant>` for a single instant"
+                .into(),
+        );
+    }
+    if ask.full {
+        return Err(refuse_full_on_sheet());
+    }
+    if ask.keyframes {
+        return Err(
+            "`--keyframes` adds keyframe tiles to a range contact sheet, and needs \
+             `--from`/`--to`; a multi-instant `--at` sheet draws the exact instants asked for"
+                .into(),
+        );
+    }
+    if ask.infill_ceiling.is_some() {
+        return Err(
+            "`--infill-ceiling` bounds the span between tiles of a range contact sheet, and \
+             needs `--from`/`--to`; a multi-instant `--at` sheet draws the exact instants \
+             asked for"
+                .into(),
+        );
+    }
+    Ok(Mode::Instants { instants })
+}
+
 /// The instant and the crop, or the one sentence saying why the flags ask for no frame.
-fn at_request(ask: &Ask) -> Result<(i64, Option<Region>), String> {
+fn at_request(ask: &Ask, single_instant: Option<i64>) -> Result<(i64, Option<Region>), String> {
     // Every instant is a legal question, including one before the project starts and one
     // after it ends — the answer there is the background and an empty caption, which is a
     // fact about the document rather than a malformed call. `query --at` takes the same
@@ -934,7 +1008,7 @@ fn at_request(ask: &Ask) -> Result<(i64, Option<Region>), String> {
                 .into(),
         );
     }
-    let Some(instant) = ask.at else {
+    let Some(instant) = single_instant else {
         // ADR-0097: the refusal is where the range mode is taught, since no argument's name
         // says "sheet" — and over MCP an argument the schema does not know is dropped, so a
         // guessed one lands here rather than at an unknown-argument refusal.

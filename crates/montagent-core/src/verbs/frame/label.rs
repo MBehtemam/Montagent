@@ -105,6 +105,16 @@ impl Label {
             core,
         }
     }
+
+    /// A caller-selected instant tile's label (ADR-0244): `<index> <instant>ms`, with no
+    /// boundary offset or entrant id because the tile was requested by explicit millisecond.
+    pub(super) fn instant(index: usize, instant: i64) -> Label {
+        let core = format!("{index} {instant}ms");
+        Label {
+            whole: core.clone(),
+            core,
+        }
+    }
 }
 
 /// The element a label names, and which side of the boundary it is on.

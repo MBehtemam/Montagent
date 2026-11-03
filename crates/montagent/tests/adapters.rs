@@ -1199,6 +1199,66 @@ fn cli_frame_from_to_writes_the_sheet_to_the_out_it_already_requires() {
 }
 
 #[test]
+fn cli_frame_multi_instant_at_writes_contact_sheet_via_repeated_or_comma_flags() {
+    let project = scratch("cli-frame-multi-at", "p.montagent.json", &states_project(4));
+    let out_repeated = project.with_file_name("sheet-repeated.png");
+    let out = montagent(&[
+        "frame",
+        project.to_str().unwrap(),
+        "--at",
+        "50",
+        "--at",
+        "250",
+        "--at",
+        "650",
+        "--png",
+        "--out",
+        out_repeated.to_str().unwrap(),
+    ]);
+    assert_eq!(out.code, Some(0), "{}{}", out.stdout, out.stderr);
+    assert!(
+        out.stdout
+            .contains("SHEET  3 instants (50 ms, 250 ms, 650 ms)"),
+        "{}",
+        out.stdout
+    );
+    assert!(out_repeated.exists(), "repeated --at wrote the sheet");
+
+    let out_comma = project.with_file_name("sheet-comma.png");
+    let out2 = montagent(&[
+        "frame",
+        project.to_str().unwrap(),
+        "--at",
+        "50,250,650",
+        "--png",
+        "--out",
+        out_comma.to_str().unwrap(),
+    ]);
+    assert_eq!(out2.code, Some(0), "{}{}", out2.stdout, out2.stderr);
+    assert_eq!(
+        out.stdout,
+        out2.stdout.replace("sheet-comma.png", "sheet-repeated.png")
+    );
+    assert_eq!(
+        std::fs::read(&out_repeated).unwrap(),
+        std::fs::read(&out_comma).unwrap(),
+        "repeated and comma-delimited --at produce byte-identical PNG sheets"
+    );
+
+    // Negative or unsorted instants reach the verb's E-INVOCATION (exit 3).
+    let bad = montagent(&[
+        "frame",
+        project.to_str().unwrap(),
+        "--at",
+        "250,50",
+        "--out",
+        out_comma.to_str().unwrap(),
+    ]);
+    assert_eq!(bad.code, Some(3), "{}{}", bad.stdout, bad.stderr);
+    assert!(bad.stdout.contains("E-INVOCATION"), "{}", bad.stdout);
+}
+
+#[test]
 fn cli_frame_advertises_the_range_arguments_with_their_unit() {
     let out = montagent(&["frame", "--help"]);
 
@@ -2609,6 +2669,79 @@ fn mcp_frame_range_is_one_text_block_and_one_image_block_and_refusals_are_errors
     let text = mixed["content"][0]["text"].as_str().expect("a report");
     assert!(text.contains("E-INVOCATION"), "{text}");
     assert_eq!(mixed["isError"], true, "{mixed}");
+}
+
+#[test]
+fn mcp_frame_multi_instant_at_array_returns_sheet_and_refuses_bad_lists() {
+    let fits = scratch("mcp-frame-instants", "p.montagent.json", &states_project(4));
+    let session = mcp_session(&[
+        handshake(1),
+        notification("notifications/initialized"),
+        request(
+            2,
+            "tools/call",
+            serde_json::json!({
+                "name": "frame",
+                "arguments": {
+                    "project": fits.to_str().unwrap(),
+                    "at": [50, 250, 650],
+                    "json": true,
+                }
+            }),
+        ),
+        // Single-element array `[50]` stays in single-frame mode.
+        request(
+            3,
+            "tools/call",
+            serde_json::json!({
+                "name": "frame",
+                "arguments": {
+                    "project": fits.to_str().unwrap(),
+                    "at": [50],
+                    "json": true,
+                }
+            }),
+        ),
+        // Unsorted array reaches the verb's E-INVOCATION.
+        request(
+            4,
+            "tools/call",
+            serde_json::json!({
+                "name": "frame",
+                "arguments": {
+                    "project": fits.to_str().unwrap(),
+                    "at": [250, 50],
+                }
+            }),
+        ),
+    ]);
+
+    let multi = &session[&2]["result"];
+    assert_ne!(multi["isError"], true, "{multi}");
+    let content = multi["content"].as_array().expect("content blocks");
+    assert_eq!(content.len(), 2, "one text block and one image block");
+    let json: serde_json::Value =
+        serde_json::from_str(content[0]["text"].as_str().expect("json text")).unwrap();
+    assert_eq!(json["sheet"]["instants"], serde_json::json!([50, 250, 650]));
+    assert!(json["sheet"]["range"].is_null());
+    assert_eq!(content[1]["type"], "image");
+
+    let single = &session[&3]["result"];
+    assert_ne!(single["isError"], true, "{single}");
+    let single_json: serde_json::Value =
+        serde_json::from_str(single["content"][0]["text"].as_str().expect("json text")).unwrap();
+    assert!(single_json["sheet"].is_null());
+    assert_eq!(single_json["query"]["mode"], "at");
+
+    let bad = &session[&4]["result"];
+    assert_eq!(bad["isError"], true, "{bad}");
+    assert!(
+        bad["content"][0]["text"]
+            .as_str()
+            .unwrap()
+            .contains("E-INVOCATION"),
+        "{bad}"
+    );
 }
 
 #[test]

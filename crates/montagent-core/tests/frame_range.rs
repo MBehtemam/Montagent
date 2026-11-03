@@ -1779,3 +1779,204 @@ fn a_ceiling_below_one_frame_period_is_refused_and_one_period_is_legal() {
     let json = drawn(&thirty, &infilled(0, 500, "34")).to_json();
     assert_eq!(json["sheet"]["infill"]["achieved_ms"], 34);
 }
+
+// ---------------------------------------------------------------------------
+// Multi-instant `--at` contact sheets (ADR-0244, #1143)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn multi_instant_at_draws_a_caller_selected_contact_sheet() {
+    let dir = tempdir(line!());
+    let project = states_project(&dir, 4);
+    let answer = drawn(
+        &project,
+        &Ask {
+            instants: vec![50, 250, 650],
+            png: true,
+            ..Ask::default()
+        },
+    );
+    let json = answer.to_json();
+    assert!(json["frame"].is_null());
+    assert!(json["query"].is_null());
+
+    let sheet = &json["sheet"];
+    assert_eq!(sheet["instants"], json!([50, 250, 650]));
+    assert_eq!(sheet["rule"]["name"], "caller-selected-instants");
+    assert_eq!(sheet["rule"]["version"], 1);
+    assert_eq!(sheet["reader_check"]["tile"], 1);
+    assert_eq!(sheet["reader_check"]["label"], "1 50ms");
+    assert_eq!(sheet["picture"]["columns"], 3);
+    assert_eq!(sheet["picture"]["rows"], 1);
+    assert_eq!(sheet["classes"]["instant"], 3);
+
+    // Range-only fields are absent on caller-selected sheets.
+    for key in [
+        "from",
+        "to",
+        "skipped",
+        "audio_boundaries_dropped",
+        "coverage",
+        "keyframes",
+        "infill",
+    ] {
+        assert!(
+            sheet.get(key).is_none(),
+            "unexpected range key `{key}` in {sheet}"
+        );
+    }
+
+    let provenance = sheet["provenance"].as_array().unwrap();
+    assert_eq!(provenance.len(), 3);
+    assert_eq!(provenance[0]["index"], 1);
+    assert_eq!(provenance[0]["instant_ms"], 50);
+    assert_eq!(provenance[0]["label"], "1 50ms");
+    assert_eq!(provenance[0]["why"], "requested");
+    assert_eq!(provenance[0]["class"], "instant");
+    assert_eq!(provenance[0]["present"], json!(["card-00"]));
+
+    assert_eq!(provenance[1]["index"], 2);
+    assert_eq!(provenance[1]["instant_ms"], 250);
+    assert_eq!(provenance[1]["label"], "2 250ms");
+    assert_eq!(provenance[1]["present"], json!(["card-01"]));
+
+    assert_eq!(provenance[2]["index"], 3);
+    assert_eq!(provenance[2]["instant_ms"], 650);
+    assert_eq!(provenance[2]["label"], "3 650ms");
+    assert_eq!(provenance[2]["present"], json!(["card-03"]));
+
+    let text = prose(&json);
+    assert!(text.contains("READER CHECK"), "{text}");
+    assert!(
+        text.contains("Tile 1's label reads exactly `1 50ms`."),
+        "{text}"
+    );
+    assert!(
+        text.contains("SHEET  3 instants (50 ms, 250 ms, 650 ms)"),
+        "{text}"
+    );
+    assert!(
+        text.contains("  1  instant  requested  at 50 ms  label `1 50ms`  card-00"),
+        "{text}"
+    );
+    assert!(text.contains("BLIND TO"), "{text}");
+}
+
+#[test]
+fn single_instant_in_instants_vec_stays_single_frame_mode() {
+    let dir = tempdir(line!());
+    let project = states_project(&dir, 2);
+    let answer = frame(
+        &project,
+        &Ask {
+            instants: vec![50],
+            ..Ask::default()
+        },
+    );
+    assert_eq!(answer.report().exit_code(), ExitCode::Ok);
+    let json = answer.to_json();
+    assert!(!json["frame"].is_null(), "single instant draws one frame");
+    assert!(
+        !json["query"].is_null(),
+        "single instant includes query --at"
+    );
+    assert!(
+        json.get("sheet").is_none(),
+        "single instant does not draw a sheet"
+    );
+}
+
+#[test]
+fn multi_instant_at_refuses_negative_duplicate_unsorted_and_incompatible_flags() {
+    for (ask, expected) in [
+        (
+            Ask {
+                instants: vec![-10, 50],
+                ..Ask::default()
+            },
+            "negative",
+        ),
+        (
+            Ask {
+                instants: vec![50, 50],
+                ..Ask::default()
+            },
+            "repeated",
+        ),
+        (
+            Ask {
+                instants: vec![250, 50],
+                ..Ask::default()
+            },
+            "out of order",
+        ),
+        (
+            Ask {
+                instants: vec![50, 250],
+                from: Some(0),
+                to: Some(400),
+                ..Ask::default()
+            },
+            "`--at` draws one frame and `--from`/`--to` draw a contact sheet",
+        ),
+        (
+            Ask {
+                instants: vec![50, 250],
+                crop: Some("0,0,100,100".into()),
+                ..Ask::default()
+            },
+            "`--crop` does not compose with multiple `--at` instants",
+        ),
+        (
+            Ask {
+                instants: vec![50, 250],
+                full: true,
+                ..Ask::default()
+            },
+            "`--full` has nothing to buy on a contact sheet",
+        ),
+        (
+            Ask {
+                instants: vec![50, 250],
+                keyframes: true,
+                ..Ask::default()
+            },
+            "`--keyframes`",
+        ),
+        (
+            Ask {
+                instants: vec![50, 250],
+                infill_ceiling: Some("100".into()),
+                ..Ask::default()
+            },
+            "`--infill-ceiling`",
+        ),
+    ] {
+        let reason = refused(&ask);
+        assert!(
+            reason.contains(expected),
+            "expected `{expected}` in `{reason}`"
+        );
+    }
+}
+
+#[test]
+fn multi_instant_at_over_budget_refuses_with_e_sheet_overflow() {
+    let dir = tempdir(line!());
+    let project = states_project(&dir, 4);
+    let instants: Vec<i64> = (0..31).map(|i| i * 20).collect();
+    let answer = frame(
+        &project,
+        &Ask {
+            instants,
+            ..Ask::default()
+        },
+    );
+    assert_eq!(answer.report().exit_code(), ExitCode::BadInvocation);
+    let json = answer.to_json();
+    assert_eq!(json["findings"][0]["code"], "E-SHEET-OVERFLOW");
+    assert_eq!(json["findings"][0]["fields"]["states"], 31);
+    assert_eq!(json["findings"][0]["fields"]["fits"], 30);
+    let text = prose(&json);
+    assert!(text.contains("E-SHEET-OVERFLOW"), "{text}");
+}
