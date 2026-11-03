@@ -2083,3 +2083,18 @@ cleanly; the ruling belongs to an ADR
 ([#228](https://github.com/MBehtemam/Montagent/issues/228)). The spelling sits on the text
 element as often as on a run — the one real project file carried `"weight": "bold"` on all
 22 of its text elements.
+
+**Nest scene cache**:
+The content-addressed cache of a `nest` element's offscreen child composite (`width × height`
+8-bit premultiplied RGBA plus the child paint records `painted`, `not_painted`,
+`painted_partially`, `declined`, `sources`, `fonts`), shared across frames within a render and
+persisted across renders under `<cache_dir>/nest-cache/` ([ADR-0245](docs/adr/0245-nested-scenes-cache-their-offscreen-child-composites-by-relative-subgraph-hash.md)). Keyed on the `nest`'s
+**relative sub-graph hash** — child elements normalized by subtracting `nest.start` from every
+child `start`, `end`, and keyframe `t`, combined with the project `fps`, offscreen `extent`,
+referenced `fonts` entries, and `(size, mtime_ns, content)` identities of every local source or
+font file the children read — so `montagent shift`, parent-level transforms/effects/opacity, and
+parent transitions ([ADR-0243](docs/adr/0243-native-transitions-between-nest-scenes-render-via-offscreen-surfaces.md)) leave the cache hot. Static child visual states store a single entry per
+state rather than per frame; time-invariant `nest` elements also join the bottom **static prefix**
+([ADR-0195](docs/adr/0195-time-invariant-bottom-layers-share-a-byte-identical-prefix-composite.md)). Cleared alongside `probe-cache.json` by `montagent cache clear` ([ADR-0092](docs/adr/0092-a-probe-is-matched-on-an-observed-identity-and-guarded-by-its-contents.md)) and
+credited to `frames_reused` in `render.profile` ([ADR-0194](docs/adr/0194-render-profile-says-where-the-painters-cpu-went-by-element-type-and-effect.md)).
+_Avoid_: pre-render chunk, baked scene video, render cache flag

@@ -72,7 +72,7 @@ use serde::Serialize;
 use montagent_render::canvas::{bound_filter_layers, filter_layers_bounded};
 
 use super::{Made, Producer, Span, Stages, Stop};
-use crate::verbs::frame::{Feeds, Painter, prefix, supply};
+use crate::verbs::frame::{Feeds, Painter, nest_cache, prefix, supply};
 
 /// Conservative contended reopen allowance measured in ADR-0196.
 const REOPEN: Duration = Duration::from_millis(1100);
@@ -507,6 +507,9 @@ pub(super) fn paint(
         bounded: filter_layers_bounded(),
         prefix_cache: prefix::enabled(),
         prefix: Default::default(),
+        nest_cache: nest_cache::enabled(),
+        nest_cache_dir: nest_cache::current_dir_override(),
+        nest: Default::default(),
     };
 
     let (encoded, painters) = std::thread::scope(|scope| {
@@ -578,6 +581,9 @@ struct Inherited {
     bounded: bool,
     prefix_cache: bool,
     prefix: prefix::Shared,
+    nest_cache: bool,
+    nest_cache_dir: Option<Option<std::path::PathBuf>>,
+    nest: nest_cache::Shared,
 }
 
 /// What one painter's thread hands back once it has stopped.
@@ -597,6 +603,8 @@ fn work(
     let _budget = supply::override_budget(inherited.feed_budget);
     bound_filter_layers(inherited.bounded);
     let _prefix_cache = prefix::force_prefix_cache(inherited.prefix_cache);
+    let _nest_cache = nest_cache::force_nest_cache(inherited.nest_cache);
+    let _nest_dir = inherited.nest_cache_dir.map(nest_cache::force_cache_dir);
     let (width, height) = span.declared;
     let painting = shared.painting;
 
@@ -630,6 +638,7 @@ fn work(
                         Box::new(Feeds::new()),
                     );
                     painter.prefix = inherited.prefix.clone();
+                    painter.nest = inherited.nest.clone();
                     producer.insert(
                         Producer::new(span.document, span.fps, canvas, painter)
                             .with_alpha(span.alpha)

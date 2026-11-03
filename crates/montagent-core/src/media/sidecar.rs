@@ -321,12 +321,22 @@ pub struct Cleared {
 /// for work it did not do, and the user would go on believing a cache they are debugging
 /// against is gone.
 pub fn clear(path: &Path) -> std::io::Result<Cleared> {
-    let removed = match std::fs::remove_file(path) {
+    let mut removed = match std::fs::remove_file(path) {
         Ok(()) => true,
         // Nothing to remove is the state the caller asked for, so it is not an error.
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => false,
         Err(e) => return Err(e),
     };
+
+    // ADR-0245: also remove `<cache_dir>/nest-cache` alongside `probe-cache.json`.
+    if let Some(parent) = path.parent() {
+        let nest_cache_dir = parent.join("nest-cache");
+        match std::fs::remove_dir_all(&nest_cache_dir) {
+            Ok(()) => removed = true,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+            Err(e) => return Err(e),
+        }
+    }
 
     // Swept by the same name-plus-suffix rule `write_atomically` writes them under, so the
     // two stay in step: anything starting with the sidecar's own file name and not equal to

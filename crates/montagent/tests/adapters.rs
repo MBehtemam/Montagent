@@ -776,13 +776,39 @@ fn cli_cache_clear_removes_the_sidecar_and_its_temporaries_and_states_the_path()
     let temporary = cache.join("probe-cache.json.99999.tmp");
     std::fs::write(&temporary, b"half a write").unwrap();
 
+    // ADR-0245 / #1144: the persistent `nest-cache` directory under `<cache_dir>/nest-cache/`
+    // is cleared alongside `probe-cache.json`.
+    let nest_cache = cache.join("nest-cache").join("deadbeef");
+    std::fs::create_dir_all(&nest_cache).unwrap();
+    std::fs::write(nest_cache.join("offset-0.bin"), b"cached composite").unwrap();
+
     let out = montagent_caching(&["cache", "clear"], &cache);
     assert_eq!(out.code, Some(0), "{}{}", out.stdout, out.stderr);
     assert!(!sidecar.exists(), "the sidecar is gone");
     assert!(!temporary.exists(), "and so is the temporary beside it");
     assert!(
+        !cache.join("nest-cache").exists(),
+        "and so is the persistent nest-cache directory"
+    );
+    assert!(
         out.stdout.contains(sidecar.to_str().unwrap()),
         "it states the path it removed: {}",
+        out.stdout
+    );
+
+    // Even when only `nest-cache` exists (`probe-cache.json` absent), `cache clear` removes it
+    // and reports `Removed::Existed`.
+    std::fs::create_dir_all(&nest_cache).unwrap();
+    std::fs::write(nest_cache.join("offset-0.bin"), b"cached composite").unwrap();
+    let out = montagent_caching(&["cache", "clear"], &cache);
+    assert_eq!(out.code, Some(0), "{}{}", out.stdout, out.stderr);
+    assert!(
+        !cache.join("nest-cache").exists(),
+        "nest-cache alone is also removed"
+    );
+    assert!(
+        out.stdout.contains(sidecar.to_str().unwrap()),
+        "reports cleared when nest-cache was removed: {}",
         out.stdout
     );
 

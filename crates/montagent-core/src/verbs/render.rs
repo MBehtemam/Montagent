@@ -151,6 +151,8 @@ mod painters;
 pub(crate) mod profile;
 mod watch;
 #[doc(hidden)]
+pub use crate::verbs::frame::nest_cache::{ForcedNestCache, NEST_CACHE_VAR, force_nest_cache};
+#[doc(hidden)]
 pub use crate::verbs::frame::prefix::{ForcedPrefixCache, PREFIX_CACHE_VAR, force_prefix_cache};
 pub use painters::Painting;
 #[doc(hidden)]

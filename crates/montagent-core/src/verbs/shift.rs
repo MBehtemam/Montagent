@@ -630,6 +630,9 @@ pub fn shift(path: &FilePath, ask: &Ask) -> Answer {
                         unwritable.push((element.id.clone(), track.name.clone(), refusal));
                     }
                     carry_unit_lists(&mut element.body, -span);
+                    if let Err(refusal) = carry_nest_children(&mut element.body, -span) {
+                        unwritable.push((element.id.clone(), track.name.clone(), refusal));
+                    }
                     new_instants.insert((element.id.clone(), Side::Start), element.start);
                     new_instants.insert((element.id.clone(), Side::End), element.end);
                     transformed_elements.push(element);
@@ -851,6 +854,9 @@ fn transform_element(element: &mut Element, at: i64, delta: i64, in_scope: bool)
             return Outcome::Unwritable(refusal);
         }
         carry_unit_lists(&mut element.body, delta);
+        if let Err(refusal) = carry_nest_children(&mut element.body, delta) {
+            return Outcome::Unwritable(refusal);
+        }
         return Outcome::Moved;
     }
     // `start < at < end`: a straddler.
@@ -869,10 +875,37 @@ fn transform_element(element: &mut Element, at: i64, delta: i64, in_scope: bool)
             if carries_units {
                 carry_unit_lists(&mut element.body, delta);
             }
+            if let Body::Nest(nest) = &mut element.body {
+                for child in &mut nest.elements {
+                    let outcome = transform_element(child, at, delta, true);
+                    if !matches!(outcome, Outcome::Untouched | Outcome::Moved) {
+                        return outcome;
+                    }
+                }
+            }
             Outcome::Moved
         }
         Err(refusal) => Outcome::Unwritable(refusal),
     }
+}
+
+/// Carry every child element of a `nest` (and its own keyframes, stagger lists, and nested
+/// children) by `delta` when the parent `nest` shifts as a whole (ADR-0201 §2, ADR-0245).
+fn carry_nest_children(body: &mut Body, delta: i64) -> Result<(), Unwritable> {
+    let Body::Nest(nest) = body else {
+        return Ok(());
+    };
+    for child in &mut nest.elements {
+        child.start += delta;
+        child.end += delta;
+        edit_lists(&mut child.body, |_, _, list| {
+            carry(list, delta);
+            Ok(())
+        })?;
+        carry_unit_lists(&mut child.body, delta);
+        carry_nest_children(&mut child.body, delta)?;
+    }
+    Ok(())
 }
 
 /// Every stagger list moves by `delta`: the `units` block's and every run override's
