@@ -749,7 +749,9 @@ mod tests {
                 out["findings"][0]["detail"]
                     .as_str()
                     .unwrap()
-                    .contains(&format!("Resolved host '{host}' to non-public/reserved IP {host}")),
+                    .contains(&format!(
+                        "Resolved host '{host}' to non-public/reserved IP {host}"
+                    )),
                 "{out}"
             );
             assert!(

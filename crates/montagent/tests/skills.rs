@@ -81,9 +81,8 @@ fn drawn_frame_snap_formula_and_last_drawn_clamp_behave_accurately() {
     // At 30 fps: element end at 1000 ms has last drawn frame at 966 ms (frame 29)
     assert_eq!(last_drawn(1000.0, 30.0), 966);
     // Safe keyframe instant clamps below element end
-    let safe_kf = |t_ms: f64, end_ms: f64, fps: f64| -> i64 {
-        snap(t_ms, fps).min(last_drawn(end_ms, fps))
-    };
+    let safe_kf =
+        |t_ms: f64, end_ms: f64, fps: f64| -> i64 { snap(t_ms, fps).min(last_drawn(end_ms, fps)) };
     assert_eq!(safe_kf(1000.0, 1000.0, 30.0), 966);
     assert!(safe_kf(1000.0, 1000.0, 30.0) < 1000);
 }

@@ -1430,11 +1430,12 @@ where
             }
         }
         Command::Skills {
-            command: SkillsCommand::Check {
-                target,
-                json,
-                verbose,
-            },
+            command:
+                SkillsCommand::Check {
+                    target,
+                    json,
+                    verbose,
+                },
         }
         | Command::SkillsCheck {
             target,
@@ -1442,10 +1443,7 @@ where
             verbose,
         } => {
             let form = Wire::from_flags(json, verbose);
-            let options = montagent_core::skills_check::CheckOptions {
-                target,
-                root: None,
-            };
+            let options = montagent_core::skills_check::CheckOptions { target, root: None };
             match run_verb(|| montagent_core::skills_check::check(&options)) {
                 Ok(report) => {
                     println!("{}", montagent_core::wire::render(&report, form).trim_end());

@@ -3925,7 +3925,6 @@ shorten the gloss text.",
     },
 ];
 
-
 impl CheckSpec {
     /// The class a finding takes unless the check computes a different one.
     pub fn default_class(&self) -> Class {
