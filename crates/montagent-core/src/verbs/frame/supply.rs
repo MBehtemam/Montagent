@@ -213,11 +213,16 @@ impl Drop for BudgetOverride {
 pub(crate) struct Video {
     /// ADR-0089's decoder choice.
     pub decoder: Decoder,
+    /// Where the video stream starts in source time (`media/probe.rs::start_time_ms`).
+    pub start_ms: i64,
     /// Where the video stream ends in source time: `start_time + video_stream_ms`
     /// (`media/probe.rs`). Never the container's duration where the stream states its own.
     pub end_ms: Option<i64>,
     /// One source frame, in whole milliseconds rounded up — the tolerance on that end.
     pub frame_ms: Option<i64>,
+    /// The source video stream's rational frame rate `(num, den)` in frames per second,
+    /// used by ADR-0232's `frame_blend: "mix"` to locate adjacent frame presentation timestamps.
+    pub fps: Option<(i64, i64)>,
     /// The decoded size, which a feed's decoder works at whatever size is painted.
     pub pixels: Option<(u32, u32)>,
 }
@@ -258,18 +263,23 @@ impl Request<'_> {
         self.source.to_string_lossy().into_owned()
     }
 
-    /// [`decode::frame_at`] at this request's offset, counted.
-    fn frame_at(&self) -> Result<DecodedFrame, Failure> {
+    /// [`decode::frame_at`] at `offset_ms`, counted.
+    pub(crate) fn frame_at_offset(&self, offset_ms: i64) -> Result<DecodedFrame, Failure> {
         count(|counts| counts.frame_at += 1);
         decode::frame_at(
             self.ffmpeg,
             &self.source_name(),
             self.video.decoder,
-            self.offset,
+            offset_ms,
             self.width,
             self.height,
         )
         .map_err(Failure::Seek)
+    }
+
+    /// [`decode::frame_at`] at this request's offset, counted.
+    pub(crate) fn frame_at(&self) -> Result<DecodedFrame, Failure> {
+        self.frame_at_offset(self.offset)
     }
 }
 

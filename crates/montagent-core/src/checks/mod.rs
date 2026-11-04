@@ -29,15 +29,18 @@ pub mod ease;
 pub mod extent;
 pub mod fit;
 pub mod fonts;
+pub mod frame_blend;
 pub mod gradient;
 pub mod grain;
 pub mod highlight;
 pub mod ink;
 pub mod layout;
 pub mod lut;
+pub mod markers;
 pub mod mask;
 pub mod master;
 pub mod motion_blur;
+pub mod motion_path;
 pub mod nest;
 pub mod normalize;
 pub mod output;
@@ -87,10 +90,11 @@ pub(crate) fn project_dir(document: &crate::permissive::Loose) -> std::path::Pat
     }
 }
 
-/// One run of a `text` element: its own text, and the `font` delta it states over the
-/// element's base style (ADR-0007).
+/// One run of a `text` element: its own text, and the `font` and `features` deltas it states
+/// over the element's base style (ADR-0007, ADR-0223).
 pub(crate) struct StyledRun {
     pub(crate) font: Option<String>,
+    pub(crate) features: Option<Vec<String>>,
     pub(crate) text: String,
 }
 
@@ -110,6 +114,8 @@ pub(crate) struct StyledText {
     /// The element's base `font`, where it states one readably. A run with no delta of its
     /// own is set in this.
     pub(crate) font: Option<String>,
+    /// The element's base `features` list, where it states one readably (ADR-0223 §2).
+    pub(crate) features: Option<Vec<String>>,
     pub(crate) runs: Vec<StyledRun>,
 }
 
@@ -119,6 +125,18 @@ impl StyledText {
     pub(crate) fn joined(&self) -> String {
         self.runs.iter().map(|run| run.text.as_str()).collect()
     }
+}
+
+fn feature_list(container: &serde_json::Value) -> Option<Vec<String>> {
+    container
+        .get("features")
+        .and_then(serde_json::Value::as_array)
+        .map(|arr| {
+            arr.iter()
+                .filter_map(serde_json::Value::as_str)
+                .map(str::to_string)
+                .collect()
+        })
 }
 
 /// Every `text` element, in document order.
@@ -139,6 +157,7 @@ pub(crate) fn styled_text(document: &crate::permissive::Loose) -> Vec<StyledText
                 .get("font")
                 .and_then(Value::as_str)
                 .map(str::to_string),
+            features: feature_list(element),
             runs: element
                 .get("runs")
                 .and_then(Value::as_array)
@@ -147,6 +166,7 @@ pub(crate) fn styled_text(document: &crate::permissive::Loose) -> Vec<StyledText
                 .iter()
                 .map(|run| StyledRun {
                     font: run.get("font").and_then(Value::as_str).map(str::to_string),
+                    features: feature_list(run),
                     text: run
                         .get("text")
                         .and_then(Value::as_str)
@@ -214,9 +234,10 @@ pub(crate) fn keyframe_records<'a>(
 /// (ADR-0060), and an element faded to nothing is still somewhere (ADR-0044). A test holds
 /// this list inside the animatable one. The projection's three fields move a projected
 /// element's quadrilateral as `rotation` moves its box (ADR-0167 §6).
-pub const MOVES_THE_BOX: [&str; 9] = [
+pub const MOVES_THE_BOX: [&str; 10] = [
     "x",
     "y",
+    "motion_path.offset",
     "width",
     "height",
     "scale",
@@ -255,7 +276,8 @@ pub(crate) fn box_samples(
     let mut boundaries = vec![window.start, last];
     for element in elements {
         for key in MOVES_THE_BOX {
-            let Some(records) = element.get(key).and_then(Value::as_array) else {
+            let Some(records) = crate::animatable::get(element, key).and_then(Value::as_array)
+            else {
                 continue;
             };
             for t in records

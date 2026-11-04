@@ -215,6 +215,8 @@ status: accepted
 > - [ADR-0096](0096-the-frame-at-an-instant-is-the-last-one-starting-at-or-before-it.md) — records what the probe quad does **not** establish: neither
 >   `r_frame_rate` nor `avg_frame_rate` is the source's frame grid, and on this repository's
 >   own reference MP4 neither is close to it
+>
+> Also amended by [ADR-0229](0229-image-sequence-export-and-png-in-mov-are-refused-from-render-and-prores-4444-is-the-sole-alpha-deliverable.md), [ADR-0230](0230-markers-enter-project-and-elements-as-render-inert-annotations-and-chapters-export-to-container.md).
 
 
 Montagent exposes **nine verbs and two resources**. The surface's job is not to

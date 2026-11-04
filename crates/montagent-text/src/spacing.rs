@@ -148,30 +148,33 @@ pub(crate) struct Gap {
 
 /// Every gap one line takes.
 ///
-/// `size_at` answers the size of the run a line offset sits in. Empty when the spacing is
-/// zero, so a line that sets none is placed from exactly the numbers it always was.
-pub(crate) fn gaps(line: &str, letter_spacing: f64, size_at: impl Fn(usize) -> i64) -> Vec<Gap> {
-    if letter_spacing == 0.0 {
-        return Vec::new();
-    }
+/// `spacing_at` answers the `(size, letter_spacing)` of the run a line offset sits in
+/// (ADR-0151 §1, ADR-0223 §4). Empty when every grapheme's spacing is zero, so a line that
+/// sets none is placed from exactly the numbers it always was.
+pub(crate) fn gaps(line: &str, spacing_at: impl Fn(usize) -> (i64, f64)) -> Vec<Gap> {
     let all = graphemes(line);
     let Some((_, before_last)) = all.split_last() else {
         return Vec::new();
     };
-    before_last
-        .iter()
-        .filter(|(_, suppressed)| suppressed.is_none())
-        .map(|(range, _)| {
-            let last_char = line[range.clone()]
-                .char_indices()
-                .last()
-                .map_or(range.start, |(at, _)| range.start + at);
-            Gap {
-                at: last_char,
-                px: size_at(range.start) as f64 * letter_spacing / 1000.0,
-            }
-        })
-        .collect()
+    let mut out = Vec::new();
+    for (range, suppressed) in before_last {
+        if suppressed.is_some() {
+            continue;
+        }
+        let (size, letter_spacing) = spacing_at(range.start);
+        if letter_spacing == 0.0 {
+            continue;
+        }
+        let last_char = line[range.clone()]
+            .char_indices()
+            .last()
+            .map_or(range.start, |(at, _)| range.start + at);
+        out.push(Gap {
+            at: last_char,
+            px: size as f64 * letter_spacing / 1000.0,
+        });
+    }
+    out
 }
 
 /// One shaping cluster of a line, as [`shifts`] walks it.
@@ -327,12 +330,22 @@ pub struct Suppressed {
 /// From the text alone, independent of the spacing value: the caller decides whether the
 /// element has a non-zero spacing for the review to be about.
 pub fn first_suppressed(text: &str) -> Option<Suppressed> {
+    first_suppressed_where(text, |_| true)
+}
+
+/// The first suppressed pair in `text` whose first grapheme sits at a byte offset where
+/// `active_at` is true (i.e. where the covering run has non-zero effective
+/// `letter_spacing`, ADR-0223 §4).
+pub fn first_suppressed_where(text: &str, active_at: impl Fn(usize) -> bool) -> Option<Suppressed> {
     for line in crate::lines::partition(text) {
         let all = graphemes(line.text);
-        let Some((range, script)) = all
-            .iter()
-            .take(all.len().saturating_sub(1))
-            .find_map(|(range, s)| s.map(|s| (range.clone(), s)))
+        let Some((range, script)) =
+            all.iter()
+                .take(all.len().saturating_sub(1))
+                .find_map(|(range, s)| {
+                    s.filter(|_| active_at(line.start + range.start))
+                        .map(|s| (range.clone(), s))
+                })
         else {
             continue;
         };
@@ -369,11 +382,11 @@ mod tests {
 
     #[test]
     fn a_line_of_one_grapheme_takes_no_gap() {
-        assert!(gaps("A", 200.0, |_| 100).is_empty());
+        assert!(gaps("A", |_| (100, 200.0)).is_empty());
     }
 
     #[test]
     fn zero_spacing_takes_no_gap() {
-        assert!(gaps("ABC", 0.0, |_| 100).is_empty());
+        assert!(gaps("ABC", |_| (100, 0.0)).is_empty());
     }
 }

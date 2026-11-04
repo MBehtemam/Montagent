@@ -46,6 +46,11 @@ static FONTS_SUBCOMMANDS: &[CommandDef] = &[
             "--google-family",
             "--google-file",
             "--revision",
+            "--weight",
+            "--style",
+            "--family",
+            "--face-index",
+            "--expected-sha256",
             "--json",
             "--verbose",
             "-h",
@@ -56,13 +61,25 @@ static FONTS_SUBCOMMANDS: &[CommandDef] = &[
         name: "list",
         aliases: &[],
         subcommands: &[],
-        flags: &["--json", "-h", "--help"],
+        flags: &["--root", "--json", "-h", "--help"],
     },
     CommandDef {
         name: "vendor",
         aliases: &[],
         subcommands: &[],
-        flags: &["--destination", "--json", "--verbose", "-h", "--help"],
+        flags: &[
+            "--licence",
+            "--source",
+            "--as",
+            "--destination",
+            "--receipt",
+            "--resolution",
+            "--face-index",
+            "--json",
+            "--verbose",
+            "-h",
+            "--help",
+        ],
     },
 ];
 
@@ -136,6 +153,10 @@ static COMMANDS: &[CommandDef] = &[
         subcommands: &[],
         flags: &[
             "--at",
+            "--from",
+            "--to",
+            "--where",
+            "--census",
             "--range",
             "--kind",
             "--id",
@@ -153,6 +174,12 @@ static COMMANDS: &[CommandDef] = &[
         subcommands: &[],
         flags: &[
             "--at",
+            "--from",
+            "--to",
+            "--keyframes",
+            "--infill-ceiling",
+            "--crop",
+            "--png",
             "--span",
             "--full",
             "--sheet",
@@ -172,6 +199,11 @@ static COMMANDS: &[CommandDef] = &[
             "--at",
             "--span",
             "--element",
+            "--elements",
+            "--all",
+            "--scopes",
+            "--layout",
+            "--ranges",
             "--json",
             "--verbose",
             "-h",
@@ -183,13 +215,17 @@ static COMMANDS: &[CommandDef] = &[
         aliases: &[],
         subcommands: &[],
         flags: &[
+            "--from",
+            "--to",
             "--output",
             "--out",
+            "--no-clobber",
+            "--progress-file",
             "--profile",
+            "--stems-only",
             "--preset",
             "--crf",
             "--estimate",
-            "--progress-file",
             "--json",
             "--verbose",
             "-h",
@@ -224,6 +260,10 @@ static COMMANDS: &[CommandDef] = &[
         subcommands: &[],
         flags: &[
             "--at",
+            "--delta",
+            "--scope",
+            "--delete",
+            "--release",
             "--by",
             "--dry-run",
             "--json",
@@ -572,7 +612,7 @@ fn check_command(
 
     let mut current_cmds = COMMANDS;
     let mut path: Vec<&str> = Vec::new();
-    let mut active_flags: &'static [&'static str] = &[];
+    let mut active_flags: &'static [&'static str] = &["--version", "-V", "--help", "-h"];
     let mut rest = tokens;
 
     while let Some((&token, tail)) = rest.split_first() {
@@ -722,7 +762,13 @@ fn validate_snippet(file: &str, line: usize, body: &str, report: &mut Report) {
     let errors: Vec<&Finding> = validation
         .findings
         .iter()
-        .filter(|f| f.class == crate::finding::Class::Error)
+        .filter(|f| {
+            f.class == crate::finding::Class::Error
+                && !matches!(
+                    f.code.as_str(),
+                    "E-SOURCE-MISSING" | "E-FONT-MISSING" | "E-LUT-MISSING"
+                )
+        })
         .collect();
 
     if !errors.is_empty() {

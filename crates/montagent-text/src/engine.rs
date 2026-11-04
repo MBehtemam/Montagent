@@ -54,8 +54,10 @@
 use std::borrow::Cow;
 use std::ops::Range;
 
+use parley::style::{FontVariation, FontVariations};
 use parley::{
-    Alignment, AlignmentOptions, FontFamily, FontFeatures, Layout, LayoutContext, StyleProperty,
+    Alignment, AlignmentOptions, FontFamily, FontFeatures, Layout, LayoutContext,
+    PositionedLayoutItem, StyleProperty,
 };
 use serde::Serialize;
 
@@ -151,6 +153,15 @@ pub struct Run<'a> {
     /// as though wrapped in LRI/RLI…PDI, so it reorders nothing outside itself and never
     /// changes the line's base direction (ADR-0133).
     pub dir: Option<Dir>,
+    /// OpenType feature tags enabled on this run, replacing [`Spec::features`] when `Some`
+    /// (ADR-0223 §2).
+    pub features: Option<Vec<&'a str>>,
+    /// Vertical baseline shift in signed integer pixels (positive shifts upward, i.e. `-y` in
+    /// canvas coordinates; ADR-0223 §3).
+    pub baseline_shift: Option<i64>,
+    /// Static per-run letter spacing in thousandths of the run's `size`, overriding
+    /// [`Spec::letter_spacing`] for graphemes in this run (ADR-0223 §4).
+    pub letter_spacing: Option<i64>,
     /// An optional interlinear annotation attached to this run (ADR-0208).
     pub annotation: Option<Annotation<'a>>,
 }
@@ -219,6 +230,9 @@ pub struct Spec<'a> {
     /// passing through 0 must not swap glyphs mid-shot, so this is not derived from
     /// [`Spec::letter_spacing`].
     pub optional_ligatures_off: bool,
+    /// Element-level OpenType feature tags enabled by default on every run that does not set
+    /// [`Run::features`] (ADR-0223 §2).
+    pub features: Option<Vec<&'a str>>,
 }
 
 /// One line's measurement.
@@ -270,6 +284,12 @@ pub struct MeasuredLine {
     /// direction the painter used rather than guessing one from the characters.
     #[serde(skip)]
     pub rtl: bool,
+    /// The line's effective ascent and descent after per-run `baseline_shift` (ADR-0223 §3.2),
+    /// for callers that union the vertical typographic extent (`query --at`'s `ink_box`).
+    #[serde(skip)]
+    pub shifted_ascent: f64,
+    #[serde(skip)]
+    pub shifted_descent: f64,
 }
 
 /// What one text element occupies.
@@ -443,20 +463,28 @@ pub(crate) fn measured(
     // undeclared key is the same error whether it is the first run or the last, and
     // discovering it half-way through would leave a partial answer to throw away.
     let base_chain = fonts.chain(spec.font)?;
+    let base_variations = fonts.variations(spec.font).to_vec();
     let mut run_chains = Vec::with_capacity(spec.runs.len());
+    let mut run_variations = Vec::with_capacity(spec.runs.len());
     let mut ann_chains = Vec::with_capacity(spec.runs.len());
+    let mut ann_variations = Vec::with_capacity(spec.runs.len());
     for run in spec.runs {
         run_chains.push(match run.font {
             Some(key) => Some(fonts.chain(key)?),
             None => None,
         });
-        ann_chains.push(match &run.annotation {
+        run_variations.push(run.font.map(|key| fonts.variations(key).to_vec()));
+        match &run.annotation {
             Some(ann) => {
                 let key = ann.font.or(run.font).unwrap_or(spec.font);
-                Some(fonts.chain(key)?)
+                ann_chains.push(Some(fonts.chain(key)?));
+                ann_variations.push(fonts.variations(key).to_vec());
             }
-            None => None,
-        });
+            None => {
+                ann_chains.push(None);
+                ann_variations.push(Vec::new());
+            }
+        }
     }
 
     // The element's whole text, with each run's place in it. Runs concatenate: a run
@@ -498,9 +526,12 @@ pub(crate) fn measured(
             .collect();
         let style = Styles {
             base: &base_chain,
+            base_variations: &base_variations,
+            base_features: spec.features.as_deref(),
             size: spec.size,
             runs: spec.runs,
             chains: &run_chains,
+            variations: &run_variations,
             on_line: &on_line,
             optional_ligatures_off: spec.optional_ligatures_off,
         };
@@ -520,14 +551,19 @@ pub(crate) fn measured(
             copies = isolated.copies;
         }
 
-        // ADR-0151's letter spacing, added after shaping so the shaping is untouched: each
-        // grapheme's gap is measured against the size of the run it sits in.
-        let line_gaps = gaps(line.text, spec.letter_spacing, |at| {
-            pieces
+        // ADR-0151 / ADR-0223 §4 letter spacing, added after shaping so the shaping is
+        // untouched: each grapheme's gap is measured against the size and letter_spacing of
+        // the run it sits in (falling back to the element's base).
+        let line_gaps = gaps(line.text, |at| {
+            let run = pieces
                 .iter()
                 .position(|piece| piece.contains(&at))
-                .and_then(|p| spec.runs[on_line[p]].size)
-                .unwrap_or(spec.size)
+                .map(|p| &spec.runs[on_line[p]]);
+            let size = run.and_then(|r| r.size).unwrap_or(spec.size);
+            let ls = run
+                .and_then(|r| r.letter_spacing)
+                .map_or(spec.letter_spacing, |ls| ls as f64);
+            (size, ls)
         });
         let walked = shifts(&layout, &line_gaps, |at| to_laid(&copies, at));
         let (line_shifts, spaced) = (walked.shifts, walked.moved);
@@ -548,10 +584,16 @@ pub(crate) fn measured(
         // read, which is the case the fallback below answers.
         let mut ascent: f64 = 0.0;
         let mut descent: f64 = 0.0;
+        let mut shifted_ascent: f64 = f64::NEG_INFINITY;
+        let mut shifted_descent: f64 = f64::NEG_INFINITY;
         let mut advance = 0.0;
         for placed in layout.lines() {
             advance += f64::from(placed.metrics().advance);
-            for run in placed.runs() {
+            for item in placed.items() {
+                let PositionedLayoutItem::GlyphRun(glyph_run) = item else {
+                    continue;
+                };
+                let run = glyph_run.run();
                 // A run of nothing but isolate marks is not a run the author wrote. Its
                 // metrics are its style's, which an author's run already carries; skipped
                 // all the same, so a face the fallback chose for an invisible mark can never
@@ -559,9 +601,24 @@ pub(crate) fn measured(
                 if only_marks(run.text_range(), &marks) {
                     continue;
                 }
-                ascent = ascent.max(f64::from(run.metrics().ascent));
-                descent = descent.max(f64::from(run.metrics().descent));
+                let run_ascent = f64::from(run.metrics().ascent);
+                let run_descent = f64::from(run.metrics().descent);
+                ascent = ascent.max(run_ascent);
+                descent = descent.max(run_descent);
+                let shift = spec
+                    .runs
+                    .get(glyph_run.style().brush as usize)
+                    .and_then(|r| r.baseline_shift)
+                    .unwrap_or(0) as f64;
+                shifted_ascent = shifted_ascent.max(run_ascent + shift);
+                shifted_descent = shifted_descent.max(run_descent - shift);
             }
+        }
+        if !shifted_ascent.is_finite() {
+            shifted_ascent = ascent;
+        }
+        if !shifted_descent.is_finite() {
+            shifted_descent = descent;
         }
         // An empty line advances by nothing. parley lays an empty paragraph out as one
         // synthetic whitespace cluster — a caret needs somewhere to sit — so its reported
@@ -615,6 +672,9 @@ pub(crate) fn measured(
                 /* quantize */ false,
             );
             builder.push_default(StyleProperty::FontFamily(ann_chain.clone()));
+            builder.push_default(StyleProperty::FontVariations(FontVariations::List(
+                Cow::Borrowed(&ann_variations[run_idx]),
+            )));
             builder.push_default(StyleProperty::FontSize(ann_size as f32));
             builder.push_default(StyleProperty::Brush(run_idx as u32));
             if spec.optional_ligatures_off {
@@ -631,7 +691,10 @@ pub(crate) fn measured(
             ann_layout.break_all_lines(None);
             ann_layout.align(Alignment::Start, AlignmentOptions::default());
 
-            let ann_gaps = gaps(ann.text, spec.letter_spacing, |_| ann_size);
+            let ann_ls = spec.runs[run_idx]
+                .letter_spacing
+                .map_or(spec.letter_spacing, |ls| ls as f64);
+            let ann_gaps = gaps(ann.text, |_| (ann_size, ann_ls));
             let ann_walked = shifts(&ann_layout, &ann_gaps, |at| at);
             let mut ann_ascent: f64 = 0.0;
             let mut ann_descent: f64 = 0.0;
@@ -647,7 +710,7 @@ pub(crate) fn measured(
                 ann_advance = 0.0;
             }
             ann_advance += ann_walked.moved;
-            let ann_ink = line_ink(&ann_layout, &ann_walked.shifts);
+            let ann_ink = line_ink(&ann_layout, &ann_walked.shifts, &[]);
 
             line_anns.push(PendingAnnotation {
                 run: run_idx,
@@ -667,11 +730,13 @@ pub(crate) fn measured(
         }
         pending_annotations.push(line_anns);
 
-        let computed_ink = line_ink(&layout, &line_shifts);
+        let computed_ink = line_ink(&layout, &line_shifts, spec.runs);
         shaped.push(LineMetrics {
             advance,
             ascent,
             descent,
+            shifted_ascent,
+            shifted_descent,
             size,
             stroke_width,
             // Read off the layout rather than guessed from the characters. Under a `dir`
@@ -764,6 +829,8 @@ pub(crate) fn measured(
                 .map(|at| line.start + at)
                 .collect(),
             rtl: shaped.rtl,
+            shifted_ascent: shaped.shifted_ascent,
+            shifted_descent: shaped.shifted_descent,
         });
         slot_top += slot;
     }
@@ -1076,9 +1143,12 @@ fn only_marks(range: Range<usize>, marks: &[Range<usize>]) -> bool {
 /// What one line's layout is styled from — the same for its plain and its isolated string.
 struct Styles<'s, 'a> {
     base: &'s FontFamily<'static>,
+    base_variations: &'s [FontVariation],
+    base_features: Option<&'s [&'a str]>,
     size: i64,
     runs: &'s [Run<'a>],
     chains: &'s [Option<FontFamily<'static>>],
+    variations: &'s [Option<Vec<FontVariation>>],
     on_line: &'s [usize],
     /// ADR-0151's rule, read from the file by the caller: see [`Spec::optional_ligatures_off`].
     optional_ligatures_off: bool,
@@ -1089,6 +1159,17 @@ struct Styles<'s, 'a> {
 ///
 /// In `font-feature-settings` syntax, which parley parses; its `Tag` type is not exported.
 const OPTIONAL_LIGATURES_OFF: &str = r#""liga" 0, "clig" 0, "dlig" 0"#;
+
+fn feature_settings(features: &[&str], optional_ligatures_off: bool) -> String {
+    let mut parts = Vec::with_capacity(features.len() + usize::from(optional_ligatures_off));
+    if optional_ligatures_off {
+        parts.push(OPTIONAL_LIGATURES_OFF.to_string());
+    }
+    for tag in features {
+        parts.push(format!(r#""{tag}" 1"#));
+    }
+    parts.join(", ")
+}
 
 impl Styles<'_, '_> {
     fn lay_out(
@@ -1101,10 +1182,24 @@ impl Styles<'_, '_> {
         let mut builder =
             layout_context.ranged_builder(fonts.context(), text, 1.0, /* quantize */ false);
         builder.push_default(StyleProperty::FontFamily(self.base.clone()));
+        builder.push_default(StyleProperty::FontVariations(FontVariations::List(
+            Cow::Borrowed(self.base_variations),
+        )));
         builder.push_default(StyleProperty::FontSize(self.size as f32));
+        let nj_ranges = if self.optional_ligatures_off {
+            non_joining(text)
+        } else {
+            Vec::new()
+        };
         for (&i, range) in self.on_line.iter().zip(&laid.ranges) {
             if let Some(chain) = &self.chains[i] {
                 builder.push(StyleProperty::FontFamily(chain.clone()), range.clone());
+            }
+            if let Some(vars) = &self.variations[i] {
+                builder.push(
+                    StyleProperty::FontVariations(FontVariations::List(Cow::Borrowed(vars))),
+                    range.clone(),
+                );
             }
             if let Some(size) = self.runs[i].size {
                 builder.push(StyleProperty::FontSize(size as f32), range.clone());
@@ -1119,18 +1214,45 @@ impl Styles<'_, '_> {
             // twice, but only the isolated layout is kept; the plain one is read for its
             // direction and nothing else.)
             builder.push(StyleProperty::Brush(i as u32), range.clone());
-        }
-        // ADR-0153 §3: off only in the script runs that are not a joining script, so an
-        // Arabic lam-alef a font files under `liga` survives. A script boundary is already a
-        // shaping boundary, so this splits no shaping item that was not split anyway.
-        if self.optional_ligatures_off {
-            for range in non_joining(text) {
+
+            // ADR-0223 §2 OpenType features, combined with ADR-0153 §3's optional-ligatures-off
+            // rule (off only in the script runs that are not a joining script, so an Arabic
+            // lam-alef a font files under `liga` survives).
+            let active_features = self.runs[i]
+                .features
+                .as_deref()
+                .or(self.base_features)
+                .unwrap_or(&[]);
+            if !active_features.is_empty() {
                 builder.push(
-                    StyleProperty::FontFeatures(FontFeatures::Source(Cow::Borrowed(
-                        OPTIONAL_LIGATURES_OFF,
+                    StyleProperty::FontFeatures(FontFeatures::Source(Cow::Owned(
+                        feature_settings(active_features, false),
                     ))),
-                    range,
+                    range.clone(),
                 );
+            }
+            if self.optional_ligatures_off {
+                for nj in &nj_ranges {
+                    let start = nj.start.max(range.start);
+                    let end = nj.end.min(range.end);
+                    if start < end {
+                        if active_features.is_empty() {
+                            builder.push(
+                                StyleProperty::FontFeatures(FontFeatures::Source(Cow::Borrowed(
+                                    OPTIONAL_LIGATURES_OFF,
+                                ))),
+                                start..end,
+                            );
+                        } else {
+                            builder.push(
+                                StyleProperty::FontFeatures(FontFeatures::Source(Cow::Owned(
+                                    feature_settings(active_features, true),
+                                ))),
+                                start..end,
+                            );
+                        }
+                    }
+                }
             }
         }
         let mut layout: Layout<u32> = builder.build(text);
@@ -1147,6 +1269,8 @@ struct LineMetrics {
     advance: f64,
     ascent: f64,
     descent: f64,
+    shifted_ascent: f64,
+    shifted_descent: f64,
     size: i64,
     stroke_width: i64,
     /// This line's own base direction, for the alignment offset (ADR-0007's `start`/`end`).

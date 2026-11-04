@@ -104,6 +104,17 @@ fn subject(property: &str, records: Value) -> Value {
         element[property] = records;
         return element;
     }
+    // A motion path forbids `x` and `y` (`E-MOTION-PATH-XY`, ADR-0218 §2).
+    if property == "motion_path.offset" {
+        element.as_object_mut().unwrap().remove("x");
+        element.as_object_mut().unwrap().remove("y");
+        element["motion_path"] = json!({
+            "closed": false,
+            "points": [{"at": [350, 960]}, {"at": [730, 960]}],
+            "offset": records,
+        });
+        return element;
+    }
     // A gradient's parameter is a nested path, `fill.angle` (ADR-0149 §6): the paint holds a
     // gradient whose other parameters are literals.
     match property.split_once('.') {
@@ -112,6 +123,8 @@ fn subject(property: &str, records: Value) -> Value {
             let mut gradient = match parameter {
                 "center" | "radius" => json!({"gradient": "radial", "center": [0.5, 0.5],
                                               "radius": 1}),
+                "focal" => json!({"gradient": "two_point_conical", "center": [0.5, 0.5],
+                                  "radius": 1, "focal": [0.25, 0.25]}),
                 _ => json!({"gradient": "linear", "angle": 90}),
             };
             gradient["stops"] = values(Kind::Stops).0;
@@ -174,7 +187,9 @@ fn effect(name: &str) -> Value {
                    "height": 400})
         }
         "tint" => json!({"name": "tint", "color": "#FF8800", "amount": 0.5}),
-        "saturation" | "brightness" | "contrast" => json!({"name": name, "amount": 0.5}),
+        "saturation" | "brightness" | "contrast" | "vibrance" | "invert" => {
+            json!({"name": name, "amount": 0.5})
+        }
         "chroma" => {
             json!({"name": "chroma", "color": "#00FF00", "tolerance": 0.2, "softness": 0.1,
                    "spill": 0.1})
@@ -183,6 +198,35 @@ fn effect(name: &str) -> Value {
         "posterize" => json!({"name": "posterize", "levels": 8}),
         "glow" => json!({"name": "glow", "threshold": 0.5, "radius": 10, "intensity": 1}),
         "directional_blur" => json!({"name": "directional_blur", "angle": 30, "length": 12}),
+        "mosaic" => json!({"name": "mosaic", "blocks": [8, 8]}),
+        "radial_blur" => {
+            json!({"name": "radial_blur", "kind": "zoom", "center": [0.5, 0.5], "amount": 0.4})
+        }
+        "find_edges" => json!({"name": "find_edges", "invert": false}),
+        "emboss" => json!({"name": "emboss", "angle": 45, "height": 2, "contrast": 1}),
+        "sharpen" => json!({"name": "sharpen", "amount": 1}),
+        "twirl" => {
+            json!({"name": "twirl", "center": [0.5, 0.5], "radius": 100, "angle": 90})
+        }
+        "bulge" => {
+            json!({"name": "bulge", "center": [0.5, 0.5], "radius": 100, "height": 0.5})
+        }
+        "optics_compensation" => {
+            json!({"name": "optics_compensation", "fov": 60, "reverse": false})
+        }
+        "offset" => json!({"name": "offset", "shift_x": 10, "shift_y": 10, "wrap": true}),
+        "hue_rotate" => json!({"name": "hue_rotate", "angle": 45}),
+        "outline" => json!({"name": "outline", "width": 4, "color": "#FFFFFF", "opacity": 0.5}),
+        "color_overlay" => json!({"name": "color_overlay", "color": "#FF0000", "opacity": 0.5}),
+        "inner_shadow" => {
+            json!({"name": "inner_shadow", "dx": 4, "dy": 4, "radius": 6, "color": "#000000",
+                   "opacity": 0.5})
+        }
+        "matte" => json!({"name": "matte", "choke": 0.0, "feather": 0.0, "contrast": 1.0}),
+        "luma_key" => {
+            json!({"name": "luma_key", "threshold": 0.0, "tolerance": 0.1, "softness": 0.0,
+                   "invert": false})
+        }
         other => panic!("no static `{other}` for this test to key a parameter of"),
     }
 }
@@ -254,7 +298,11 @@ fn every_animatable_property_is_carried_by_every_tool() {
     );
     for (property, kind, key, member) in &every {
         let (kind, key, member) = (*kind, key.as_str(), *member);
-        let (a, b) = values(kind);
+        let (a, b) = match (kind, key) {
+            (Kind::Pair, "blocks") => (json!([4, 4]), json!([12, 12])),
+            (Kind::Pair, "center") => (json!([0.4, 0.4]), json!([0.8, 0.8])),
+            _ => values(kind),
+        };
         let keyed = keyed_subject(
             key,
             member,
@@ -293,8 +341,11 @@ fn every_animatable_property_is_carried_by_every_tool() {
         // A gradient's parameter is printed inside its paint, resolved: the midpoint is
         // neither end.
         let (printed_as, parameter) = match member {
-            // A text's curve is printed under its own nested name (ADR-0161).
-            None if property.starts_with("path.") => (property.as_str(), ""),
+            // A text's curve is printed under its own nested name (ADR-0161), as is a motion
+            // path's offset (ADR-0218).
+            None if property.starts_with("path.") || property.starts_with("motion_path.") => {
+                (property.as_str(), "")
+            }
             None => property.split_once('.').unwrap_or((property, "")),
             Some(_) => (property.as_str(), ""),
         };

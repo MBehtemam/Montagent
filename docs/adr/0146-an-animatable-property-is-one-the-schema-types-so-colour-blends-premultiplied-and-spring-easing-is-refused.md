@@ -27,6 +27,8 @@ amends: 0012 ("transform properties only" is replaced by a closed list the schem
 >   clamps in the resolving function
 > - [ADR-0218](0218-a-visual-element-moves-along-its-own-motion-path-in-place-of-x-and-y-with-arc-length-offset-and-orient.md) — `motion_path.offset`
 >   joins the one derived list (`[0, 1]` on an open path via `E-MOTION-PATH-OFFSET-RANGE`, `[-1, 2]` on a closed path, clamping overshoot in the resolving function); `motion_path.points` stays static
+>
+> Also amended by [ADR-0235](0235-8-bit-srgb-is-the-sole-internal-buffer-and-16-32-bit-float-buffers-and-linear-light-blending-are-refused.md).
 
 [#669](https://github.com/MBehtemam/Montagent/issues/669), on the map
 [#663](https://github.com/MBehtemam/Montagent/issues/663).

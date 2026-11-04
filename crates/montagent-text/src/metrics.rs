@@ -16,14 +16,13 @@
 //! Read, never judged, on [`names`](crate::names)'s rule: which face is the chrome face and
 //! what a label may spend are the core's.
 
-use skrifa::instance::{LocationRef, Size};
-use skrifa::metrics::GlyphMetrics;
+use skrifa::instance::{Location, Size};
 use skrifa::{FontRef, GlyphId, MetadataProvider};
 
 /// One face's em, vertical metrics and advances, in the file's own font units.
 pub struct FaceMetrics<'a> {
     font: FontRef<'a>,
-    glyphs: GlyphMetrics<'a>,
+    location: Location,
     units_per_em: u16,
     ascender: i32,
     descender: i32,
@@ -35,20 +34,31 @@ impl<'a> FaceMetrics<'a> {
     ///
     /// The error is one sentence about the bytes, like [`crate::Charmap::of`]'s.
     pub fn read(bytes: &'a [u8], index: Option<u32>) -> Result<FaceMetrics<'a>, String> {
+        Self::read_with_axes(bytes, index, &[])
+    }
+
+    /// The face at `index` of `bytes` evaluated at the given variation `axes` coordinates
+    /// (ADR-0223).
+    pub fn read_with_axes(
+        bytes: &'a [u8],
+        index: Option<u32>,
+        axes: &[(&str, f32)],
+    ) -> Result<FaceMetrics<'a>, String> {
         let index = index.unwrap_or(0);
         let font = FontRef::from_index(bytes, index)
             .map_err(|e| format!("face {index} could not be read ({e})"))?;
-        // Unscaled, at the default location: the numbers the file stores, which are
-        // integers. `skrifa` hands them over as `f32`, which holds every `i16` exactly, so
-        // the conversion below is a change of type and never a rounding.
-        let metrics = font.metrics(Size::unscaled(), LocationRef::default());
-        let glyphs = font.glyph_metrics(Size::unscaled(), LocationRef::default());
+        // Unscaled, at the requested variation location (default when `axes` is empty): the
+        // numbers the file stores, which are integers. `skrifa` hands them over as `f32`,
+        // which holds every `i16` exactly, so the conversion below is a change of type and
+        // never a rounding.
+        let location = font.axes().location(axes.iter().copied());
+        let metrics = font.metrics(Size::unscaled(), &location);
         Ok(FaceMetrics {
             units_per_em: metrics.units_per_em,
             ascender: metrics.ascent as i32,
             descender: metrics.descent as i32,
             line_gap: metrics.leading as i32,
-            glyphs,
+            location,
             font,
         })
     }
@@ -81,6 +91,7 @@ impl<'a> FaceMetrics<'a> {
     /// would under-fit exactly the label that most needs the room.
     pub fn advance(&self, text: &str) -> u32 {
         let charmap = self.font.charmap();
+        let glyphs = self.font.glyph_metrics(Size::unscaled(), &self.location);
         text.chars()
             .map(|c| {
                 let glyph = charmap.map(c).unwrap_or(GlyphId::NOTDEF);
@@ -88,9 +99,9 @@ impl<'a> FaceMetrics<'a> {
                 // `None` is a glyph id past the font's count — a malformed `cmap` — and what
                 // is drawn for that is `.notdef`, so it advances as `.notdef` does, never by
                 // nothing.
-                self.glyphs
+                glyphs
                     .advance_width(glyph)
-                    .or_else(|| self.glyphs.advance_width(GlyphId::NOTDEF))
+                    .or_else(|| glyphs.advance_width(GlyphId::NOTDEF))
                     .unwrap_or(0.0) as u32
             })
             .sum()

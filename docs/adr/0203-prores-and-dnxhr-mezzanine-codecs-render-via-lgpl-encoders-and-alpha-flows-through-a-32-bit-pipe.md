@@ -9,6 +9,8 @@ amends: 0009 (spawned ffmpeg), 0021 (odd dimension padding), 0115 (ffmpeg qualif
 > ProRes (`prores_ks`) and DNxHR (`dnxhd`) deliverables share the explicit BT.709 `scale` +
 > `setparams` filtergraph and `-colorspace bt709 -color_primaries bt709 -color_trc bt709 -color_range tv`
 > (`1-1-1`) output flags with H.264 deliverables.
+>
+> Also amended by [ADR-0229](0229-image-sequence-export-and-png-in-mov-are-refused-from-render-and-prores-4444-is-the-sole-alpha-deliverable.md), [ADR-0233](0233-3d-models-and-multichannel-passes-are-refused-as-native-sources-and-3d-scenes-pre-render-via-headless-recipes.md), [ADR-0238](0238-openexr-sequences-and-cinema-raw-formats-are-refused-and-conform-upstream-to-prores-4444.md).
 
 [#983](https://github.com/MBehtemam/Montagent/issues/983), [#1002](https://github.com/MBehtemam/Montagent/issues/1002), [#1004](https://github.com/MBehtemam/Montagent/issues/1004).
 

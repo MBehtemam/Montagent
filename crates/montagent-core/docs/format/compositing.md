@@ -14,10 +14,15 @@ two disagree.
   element's element-level `color` and `stroke`. Every other colour field takes a colour only: run and
   highlight paint, the project `background`, and `shadow`, `tint` and `chroma` colours. For a
   gradient background, put a full-frame `rect` with a gradient `fill` at the bottom.
-- **A gradient is `linear` or `radial`, and every parameter is required** (ADR-0149):
-  `{"gradient": "linear", "angle": 90, "stops": [...]}` or
-  `{"gradient": "radial", "center": [0.5, 0.5], "radius": 1, "stops": [...]}`. `linear`
-  refuses `center` and `radius`; `radial` refuses `angle`. Nothing defaults.
+- **A gradient is `linear`, `radial`, `sweep` or `two_point_conical`, and every parameter is
+  required** (ADR-0149, ADR-0222):
+  `{"gradient": "linear", "angle": 90, "stops": [...]}`,
+  `{"gradient": "radial", "center": [0.5, 0.5], "radius": 1, "stops": [...]}`,
+  `{"gradient": "sweep", "center": [0.5, 0.5], "angle": 0, "stops": [...]}`, or
+  `{"gradient": "two_point_conical", "center": [0.5, 0.5], "radius": 1, "focal": [0.35, 0.35], "stops": [...]}`.
+  Each kind refuses the others' keys (`linear` refuses `center`, `radius` and `focal`; `radial`
+  refuses `angle` and `focal`; `sweep` refuses `radius` and `focal`; `two_point_conical`
+  refuses `angle`). Nothing defaults.
 - **A stop is `{"offset", "color"}`**, `offset` from `0` to `1`, `color` a colour whose alpha
   is the stop's opacity. At least two stops, no upper limit. Offsets never decrease
   (`E-GRADIENT-STOP-ORDER`, naming the first pair out of order); equal offsets are legal and
@@ -37,31 +42,47 @@ two disagree.
   fractions, so on a box that is not square it draws as an ellipse. `center: [0.5, 0.5]`,
   `radius: 1` is CSS's default radial gradient. `radius: 0` paints the last stop's colour
   over the whole box.
+- **`sweep`** (ADR-0222): `center` is `[fx, fy]` in box fractions; `angle` is in degrees,
+  CSS `conic-gradient` convention — `0` starts at 12 o'clock (top, `[cx, cy − ε]`) and sweeps
+  `360°` clockwise, so `90` starts at 3 o'clock, `180` at 6 o'clock, and `270` at 9 o'clock.
+  The rotation happens in unit-box coordinates before scaling to `(W, H)`, so on a non-square
+  box `45°` points toward the top-right corner `[1, 0]`. When the first and last stops differ,
+  a hard seam sits along `angle`; match the first and last stop colours for a continuous ring.
+- **`two_point_conical`** (ADR-0222): `center` and `focal` are `[fx, fy]` in box fractions,
+  and `radius` (≥ 0) is a fraction of the distance from `center` to the box's farthest corner
+  in box fractions (`R = radius × farthest_corner(center)`). Stop offset `0` sits at `focal`
+  (inner radius `0`), and stop offset `1` sits on the circle of radius `R` around `center`,
+  giving an off-axis specular highlight or 3D sphere shading. When `focal == center`, it draws
+  identically to `radial`. When `focal` lies on or outside the outer circle (`|focal − center| ≥ R`),
+  the renderer clamps `focal` along the ray from `center` to `0.999 × R` so the entire box stays
+  painted (`query --at` still prints the unclamped `focal` from the document). `radius: 0`
+  paints the last stop's colour over the whole box.
 - **Past the ends the first and last colours extend; colour blends in sRGB with premultiplied
   alpha** (ADR-0149), the rule a keyed colour uses across time. A fade to `#00000000` keeps
   its hue rather than passing through grey. There is no repeat or mirror.
-- **A gradient animates in place** (ADR-0149): `angle`, `center`, `radius` and `stops` each
-  take a literal or a keyframe list of their own type, with their own `ease`. `stops` as a
-  keyframe list has a whole stop list as each `v`: every `v` holds the same number of stops
-  (`E-GRADIENT-STOP-COUNT`, naming the first record that differs), and stop *i* blends with
-  stop *i*, its `offset` as a number and its `color` premultiplied. The kind never animates.
-  A paint's keyframe list holds colours, never a gradient, and never a mix: both are schema
-  errors. For flat to gradient, write the flat colour as a gradient whose stops share it, then
-  key the stops:
+- **A gradient animates in place** (ADR-0149, ADR-0222): `angle`, `center`, `radius`, `focal`
+  and `stops` each take a literal or a keyframe list of their own type, with their own `ease`.
+  `stops` as a keyframe list has a whole stop list as each `v`: every `v` holds the same number
+  of stops (`E-GRADIENT-STOP-COUNT`, naming the first record that differs), and stop *i* blends
+  with stop *i*, its `offset` as a number and its `color` premultiplied. The kind never
+  animates. A paint's keyframe list holds colours, never a gradient, and never a mix: both are
+  schema errors. For flat to gradient, write the flat colour as a gradient whose stops share it,
+  then key the stops:
   `{"gradient": "linear", "angle": 90, "stops": [{"t": 0, "v": [{"offset": 0, "color": "#FF3366"}, {"offset": 1, "color": "#FF3366"}]}, {"t": 800, "v": [{"offset": 0, "color": "#FF3366"}, {"offset": 1, "color": "#3366FF"}], "ease": "ease-out"}]}`.
 - **A bezier may carry an offset past its neighbour**: each resolved offset is clamped to
   `0..1`, then raised to the largest offset before it, and a raised stop keeps its own colour,
-  so a crossing is a hard edge. A resolved `radius` at or below `0` paints the last stop's
-  colour over the box. `query --at` prints what is drawn, always a legal literal.
+  so a crossing is a hard edge. A resolved `radius` at or below `0` on `radial` or
+  `two_point_conical` paints the last stop's colour over the box. `query --at` prints what is
+  drawn, always a legal literal.
 - **Two reviews** (ADR-0149): `R-GRADIENT-ONE-COLOUR`, a gradient whose resolved paint is a
   single colour at every frame `render` paints in the element's range (its stops share one, or
-  its `radius` stays at or below `0`); a flat-to-gradient animation never fires it. And
-  `R-TEXT-PAINT-OVERRIDDEN`, a text `color` or `stroke` that is keyed or a gradient and that
-  every run overrides, so it is never drawn. A run's own colour still beats the element's
-  gradient, run by run.
+  its `radius` on `radial` or `two_point_conical` stays at or below `0`); a flat-to-gradient
+  animation never fires it. And `R-TEXT-PAINT-OVERRIDDEN`, a text `color` or `stroke` that is
+  keyed or a gradient and that every run overrides, so it is never drawn. A run's own colour
+  still beats the element's gradient, run by run.
 - **`query --at` prints a gradient as a literal you can paste back**: kind, resolved
   parameters and stops, colours as hex, under the paint's own name (`fill`). `validate` and
-  the contact sheet name a nested list by its path: `fill.angle`, `stroke.stops`.
+  the contact sheet name a nested list by its path: `fill.angle`, `fill.focal`, `stroke.stops`.
 - **`shift` carries and splits every nested list.** A split writes the resolved value, so it
   is refused (`E-SHIFT-SPLIT-UNWRITABLE`, naming `fill.stops` and the instant) where the
   resolved offsets are out of `0..1` or crossed, tested before the fix above; splitting
@@ -85,9 +106,11 @@ two disagree.
   so `"width": [{"t": 0, "v": 0}, {"t": 600, "v": 400, "ease": "ease-out"}]` on a 400-wide
   element wipes it on from the left edge. One that hides every frame is
   `E-NOT-PAINTED-NO-EXTENT`, naming the mask; an inverted one of no size hides nothing.
-- **`blend` is how the finished element composites into what is below it** (ADR-0147). One
-  of five words: `normal`, `multiply`, `screen`, `overlay`, `add`. It sits beside `opacity`
-  on `rect`, `ellipse`, `text`, `image` and `video`; `audio` and `transition` refuse it.
+- **`blend` is how the finished element composites into what is below it** (ADR-0147, ADR-0221). One
+  of seventeen words: `normal`, `multiply`, `screen`, `overlay`, `add`, `darken`, `lighten`,
+  `color_dodge`, `color_burn`, `hard_light`, `soft_light`, `difference`, `exclusion`, `hue`,
+  `saturation`, `color`, `luminosity`. It sits beside `opacity`
+  on `rect`, `ellipse`, `path`, `text`, `image`, `video` and `nest`; `audio` and `transition` refuse it.
   Omitted means `normal`, and a written `"blend": "normal"` is legal and draws the same
   bytes. It is static and never keyframed: fade a blend in through `opacity`. The order is
   fixed: the element is drawn through its `effects` (masks and shadow included), `opacity`
@@ -187,75 +210,6 @@ two disagree.
   absolute control points, in box pixels, under `masks`.
 - **A mask never names another element's outline** (ADR-0150): two masks that want one
   outline each carry a copy of its `points`.
-
-## Grain
-
-- **`grain` is film grain** (ADR-0156):
-  `{"name": "grain", "seed": 7, "amount": 0.2, "size": 2, "mono": true}`. Every key is
-  required. `seed` is an integer from `0` to `2147483647`; `amount` runs `0`–`1`; `size` is
-  an integer from `1` to `8`; `mono` is a boolean. Only `amount` may be keyed: a keyframe
-  list on `seed`, `size` or `mono` is a schema error. `amount: 0` paints the same bytes as no
-  member, and no finding flags it, so a grain can fade in from `0`.
-- **Cells sit in element space** (ADR-0156). Each `size`×`size` cell of unscaled element
-  units, counted from the box's top-left, shares one draw, so the cells move, turn and scale
-  with the element. With `mono: true` one draw offsets R, G and B alike (luma grain); with
-  `false` each channel draws on its own (colour grain). The draw `d`, `0`–`255`, offsets the
-  non-premultiplied colour by `amount × (2d − 255) / 255`, clamped to `0`–`1`. Alpha never
-  changes: a transparent pixel stays transparent, so a `rect` keeps its edges, and `grain`
-  has no reach.
-- **The seed re-rolls on every output frame** (ADR-0156 §3). The draw is a fixed integer
-  hash of the seed, the cell and the element's **local frame**: the frame being painted,
-  less the first frame the element's `start` lets it paint (`⌈start × fps / 1000⌉`). So the
-  re-roll rate follows `fps`; an element moved by N whole frames paints the same pixels N
-  frames later; and under `motion_blur` every sample of one frame shares that frame's draw.
-  The hash is SplitMix64's step (add `0x9E3779B97F4A7C15`, then its finaliser) applied in
-  turn to the seed, then folding in by exclusive or the local frame, the cell row, the cell
-  column and the channel (`0`, `1`, `2`; `mono` draws `0`), as 64-bit two's complement; `d`
-  is the top byte. `query --at` prints each grain's resolved values and its local frame.
-- **A texture is a `rect` with `grain` and a `blend`** (ADR-0156 §1). There is no element
-  that paints from nothing: a mid-grey `rect` (`#808080`) with `grain`, blended `overlay`
-  over footage, adds grain to the footage and leaves it otherwise as it was.
-- **`R-GRAIN-SEED-SHARED` (`review`)** (ADR-0156): two `grain` members with the same `seed`,
-  `size` and `mono`, on elements visible together whose `start`s fall on the same frame
-  (one element's list included), draw the same pattern on every frame, a locked texture.
-  Change one `seed`. `amount` is not compared.
-
-## Named effects
-
-- **`posterize`, `glow` and `directional_blur` are `effects` members like `grain`**
-  (ADR-0156): applied in list order, each filtering the element's own pixels plus a reach it
-  declares. Every key is required and every number is animatable; a value out of range is a
-  schema error, in a static value and in every keyframe record.
-- **`posterize`: `{"levels": 2–256}`, an integer.** Per channel, on non-premultiplied sRGB
-  values from 0 to 1, `q = round(v × (levels − 1)) / (levels − 1)`, ties away from zero, so
-  `levels: 2` sends 0.49 to 0 and 0.5 to 1. Alpha is untouched, and `256` paints the same
-  bytes as no member. A keyed `levels` resolves to a continuous value and is rounded half away
-  from zero, as `shift` rounds.
-- **`glow`: `{"threshold": 0–1, "radius": ≥ 0, "intensity": 0–4}`, a threshold bloom.** The
-  bright-pass scales each pixel by `max(0, luma − threshold) / (1 − threshold)`, luma Rec.709
-  on the non-premultiplied sRGB values, alpha with the colour. That bright part is blurred
-  with σ = `radius` / 2, exactly as `blur` reads a radius, multiplied by `intensity`, and
-  added (`Plus`) over the element inside its own layer, before `blend`. Its reach is `blur`'s
-  3σ. `threshold: 1` (an empty bright-pass) and `intensity: 0` paint the same bytes as no
-  member. There is no `color`: a coloured glow from the alpha is a zero-offset `shadow`.
-- **`directional_blur`: `{"angle": degrees, "length": 0–4096}`, a centred smear.** `angle` 0
-  smears horizontally and positive turns clockwise, as `rotation` does, so 0 and 180 give the
-  same smear. It is measured in the element's own space: it turns with the element's
-  `rotation`, mirrors under a flip, and `length` is in element pixels, so it grows with
-  `scale`. It takes `ceil(length) + 1` samples, evenly spaced along the line through each
-  pixel and centred on it, read bilinearly and weighted equally; `length: 0` paints the same
-  bytes as no member. Its reach is `(|cos θ| × length / 2, |sin θ| × length / 2)`, rounded up
-  to whole pixels. This is not motion blur: it smears whether or not the element moves.
-- **A keyed `length` steps the sample count**, since `ceil(length) + 1` is a whole number, and
-  **a keyed `angle` interpolates literally**: `350 → 10` sweeps the long way round, through
-  180. Write `350 → 370` for the short way.
-- **The bound criterion** (ADR-0156): a member keeps the element's bounds when it stays inside
-  the box or a reach it declares as a formula of its parameters. A colour filter that maps
-  transparent black to transparent black keeps it, and `posterize` does. None of this is
-  visible: the frame is the same bytes either way.
-- **Cost**: `directional_blur` reads `ceil(length) + 1` pixels for every pixel it paints, so a
-  long smear over a full-frame element is slow; `glow` costs more than a `blur` of the same
-  radius.
 
 ## Motion blur
 

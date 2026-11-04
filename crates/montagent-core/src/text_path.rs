@@ -218,6 +218,7 @@ pub(crate) fn bend(element: &Value, placement: &Placement, t: (i128, i128)) -> O
                 body: pose.map_or(usize::MAX - index, |pose| pose.body),
                 matrix: matrix.map(|v| v as f32),
                 opacity: pose.map_or(1.0, |pose| pose.opacity),
+                blur: pose.map_or(0.0, |pose| pose.blur),
             })
         })
         .collect();
@@ -243,7 +244,8 @@ pub(crate) fn place(
     t: (i128, i128),
 ) -> Result<Placement, String> {
     use crate::verbs::measure::{
-        Measurable, align_of, letter_spacing_read, optional_ligatures_off, register, runs_of,
+        Measurable, align_of, features_of, letter_spacing_read, optional_ligatures_off, register,
+        runs_of,
     };
     let style = Measurable::of(element)?;
     let mut fonts = montagent_text::Fonts::new();
@@ -264,6 +266,7 @@ pub(crate) fn place(
             align: align_of(element),
             letter_spacing: letter_spacing_read(element, t),
             optional_ligatures_off: optional_ligatures_off(element),
+            features: features_of(element),
         },
     )
     .map_err(|e| e.to_string())

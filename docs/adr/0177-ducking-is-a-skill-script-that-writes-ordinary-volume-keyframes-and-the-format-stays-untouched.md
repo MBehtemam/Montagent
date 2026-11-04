@@ -6,6 +6,8 @@ amends: 0055 (discharges its deferral: the door it left open for "a write tool t
 # Ducking is a skill script that writes ordinary `volume` keyframes, and the format stays untouched
 
 > **Amended by [ADR-0217](0217-motion-bakes-and-keyframe-assistants-enter-in-one-keyframes-script-auto-colour-is-refused-and-a-skill-script-with-its-spec-is-a-template.md)**: codifies the general skill-script contract in `skills/README.md` (`<script>.py <project> <spec>`, stdlib Python + lazy `ffmpeg`, idempotent replacement, `--check` where media can drift, ending in `montagent validate` and guarded by `drift-guard:`) and extends it to `skills/montagent-motion/scripts/keyframes.py` for motion bakes and keyframe assistants.
+>
+> Also amended by [ADR-0234](0234-layered-psd-ai-import-and-scene-edit-detection-are-skill-scripts-and-source-interpretation-stays-upstream.md).
 
 [Does the ducking write tool enter now, and what does it read and write?](https://github.com/MBehtemam/Montagent/issues/804)
 on the audio map ([#795](https://github.com/MBehtemam/Montagent/issues/795)).

@@ -24,23 +24,70 @@ use crate::permissive::Loose;
 use crate::report::Report;
 use crate::verbs::measure::written_letter_spacings;
 
-/// `R-SPACING-SUPPRESSED`, over every `text` element in the document.
+/// `E-RUN-LETTER-SPACING-CONFLICT` and `R-SPACING-SUPPRESSED`, over every `text` element in
+/// the document.
 pub fn check(document: &Loose, report: &mut Report) {
     for (track, element) in document.elements_in_tracks() {
         if element.get("type").and_then(Value::as_str) != Some("text") {
             continue;
         }
-        if written_letter_spacings(element).iter().all(|&v| v == 0) {
+        let subject = subject_of(element.get("id").and_then(Value::as_str));
+        let runs = crate::verbs::measure::runs_array(element);
+
+        if element.get("letter_spacing").is_some_and(Value::is_array) {
+            for (index, run) in runs.iter().enumerate() {
+                if run.get("letter_spacing").and_then(Value::as_i64).is_some() {
+                    let text = run.get("text").and_then(Value::as_str).unwrap_or_default();
+                    let finding = Finding::new("E-RUN-LETTER-SPACING-CONFLICT")
+                        .at_file(document.path())
+                        .at_element(subject.clone())
+                        .field("element", json!(subject))
+                        .field("run", json!(index + 1))
+                        .field("text", json!(text));
+                    report.push(match track {
+                        Some(track) => finding.at_track(track),
+                        None => finding,
+                    });
+                }
+            }
+        }
+
+        let elem_nonzero = written_letter_spacings(element).iter().any(|&v| v != 0);
+        let mut text = String::new();
+        let mut run_spacings: Vec<(std::ops::Range<usize>, Option<i64>)> =
+            Vec::with_capacity(runs.len());
+        for run in runs {
+            let Some(s) = run.get("text").and_then(Value::as_str) else {
+                continue;
+            };
+            let start = text.len();
+            text.push_str(s);
+            let end = text.len();
+            let ls = run.get("letter_spacing").and_then(Value::as_i64);
+            run_spacings.push((start..end, ls));
+        }
+
+        let any_nonzero = elem_nonzero
+            || run_spacings
+                .iter()
+                .any(|(_, ls)| ls.is_some_and(|v| v != 0));
+        if !any_nonzero {
             continue;
         }
-        let text: String = crate::verbs::measure::runs_array(element)
-            .iter()
-            .filter_map(|run| run.get("text").and_then(Value::as_str))
-            .collect();
-        let Some(found) = montagent_text::first_suppressed(&text) else {
+
+        let Some(found) = montagent_text::first_suppressed_where(&text, |offset| {
+            let run_ls = run_spacings
+                .iter()
+                .find(|(range, _)| range.contains(&offset))
+                .and_then(|(_, ls)| *ls);
+            match run_ls {
+                Some(v) => v != 0,
+                None => elem_nonzero,
+            }
+        }) else {
             continue;
         };
-        let subject = subject_of(element.get("id").and_then(Value::as_str));
+
         let finding = Finding::new("R-SPACING-SUPPRESSED")
             .at_file(document.path())
             .at_element(subject.clone())

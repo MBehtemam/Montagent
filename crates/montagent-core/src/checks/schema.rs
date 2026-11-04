@@ -135,7 +135,9 @@ pub fn findings(document: &Loose) -> Vec<Finding> {
             if let Some(fault) = Fault::of::<Element>(element) {
                 // A member written in the other effect list's vocabulary is the audio
                 // effects check's to report, with the list it belongs in (ADR-0169).
-                if crate::checks::audio_effects::speaks_for(element, &fault.reason) {
+                if crate::checks::audio_effects::speaks_for(element, &fault.reason)
+                    || crate::checks::frame_blend::speaks_for(element, &fault.reason)
+                {
                     spoken_for = true;
                     continue;
                 }
@@ -240,7 +242,14 @@ impl Fault {
                 if here().any(|named| named.value.as_str().is_some_and(|v| reason.contains(v))) {
                     return None;
                 }
-                Finding::new("E-SCHEMA").field("reason", json!(reason))
+                let code = if reason.starts_with("`matte`'s ") {
+                    "E-MATTE-BOUNDS"
+                } else if reason.starts_with("`luma_key`'s ") {
+                    "E-LUMA-KEY-BOUNDS"
+                } else {
+                    "E-SCHEMA"
+                };
+                Finding::new(code).field("reason", json!(reason))
             }
         };
 

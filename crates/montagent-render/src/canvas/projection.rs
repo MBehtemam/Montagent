@@ -115,7 +115,9 @@ impl Projection {
 /// - a `shadow` is a copy of what came before it, moved by its offset and blurred, so the box
 ///   grows to hold that copy: the offset plus ⌈3σ⌉ on the side it falls to;
 /// - a `directional_blur` reaches its crop's own reach on each axis;
-/// - a `mask`, `grain`, the colour members, `posterize` and `chroma` reach nothing.
+/// - an `outline` reaches ⌈`width`⌉ on every side;
+/// - a `mask`, `grain`, the colour members, `posterize`, `chroma`, `color_overlay` and
+///   `inner_shadow` reach nothing.
 pub fn reach_box(extent: Extent, effects: &[Effect]) -> (f64, f64, f64, f64) {
     let (mut l, mut t, mut r, mut b) = (0.0_f64, 0.0_f64, extent.width, extent.height);
     let spread = |radius: f64| (3.0 * f64::from(sigma(radius))).ceil();
@@ -138,6 +140,15 @@ pub fn reach_box(extent: Extent, effects: &[Effect]) -> (f64, f64, f64, f64) {
                 let (rx, ry) = named::directional_reach(angle, length);
                 let (rx, ry) = (f64::from(rx), f64::from(ry));
                 (l, t, r, b) = (l - rx, t - ry, r + rx, b + ry);
+            }
+            Effect::Outline { width, .. } if width > 0.0 => {
+                let w = width.ceil();
+                (l, t, r, b) = (l - w, t - w, r + w, b + w);
+            }
+            Effect::Matte { choke, feather, .. } => {
+                let dilate = if choke < 0.0 { (-choke).ceil() } else { 0.0 };
+                let k = dilate + if feather > 0.0 { spread(feather) } else { 0.0 };
+                (l, t, r, b) = (l - k, t - k, r + k, b + k);
             }
             _ => {}
         }

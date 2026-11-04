@@ -1096,6 +1096,46 @@ so `to` must paint above `from`.",
         sets: &[Document],
     },
     CheckSpec {
+        // ADR-0220 §4: `wipe` accepts either `direction` or `angle`, mutually exclusively.
+        // Refuse because the document does not say which parameter or value was meant.
+        code: "E-TRANSITION-DIRECTION-OR-ANGLE",
+        classes: &[Error],
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0220",
+        template: "{element}: a `wipe` transition takes either `direction` or `angle` \
+(mutually exclusive), and {problem}.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        // ADR-0220 §3, §5: each transition kind accepts its own closed parameter set.
+        // Refuse because the author may have meant a different `kind` or to drop the key.
+        code: "E-TRANSITION-UNSUPPORTED-KEY",
+        classes: &[Error],
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0220",
+        template: "{element}: `{key}` is not supported on a `{kind}` transition (ADR-0220).",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        // ADR-0220 §3, §5: `blinds.slats` must be >= 1.
+        code: "E-TRANSITION-SLATS-ZERO",
+        classes: &[Error],
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0220",
+        template: "{element}: `slats` on a `blinds` transition is {slats}; it must be at \
+least 1 (ADR-0220).",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
         // ADR-0176 §5. Refuse (ADR-0120): the fix forks — point the side at an element that
         // sounds, or drop the transition — and the document does not say which was meant. An
         // `audio_crossfade` exists to carry sound, so a side with none makes it a fade in
@@ -1966,6 +2006,49 @@ every hand-placed break in them was taken against different metrics.",
         threshold: Internal,
         adr: "ADR-0153",
         template: "{element}: its `letter_spacing` adds nothing between two letters of the {script} script, first in `{word}`. A joining script's letters take no letter spacing between them (ADR-0153), so the spacing spreads only its spaces, punctuation, digits and other scripts.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        // ADR-0223 §1.3: every axis tag on a `FontFile.axes` entry must exist in the face's
+        // `fvar` table and its coordinate must fall within the axis's `[min_value, max_value]`
+        // range. Refuse: whether the author meant a different coordinate or a different font
+        // file is not in the document.
+        code: "E-FONT-AXIS",
+        classes: &[Error],
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0223",
+        template: "`{font}` (`{file}`): axis `{axis}` {detail} (ADR-0223).",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        // ADR-0223 §2.3: every face used to shape a run must declare every active OpenType
+        // feature tag on that run in its `GSUB` or `GPOS` table. Refuse: whether the author
+        // meant to drop the feature or choose a face that carries it is not in the document.
+        code: "E-FONT-FEATURE",
+        classes: &[Error],
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0223",
+        template: "{element}: face `{file}` in the `{font}` chain does not declare OpenType feature `{feature}` in its `GSUB` or `GPOS` tables (ADR-0223).",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        // ADR-0223 §4.2: a run may set static `letter_spacing` only when the element's
+        // `letter_spacing` is omitted or static. Refuse: whether the author meant static
+        // per-run tracking or element-wide animated tracking is not in the document.
+        code: "E-RUN-LETTER-SPACING-CONFLICT",
+        classes: &[Error],
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0223",
+        template: "{element}: run {run} (`{text}`) sets `letter_spacing` while the element's `letter_spacing` is animated; static run `letter_spacing` is legal only when the element's `letter_spacing` is static or omitted (ADR-0223).",
         status: Live,
         census: None,
         sets: &[Document],
@@ -3919,6 +4002,93 @@ shorten the gloss text.",
         threshold: Internal,
         adr: "ADR-0006",
         template: "`{code}` cannot be quieted: {reason}.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    // ---- Motion paths (ADR-0218). -----------------------------------------------------------
+    CheckSpec {
+        code: "E-MOTION-PATH-XY",
+        classes: &[Error],
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0218",
+        template: "{element} carries `motion_path` alongside {fields}; position must be owned by \
+either `x`/`y` or `motion_path`, not both.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        code: "E-MOTION-PATH-ZERO-LENGTH",
+        classes: &[Error],
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0218",
+        template: "{element}'s `motion_path` has zero arc length; a motion path must have \
+positive length.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        code: "E-MOTION-PATH-OFFSET-RANGE",
+        classes: &[Error],
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0218",
+        template: "{element}'s `motion_path.offset`{?record} (record {record} at `t` {t}){/record} \
+is {value}, outside `[0.0, 1.0]` on an open motion path (`closed: false`).",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    // ---- Standalone `matte` and `luma_key` bounds (ADR-0227). ------------------------------
+    CheckSpec {
+        code: "E-MATTE-BOUNDS",
+        classes: &[Error],
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0227",
+        template: "{subject} does not fit the published schema: {reason}.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        code: "E-LUMA-KEY-BOUNDS",
+        classes: &[Error],
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0227",
+        template: "{subject} does not fit the published schema: {reason}.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    // ---- Project and element markers (ADR-0230). -------------------------------------------
+    CheckSpec {
+        code: "E-MARKER-PAST-DURATION",
+        classes: &[Error],
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0230",
+        template: "`markers[{index}]` is at {at} ms, past `duration` ({duration} ms). Move or \
+remove the marker, or extend `duration`.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    // ---- Frame blending on video (ADR-0232, #1106). ----------------------------------------
+    CheckSpec {
+        code: "E-INVALID-FRAME-BLEND",
+        classes: &[Error],
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0232",
+        template: "{element}: `frame_blend` is `{value}`, which is not a published frame blend \
+mode (ADR-0232). `video` admits `\"none\"` (nearest-prior-frame hold) or `\"mix\"` (linear \
+cross-dissolve between adjacent source frames).",
         status: Live,
         census: None,
         sets: &[Document],

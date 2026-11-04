@@ -27,6 +27,8 @@ amends: 0003 ("After Effects is out of scope for now" is replaced: the reference
 > so an After Effects-documented capability needs no entry-test prototype merely to prove
 > demand; CapCut and Premiere remain first for mechanism and schema shape, and the 26 rulings in
 > the After Effects-only census are disposed of.
+>
+> Also amended by [ADR-0230](0230-markers-enter-project-and-elements-as-render-inert-annotations-and-chapters-export-to-container.md), [ADR-0232](0232-frame-blend-mix-enters-video-and-optical-flow-echo-and-posterize-time-are-refused.md), [ADR-0234](0234-layered-psd-ai-import-and-scene-edit-detection-are-skill-scripts-and-source-interpretation-stays-upstream.md), [ADR-0237](0237-arbitrary-opencolorio-configs-are-refused-and-aces-and-wide-gamut-transforms-enter-via-3d-luts.md).
 
 
 [#667](https://github.com/MBehtemam/Montagent/issues/667), on the map

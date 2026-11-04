@@ -16,7 +16,7 @@ use super::Colour;
 /// optimises every edit except the one that actually occurred"* — adding a second style to
 /// a flat string is a shape change that retypes the original text at precisely the moment
 /// the author is doing something typographically delicate.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Serialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Run {
     /// UTF-8, NFC, raw characters — the serializer never emits `\uXXXX` above U+007F,
@@ -61,6 +61,147 @@ pub struct Run {
     /// the run's glyphs (ADR-0214).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub decoration: Option<Decoration>,
+    /// Closed set of OpenType feature tags enabled on this run, overriding the element's
+    /// `features` list when present (ADR-0223 §2).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub features: Option<Vec<FontFeature>>,
+    /// Vertical baseline offset in integer pixels (`> 0` raises glyphs toward `-Y`; `< 0`
+    /// lowers glyphs toward `+Y`) without altering line slot height or shared `baseline_y`
+    /// (ADR-0223 §3). Explicit `0` is forbidden (ADR-0030).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub baseline_shift: Option<i64>,
+    /// Static per-run tracking override in thousandths of an em of this run's resolved font
+    /// size (`0` explicitly resets element-level tracking across this run; ADR-0223 §4).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub letter_spacing: Option<i64>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RunWritten {
+    text: String,
+    #[serde(default)]
+    font: Option<String>,
+    #[serde(default)]
+    size: Option<i64>,
+    #[serde(default)]
+    color: Option<Colour>,
+    #[serde(default)]
+    stroke: Option<Colour>,
+    #[serde(default)]
+    stroke_width: Option<i64>,
+    #[serde(default)]
+    dir: Option<Dir>,
+    #[serde(default)]
+    highlight: Option<Highlight>,
+    #[serde(default)]
+    unit: Option<UnitOverride>,
+    #[serde(default)]
+    annotation: Option<Annotation>,
+    #[serde(default)]
+    decoration: Option<Decoration>,
+    #[serde(default)]
+    features: Option<Vec<FontFeature>>,
+    #[serde(default)]
+    baseline_shift: Option<i64>,
+    #[serde(default)]
+    letter_spacing: Option<i64>,
+}
+
+impl<'de> Deserialize<'de> for Run {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        use serde::de::Error;
+        let w = RunWritten::deserialize(deserializer)?;
+        if let Some(ref features) = w.features {
+            validate_features(features, "a run").map_err(D::Error::custom)?;
+        }
+        if w.baseline_shift == Some(0) {
+            return Err(D::Error::custom(
+                "`baseline_shift` is 0: omit `baseline_shift` when a run sits on the shared \
+                 line baseline (ADR-0030, ADR-0223)",
+            ));
+        }
+        Ok(Run {
+            text: w.text,
+            font: w.font,
+            size: w.size,
+            color: w.color,
+            stroke: w.stroke,
+            stroke_width: w.stroke_width,
+            dir: w.dir,
+            highlight: w.highlight,
+            unit: w.unit,
+            annotation: w.annotation,
+            decoration: w.decoration,
+            features: w.features,
+            baseline_shift: w.baseline_shift,
+            letter_spacing: w.letter_spacing,
+        })
+    }
+}
+
+/// The closed set of OpenType feature tags an author may enable on a `text` element or `run`
+/// (ADR-0223 §2).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "lowercase")]
+pub enum FontFeature {
+    Tnum,
+    Onum,
+    Zero,
+    Smcp,
+    C2sc,
+    Sups,
+    Subs,
+    Frac,
+    Ordn,
+}
+
+impl FontFeature {
+    /// The four-character OpenType feature tag.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Tnum => "tnum",
+            Self::Onum => "onum",
+            Self::Zero => "zero",
+            Self::Smcp => "smcp",
+            Self::C2sc => "c2sc",
+            Self::Sups => "sups",
+            Self::Subs => "subs",
+            Self::Frac => "frac",
+            Self::Ordn => "ordn",
+        }
+    }
+}
+
+pub(crate) fn validate_features(features: &[FontFeature], owner: &str) -> Result<(), String> {
+    if features.is_empty() {
+        return Err(format!(
+            "{owner}'s `features` is empty: omit `features` when no OpenType feature tags are \
+             enabled (ADR-0030, ADR-0223)"
+        ));
+    }
+    for (i, &tag) in features.iter().enumerate() {
+        if features[..i].contains(&tag) {
+            return Err(format!(
+                "{owner}'s `features` repeats `{}`: list each OpenType feature tag at most \
+                 once (ADR-0223)",
+                tag.as_str()
+            ));
+        }
+    }
+    if features.contains(&FontFeature::Tnum) && features.contains(&FontFeature::Onum) {
+        return Err(format!(
+            "{owner}'s `features` combines `tnum` and `onum`: tabular and oldstyle figure \
+             tags are mutually exclusive (ADR-0223)"
+        ));
+    }
+    if features.contains(&FontFeature::Sups) && features.contains(&FontFeature::Subs) {
+        return Err(format!(
+            "{owner}'s `features` combines `sups` and `subs`: superscript and subscript \
+             feature tags are mutually exclusive (ADR-0223)"
+        ));
+    }
+    Ok(())
 }
 
 /// A start/end window inside the element's own range, plus the style that applies during
@@ -113,27 +254,86 @@ pub enum UnitBy {
     Line,
 }
 
-/// Which end of the reading order a stagger starts from.
+/// Which end or pair of ends of the reading order a stagger starts from (ADR-0151 §2,
+/// ADR-0224 §1).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema, Default)]
-#[serde(rename_all = "lowercase")]
+#[serde(rename_all = "snake_case")]
 pub enum UnitOrder {
     /// The first unit in reading order starts first.
     #[default]
     Forward,
     /// The last unit in reading order starts first.
     Reverse,
+    /// The center unit (odd `N`) or center pair (even `N`) starts first at step `0`,
+    /// expanding symmetrically outward to the edges (ADR-0224).
+    CenterOut,
+    /// The first and last units start simultaneously at step `0`, converging symmetrically
+    /// inward toward the center (ADR-0224).
+    EdgesIn,
+}
+
+/// A unit's `blur` radius in `[0, 500]` pixels (ADR-0224 §3): `0` at rest, in a static
+/// value and in every keyframe record.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize)]
+#[serde(transparent)]
+pub struct UnitBlur(pub f64);
+
+impl<'de> Deserialize<'de> for UnitBlur {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        use serde::de::Error;
+        let radius = f64::deserialize(deserializer)?;
+        if !(0.0..=500.0).contains(&radius) {
+            return Err(D::Error::custom(format!(
+                "a unit's `blur` is {radius}: `blur` is a radius in [0, 500] pixels (`0` is \
+                 unblurred), in a static value and in every keyframe record (ADR-0224)"
+            )));
+        }
+        Ok(UnitBlur(radius))
+    }
+}
+
+impl JsonSchema for UnitBlur {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        "UnitBlur".into()
+    }
+
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::Schema::try_from(serde_json::json!({
+            "type": "number",
+            "format": "double",
+            "minimum": 0.0,
+            "maximum": 500.0,
+            "description": "A unit's Gaussian blur radius in element pixels, from `0` \
+                            (unblurred) to `500` inclusive, in a static value and in every \
+                            keyframe record (`sigma = r / 2`; ADR-0224).",
+        }))
+        .expect("an object literal is a schema")
+    }
+}
+
+impl crate::resolve::Interpolate for UnitBlur {
+    type Out = f64;
+
+    fn between(a: &Self, b: &Self, p: f64) -> f64 {
+        f64::between(&a.0, &b.0, p)
+    }
+
+    fn held(value: &Self) -> f64 {
+        value.0
+    }
 }
 
 /// A stagger: the element's units run the same animation, each unit started a fixed step
-/// after the one before (ADR-0151 §2).
+/// after the one before (ADR-0151 §2, ADR-0224).
 ///
-/// The five lists are written for the first unit, on the absolute clock like every
-/// keyframe. A unit's **delay** is its position in `order` times `every`, and the unit runs
+/// The six lists are written for the first unit, on the absolute clock like every
+/// keyframe. A unit's **delay** is its step in `order` times `every`, and the unit runs
 /// every list late by its delay: its value at instant *t* is the list's value at
 /// *t − delay*. The values are offsets inside the element: `x`, `y` (element pixels, before
 /// the element's own `scale` and `rotation`) and `rotation` add to the unit's laid-out pose,
-/// `scale` and `opacity` multiply it. At least one list is required. Whitespace and empty
-/// lines take no step. A unit below opacity 1 fades as one group, its stroke and fill
+/// `scale` and `opacity` multiply it, and `blur` applies a per-unit Gaussian blur (`0` at
+/// rest). At least one list is required. Whitespace and empty lines take no step. A unit
+/// below opacity 1 or with `blur > 0` composites as one group, its stroke and fill
 /// together; the element's `effects`, `blend` and `opacity` apply after the units are drawn.
 #[derive(Debug, Clone, PartialEq, Serialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -159,6 +359,8 @@ pub struct Units {
     pub scale: Option<super::Animatable<super::Scale>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub opacity: Option<super::Animatable<f64>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub blur: Option<super::Animatable<UnitBlur>>,
 }
 
 /// The `units` block as written, before its rules are checked.
@@ -181,6 +383,8 @@ struct UnitsWritten {
     scale: Option<super::Animatable<super::Scale>>,
     #[serde(default)]
     opacity: Option<super::Animatable<f64>>,
+    #[serde(default)]
+    blur: Option<super::Animatable<UnitBlur>>,
 }
 
 impl<'de> Deserialize<'de> for Units {
@@ -199,10 +403,11 @@ impl<'de> Deserialize<'de> for Units {
             && w.rotation.is_none()
             && w.scale.is_none()
             && w.opacity.is_none()
+            && w.blur.is_none()
         {
             return Err(D::Error::custom(
-                "a `units` block names none of `x`, `y`, `rotation`, `scale` and `opacity`: \
-                 at least one list is what the units run (ADR-0151)",
+                "a `units` block names none of `x`, `y`, `rotation`, `scale`, `opacity` and \
+                 `blur`: at least one list is what the units run (ADR-0151, ADR-0224)",
             ));
         }
         Ok(Units {
@@ -215,13 +420,14 @@ impl<'de> Deserialize<'de> for Units {
             rotation: w.rotation,
             scale: w.scale,
             opacity: w.opacity,
+            blur: w.blur,
         })
     }
 }
 
 /// A run singling out one unit (ADR-0151 §4): the run holds exactly that unit's graphemes.
 ///
-/// `delay` replaces the derived *position × every* for this unit. A list replaces that
+/// `delay` replaces the derived *step × every* for this unit. A list replaces that
 /// property's list for this unit wholesale; **a run's lists are never delayed** — they run on
 /// the absolute clock as written. A property the run does not name keeps the block's list,
 /// run at the run's delay. Only a list the `units` block declares may be named. At least one
@@ -242,6 +448,8 @@ pub struct UnitOverride {
     pub scale: Option<super::Animatable<super::Scale>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub opacity: Option<super::Animatable<f64>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub blur: Option<super::Animatable<UnitBlur>>,
 }
 
 /// A run's `unit` as written, before its rules are checked.
@@ -260,6 +468,8 @@ struct UnitOverrideWritten {
     scale: Option<super::Animatable<super::Scale>>,
     #[serde(default)]
     opacity: Option<super::Animatable<f64>>,
+    #[serde(default)]
+    blur: Option<super::Animatable<UnitBlur>>,
 }
 
 impl<'de> Deserialize<'de> for UnitOverride {
@@ -278,11 +488,12 @@ impl<'de> Deserialize<'de> for UnitOverride {
             && w.rotation.is_none()
             && w.scale.is_none()
             && w.opacity.is_none()
+            && w.blur.is_none()
         {
             return Err(D::Error::custom(
                 "a run's `unit` is empty: it names a `delay` or a list (`x`, `y`, \
-                 `rotation`, `scale`, `opacity`) that replaces the block's for this unit \
-                 (ADR-0151)",
+                 `rotation`, `scale`, `opacity`, `blur`) that replaces the block's for this \
+                 unit (ADR-0151, ADR-0224)",
             ));
         }
         Ok(UnitOverride {
@@ -292,6 +503,7 @@ impl<'de> Deserialize<'de> for UnitOverride {
             rotation: w.rotation,
             scale: w.scale,
             opacity: w.opacity,
+            blur: w.blur,
         })
     }
 }

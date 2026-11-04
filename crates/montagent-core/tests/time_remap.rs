@@ -899,3 +899,181 @@ fn query_at_derives_nothing_on_a_video_that_plays_a_source_range() {
     assert_eq!(plain.get("derived"), None, "{plain}");
     assert_eq!(plain["source_offset"], 400);
 }
+
+// ---------------------------------------------------------------------------
+// `frame_blend` (ADR-0232, #1106).
+// ---------------------------------------------------------------------------
+
+#[test]
+fn frame_blend_admits_none_and_mix_and_refuses_other_values_with_e_invalid_frame_blend() {
+    if !has_ffprobe() {
+        return;
+    }
+    for valid in [json!("none"), json!("mix")] {
+        let element = video(
+            "v",
+            (0, 400),
+            json!({"source_start": 0, "source_end": 400, "volume": 0, "frame_blend": valid}),
+        );
+        let report = validate(&project(line!(), vec![element]));
+        assert_eq!(
+            codes(&report),
+            Vec::<&str>::new(),
+            "{valid}: {:?}",
+            report.findings
+        );
+    }
+
+    for invalid in [json!("pixel_motion"), json!("optical_flow"), json!(123)] {
+        let element = video(
+            "v",
+            (0, 400),
+            json!({"source_start": 0, "source_end": 400, "volume": 0, "frame_blend": invalid}),
+        );
+        let report = validate(&project(line!(), vec![element]));
+        assert_eq!(
+            codes(&report),
+            vec!["E-INVALID-FRAME-BLEND"],
+            "{invalid}: {:?}",
+            report.findings
+        );
+        let finding = &report.findings[0];
+        assert_eq!(finding.fields["element"], "v");
+        assert_eq!(finding.fields["value"], invalid);
+    }
+}
+
+#[test]
+fn frame_blend_on_a_non_video_element_is_an_unknown_key() {
+    if !has_ffprobe() {
+        return;
+    }
+    let rect = json!({
+        "id": "r",
+        "type": "rect",
+        "start": 0,
+        "end": 400,
+        "x": 0,
+        "y": 0,
+        "origin": "top-left",
+        "width": 64,
+        "height": 48,
+        "fill": "#FF0000",
+        "frame_blend": "mix"
+    });
+    let report = validate(&project(line!(), vec![rect]));
+    assert_eq!(
+        codes(&report),
+        vec!["E-SCHEMA-UNKNOWN-KEY"],
+        "{:?}",
+        report.findings
+    );
+}
+
+#[test]
+fn frame_blend_mix_cross_dissolves_consecutive_source_frames_and_matches_none_on_exact_frames() {
+    if !has_ffprobe() {
+        return;
+    }
+    // 25 fps clip has frames at ..., 600, 640, 680, ... ms.
+    // Under speed 0.5 over [0, 160) (source [600, 680)):
+    // - frame 0 (t=0) -> S(0)=600 ms (exact frame 15, w=0)
+    // - frame 1 (t=40) -> S(40)=620 ms (halfway between 600 and 640 ms, w=0.5)
+    // - frame 2 (t=80) -> S(80)=640 ms (exact frame 16, w=0)
+    // - frame 3 (t=120) -> S(120)=660 ms (halfway between 640 and 680 ms, w=0.5)
+    let dir = tempdir(line!());
+    clip(&dir);
+    let make_project = |name: &str, blend: &str| {
+        let el = video(
+            "v",
+            (0, 160),
+            json!({
+                "source_start": 600,
+                "source_end": 680,
+                "speed": 0.5,
+                "volume": 0,
+                "frame_blend": blend
+            }),
+        );
+        let doc = json!({
+            "frame": {"width": 64, "height": 48},
+            "fps": 25,
+            "background": "#000000",
+            "output": "out/remap.mp4",
+            "tracks": [{"name": "a", "layer": 0, "elements": [el]}],
+        });
+        write_project(&dir, name, &canonical(&doc.to_string()))
+    };
+    let none_frames = painted(&make_project("none.montagent.json", "none"), 160);
+    let mix_frames = painted(&make_project("mix.montagent.json", "mix"), 160);
+    assert_eq!(none_frames.len(), 4);
+    assert_eq!(mix_frames.len(), 4);
+
+    // At w = 0 (frames 0 and 2), "mix" draws frame A at opacity 1.0 with no blending.
+    assert_eq!(mix_frames[0], none_frames[0], "w=0 at S=600 ms");
+    assert_eq!(mix_frames[2], none_frames[2], "w=0 at S=640 ms");
+
+    // Under "none", frame 1 holds frame at 600 ms (S=620 ms -> nearest prior frame at 600 ms).
+    assert_eq!(none_frames[1], none_frames[0]);
+    // Under "mix", frame 1 is the 50/50 linear blend of source frame at 600 ms and source frame at 640 ms.
+    assert_ne!(mix_frames[1], none_frames[0]);
+    assert_ne!(mix_frames[1], none_frames[2]);
+    for ((&a, &b), &m) in none_frames[0]
+        .iter()
+        .zip(none_frames[2].iter())
+        .zip(mix_frames[1].iter())
+    {
+        let expected = ((a as f64) * 0.5 + (b as f64) * 0.5).round() as u8;
+        assert!(
+            (m as i16 - expected as i16).abs() <= 1,
+            "expected {expected} from ({a}, {b}), got {m}"
+        );
+    }
+
+    // End-of-stream boundary: clip is 82 frames = 3280 ms (last frame starts at 3240 ms, T_B = 3280 ms >= end_ms).
+    // At S(t) = 3260 ms (inside the final frame), T_B lies at the end of the video stream so frame A is drawn unblended.
+    let end_none_el = video(
+        "v",
+        (0, 40),
+        json!({"source_time": 3260, "volume": 0, "frame_blend": "none"}),
+    );
+    let end_mix_el = video(
+        "v",
+        (0, 40),
+        json!({"source_time": 3260, "volume": 0, "frame_blend": "mix"}),
+    );
+    let end_none_doc = json!({
+        "frame": {"width": 64, "height": 48},
+        "fps": 25,
+        "background": "#000000",
+        "output": "out/remap.mp4",
+        "tracks": [{"name": "a", "layer": 0, "elements": [end_none_el]}],
+    });
+    let end_mix_doc = json!({
+        "frame": {"width": 64, "height": 48},
+        "fps": 25,
+        "background": "#000000",
+        "output": "out/remap.mp4",
+        "tracks": [{"name": "a", "layer": 0, "elements": [end_mix_el]}],
+    });
+    let end_none = painted(
+        &write_project(
+            &dir,
+            "end_none.montagent.json",
+            &canonical(&end_none_doc.to_string()),
+        ),
+        40,
+    );
+    let end_mix = painted(
+        &write_project(
+            &dir,
+            "end_mix.montagent.json",
+            &canonical(&end_mix_doc.to_string()),
+        ),
+        40,
+    );
+    assert_eq!(
+        end_mix[0], end_none[0],
+        "final source frame has no T_B inside stream"
+    );
+}

@@ -91,6 +91,12 @@ macro_rules! format_audio_dynamics_uri {
     };
 }
 
+macro_rules! format_effects_uri {
+    () => {
+        "montagent://format/effects.md"
+    };
+}
+
 macro_rules! format_nest_uri {
     () => {
         "montagent://format/nest.md"
@@ -228,6 +234,10 @@ pub const FORMAT_PAGES: &[FormatPage] = &[
     FormatPage {
         uri: format_compositing_uri!(),
         text: include_str!("../docs/format/compositing.md"),
+    },
+    FormatPage {
+        uri: format_effects_uri!(),
+        text: include_str!("../docs/format/effects.md"),
     },
     FormatPage {
         uri: format_transitions_uri!(),

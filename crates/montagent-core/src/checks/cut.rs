@@ -294,24 +294,45 @@ fn pop(
         properties.push("origin");
     }
 
+    let a_sample = crate::motion_path::at(a.element, (i128::from(out_at), 1));
+    let b_sample = crate::motion_path::at(b.element, (i128::from(in_at), 1));
+    let a_rot = geometry::number::<f64>(a.element, "rotation", out_at, 0.0);
+    let b_rot = geometry::number::<f64>(b.element, "rotation", in_at, 0.0);
+
     for (name, tolerance, out, into) in [
         (
             "x",
             PIXEL_TOLERANCE,
-            geometry::number::<i64>(a.element, "x", out_at, frame.0 as f64 / 2.0),
-            geometry::number::<i64>(b.element, "x", in_at, frame.0 as f64 / 2.0),
+            a_sample.as_ref().map_or_else(
+                || geometry::number::<i64>(a.element, "x", out_at, frame.0 as f64 / 2.0),
+                |s| s.x,
+            ),
+            b_sample.as_ref().map_or_else(
+                || geometry::number::<i64>(b.element, "x", in_at, frame.0 as f64 / 2.0),
+                |s| s.x,
+            ),
         ),
         (
             "y",
             PIXEL_TOLERANCE,
-            geometry::number::<i64>(a.element, "y", out_at, frame.1 as f64 / 2.0),
-            geometry::number::<i64>(b.element, "y", in_at, frame.1 as f64 / 2.0),
+            a_sample.as_ref().map_or_else(
+                || geometry::number::<i64>(a.element, "y", out_at, frame.1 as f64 / 2.0),
+                |s| s.y,
+            ),
+            b_sample.as_ref().map_or_else(
+                || geometry::number::<i64>(b.element, "y", in_at, frame.1 as f64 / 2.0),
+                |s| s.y,
+            ),
         ),
         (
             "rotation",
             ROTATION_TOLERANCE,
-            geometry::number::<f64>(a.element, "rotation", out_at, 0.0),
-            geometry::number::<f64>(b.element, "rotation", in_at, 0.0),
+            a_sample
+                .as_ref()
+                .map_or(a_rot, |s| s.effective_rotation(a_rot)),
+            b_sample
+                .as_ref()
+                .map_or(b_rot, |s| s.effective_rotation(b_rot)),
         ),
         (
             "opacity",

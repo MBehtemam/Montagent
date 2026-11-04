@@ -68,8 +68,10 @@
 
 use parley::{Layout, PositionedLayoutItem};
 use serde::Serialize;
-use skrifa::instance::{LocationRef, Size};
+use skrifa::instance::{LocationRef, NormalizedCoord, Size};
 use skrifa::{FontRef, GlyphId, MetadataProvider};
+
+use crate::engine::Run;
 
 /// One glyph's inked box, in pixels relative to its line's origin and baseline, **y-down**.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -124,7 +126,7 @@ pub struct InkSeam {
 ///
 /// `shifts` is what letter spacing moves each glyph by, in the order the layout yields them
 /// ([`crate::spacing::shifts`]): the ink measured is the spaced line's, as drawn.
-pub(crate) fn line_ink(layout: &Layout<u32>, shifts: &[f64]) -> Option<LineInk> {
+pub(crate) fn line_ink(layout: &Layout<u32>, shifts: &[f64], runs: &[Run<'_>]) -> Option<LineInk> {
     let mut glyphs: Vec<GlyphInk> = Vec::new();
     let mut next = 0;
 
@@ -141,11 +143,21 @@ pub(crate) fn line_ink(layout: &Layout<u32>, shifts: &[f64]) -> Option<LineInk> 
             let font = run.run().font().clone();
             let size = run.run().font_size();
             // One `FontRef` and one `GlyphMetrics` per glyph run rather than per glyph: the
-            // run is the unit over which the face and the size are constant.
+            // run is the unit over which the face, size, and variation coordinates are
+            // constant.
             let Ok(face) = FontRef::from_index(font.data.as_ref(), font.index) else {
                 continue;
             };
-            let metrics = face.glyph_metrics(Size::new(size), LocationRef::default());
+            let coords: Vec<NormalizedCoord> = run
+                .run()
+                .normalized_coords()
+                .iter()
+                .copied()
+                .map(NormalizedCoord::from_bits)
+                .collect();
+            let metrics = face.glyph_metrics(Size::new(size), LocationRef::new(&coords));
+            let which = run.style().brush as usize;
+            let baseline_shift = runs.get(which).and_then(|r| r.baseline_shift).unwrap_or(0) as f64;
 
             for (k, glyph) in run.positioned_glyphs().enumerate() {
                 let Some(bounds) = metrics.bounds(GlyphId::new(glyph.id)) else {
@@ -159,8 +171,9 @@ pub(crate) fn line_ink(layout: &Layout<u32>, shifts: &[f64]) -> Option<LineInk> 
                 }
                 // The glyph origin's own offset from this line's baseline, y-down. parley
                 // places glyphs against the layout's baseline; the block's baseline is
-                // ADR-0029's and is added by the caller.
-                let dy = f64::from(glyph.y) - baseline;
+                // ADR-0029's and is added by the caller. Positive `baseline_shift` raises
+                // the glyph upward (-y in canvas coordinates, ADR-0223 §3).
+                let dy = f64::from(glyph.y) - baseline - baseline_shift;
                 let x = f64::from(glyph.x) + shifts.get(first + k).copied().unwrap_or(0.0);
                 // A font's outlines are y-up and every coordinate in this project is y-down,
                 // so the glyph's `y_max` is its *top* — the same flip

@@ -14,6 +14,8 @@ amends: 0007 (states the baseline rule the slot definition never gave), 0011
 
 > **Amended by [ADR-0213](0213-measure-layout-report-exposes-word-boxes-and-character-ranges-under-conservative-integer-enclosure.md)**: `measure`
 > layout report exposes `baseline_y` for lines, word tokens, and per-line range query fragments, alongside slot extents `slot_top` and `slot_height`.
+>
+> Also amended by [ADR-0229](0229-image-sequence-export-and-png-in-mov-are-refused-from-render-and-prores-4444-is-the-sole-alpha-deliverable.md).
 
 
 

@@ -207,3 +207,16 @@ impl<'de> Deserialize<'de> for AudioOverrun {
         }
     }
 }
+
+/// How sub-frame source instants are resolved into pixels under slow motion or time remapping
+/// (`ADR-0232`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "lowercase")]
+pub enum FrameBlend {
+    /// Nearest-prior-frame hold (`ADR-0096`): the last source frame starting at or
+    /// before the resolved source millisecond is painted.
+    #[default]
+    None,
+    /// Linear cross-dissolve between the two adjacent source video frames (`ADR-0232`).
+    Mix,
+}

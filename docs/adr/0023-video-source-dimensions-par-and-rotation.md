@@ -12,6 +12,8 @@ amends: 0015 (discharges the deferred "PAR and video source dimensions" clause; 
 > probe that fills an entry has already computed them, so the choice was never
 > between storing them and not paying for them, but between storing them and
 > throwing them away.
+>
+> Also amended by [ADR-0229](0229-image-sequence-export-and-png-in-mov-are-refused-from-render-and-prores-4444-is-the-sole-alpha-deliverable.md).
 
 [ADR-0015](./0015-fit-is-a-derivation-claim-and-gravity-retires.md) defined "source
 dimensions" — the input to `fit`'s `cover`/`contain` arithmetic — as *decoded,

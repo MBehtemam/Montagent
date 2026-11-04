@@ -160,6 +160,7 @@ fn header(scaffold: &Scaffold) -> Result<Value, String> {
         master: None,
         effects: None,
         quiet: None,
+        markers: None,
         fonts: None,
         font_vendor: None,
         tracks: Vec::new(),

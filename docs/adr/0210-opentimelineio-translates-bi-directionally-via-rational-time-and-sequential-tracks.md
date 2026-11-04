@@ -5,6 +5,8 @@ amends: 0004 (tracks), 0145 (four invariants), 0199 (rational timebases), 0209 (
 
 # OpenTimelineIO translates bi-directionally via rational time and sequential tracks
 
+> **Amended by:** [ADR-0230](0230-markers-enter-project-and-elements-as-render-inert-annotations-and-chapters-export-to-container.md).
+
 [#978](https://github.com/MBehtemam/Montagent/issues/978), [#1038](https://github.com/MBehtemam/Montagent/issues/1038), [#1040](https://github.com/MBehtemam/Montagent/issues/1040).
 
 ## Context

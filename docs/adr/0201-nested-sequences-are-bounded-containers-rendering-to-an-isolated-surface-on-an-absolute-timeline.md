@@ -6,6 +6,8 @@ amends: 0001 (rejection of local clock stands; shared spatial container admitted
 # Nested sequences are bounded containers rendering to an isolated surface on an absolute timeline
 
 > **Amended by [ADR-0245](./0245-nested-scenes-cache-their-offscreen-child-composites-by-relative-subgraph-hash.md)**: Nested scenes cache their offscreen child composites by relative sub-graph hash (#1144).
+>
+> Also amended by [ADR-0234](0234-layered-psd-ai-import-and-scene-edit-detection-are-skill-scripts-and-source-interpretation-stays-upstream.md).
 
 [#981](https://github.com/MBehtemam/Montagent/issues/981), [#986](https://github.com/MBehtemam/Montagent/issues/986), [#989](https://github.com/MBehtemam/Montagent/issues/989).
 

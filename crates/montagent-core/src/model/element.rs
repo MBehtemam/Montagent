@@ -125,6 +125,15 @@ impl<'de> Visitor<'de> for ElementVisitor {
         {
             return Err(A::Error::custom(format!("`{id}`: {reason}")));
         }
+        if let Some(kind @ ("nest" | "audio" | "transition")) =
+            rest.get("type").and_then(Value::as_str)
+            && rest.contains_key("motion_path")
+        {
+            return Err(A::Error::custom(format!(
+                "`{id}`: `motion_path` belongs to `image`, `video`, `text`, `rect`, `ellipse` \
+                 and `path`, not to `{kind}` (ADR-0218)"
+            )));
+        }
         let body: Body = serde_json::from_value(Value::Object(rest))
             .map_err(|e| A::Error::custom(format!("`{id}`: {e}")))?;
 

@@ -16,6 +16,8 @@ amends: 0040 (settles the colour-filter deferral that ADR named and excluded fro
 > outside them, predating this ADR. The keyer's `spill`, which *does* change pixel colour, is
 > admitted on clauses (a)-(d) below rather than by citing `tint` as precedent, so the
 > exception stays closed exactly as written.
+>
+> Also amended by [ADR-0231](0231-outline-color-overlay-and-inner-shadow-enter-effects-and-bevel-and-gradient-overlay-are-refused.md).
 
 [ADR-0040](./0040-effect-model-attachment-and-v1-vocabulary.md) deferred colour filters
 entirely from v1's effect vocabulary, on a closed-vocabulary-erosion argument rather than

@@ -328,6 +328,7 @@ pub fn cues_to_track(
         let text_el = TextElement {
             x: Some(Animatable::Static(0)),
             y: Some(Animatable::Static(text_y)),
+            motion_path: None,
             origin: None,
             width: frame_width,
             height: text_height,
@@ -349,6 +350,9 @@ pub fn cues_to_track(
                 highlight: None,
                 annotation: None,
                 decoration: None,
+                features: None,
+                baseline_shift: None,
+                letter_spacing: None,
                 unit: None,
             }],
             stroke: Some(Paint::Flat(Animatable::Static(Colour::from_bytes([
@@ -356,6 +360,7 @@ pub fn cues_to_track(
             ])))),
             stroke_width: Some(Animatable::Static(Length(3))),
             letter_spacing: None,
+            features: None,
             units: None,
             path: None,
             path_offset: None,
@@ -367,6 +372,7 @@ pub fn cues_to_track(
             opacity: None,
             blend: None,
             motion_blur: None,
+            markers: None,
             effects: None,
             caption: Some(true),
         };
@@ -477,6 +483,7 @@ pub fn import_subtitles(
         master: None,
         effects: None,
         quiet: None,
+        markers: None,
         fonts: None,
         font_vendor: None,
         tracks: vec![track],

@@ -136,6 +136,8 @@ fn every_value_of_by_order_and_origin_is_accepted() {
         ("letter", "forward", "center"),
         ("word", "reverse", "bottom-left"),
         ("line", "forward", "top-right"),
+        ("letter", "center_out", "center"),
+        ("word", "edges_in", "bottom-center"),
     ]
     .into_iter()
     .enumerate()
@@ -842,4 +844,254 @@ fn the_sheet_names_the_first_and_last_scheduled_units_and_every_override_list() 
     ];
     expected.sort();
     assert_eq!(points, expected);
+}
+
+// ---------------------------------------------------------------------------
+// `center_out`, `edges_in`, and per-unit `blur` (ADR-0224).
+// ---------------------------------------------------------------------------
+
+#[test]
+fn center_out_and_edges_in_schedule_symmetric_steps_for_odd_even_and_single_units() {
+    let delays_for = |text: &str, order: &str, line: u32| -> Vec<i64> {
+        let mut element = staggered("t", text);
+        element["units"]["order"] = json!(order);
+        let path = project(&[element], line);
+        in_stack(&stack_at(&path, 100), "t")["units"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|u| u["delay"].as_i64().unwrap())
+            .collect()
+    };
+
+    // Odd N = 5 ("TITLE", every = 40):
+    // center_out: s = [2, 1, 0, 1, 2] -> delays [80, 40, 0, 40, 80]
+    // edges_in:   s = [0, 1, 2, 1, 0] -> delays [0, 40, 80, 40, 0]
+    assert_eq!(
+        delays_for("TITLE", "center_out", line!()),
+        [80, 40, 0, 40, 80]
+    );
+    assert_eq!(delays_for("TITLE", "edges_in", line!()), [0, 40, 80, 40, 0]);
+
+    // Even N = 4 ("WORD", every = 40):
+    // center_out: s = [1, 0, 0, 1] -> delays [40, 0, 0, 40]
+    // edges_in:   s = [0, 1, 1, 0] -> delays [0, 40, 40, 0]
+    assert_eq!(delays_for("WORD", "center_out", line!()), [40, 0, 0, 40]);
+    assert_eq!(delays_for("WORD", "edges_in", line!()), [0, 40, 40, 0]);
+
+    // Single unit N = 1 ("A", every = 40): step 0 under every order.
+    assert_eq!(delays_for("A", "center_out", line!()), [0]);
+    assert_eq!(delays_for("A", "edges_in", line!()), [0]);
+}
+
+#[test]
+fn the_sheet_samples_the_first_and_last_scheduled_units_in_reading_order_for_symmetric_orders() {
+    let ordered = |text: &str, order: &str| -> Value {
+        let mut element = title("t", text);
+        element["start"] = json!(0);
+        element["end"] = json!(4000);
+        element["units"] = json!({
+            "by": "letter",
+            "every": 40,
+            "order": order,
+            "opacity": [{"t": 1000, "v": 0}, {"t": 1300, "v": 1, "ease": "linear"}],
+        });
+        element
+    };
+
+    // Odd N = 5 ("TITLE"):
+    // center_out s = [2, 1, 0, 1, 2] -> first s=0 is unit 2 (@1000..1300), last s=2 is unit 4 (@1080..1380).
+    let path = project(&[ordered("TITLE", "center_out")], line!());
+    assert_eq!(
+        sheet_points(&path, 0, 4000),
+        vec![
+            "t.units[2].opacity@1000",
+            "t.units[2].opacity@1300",
+            "t.units[4].opacity@1080",
+            "t.units[4].opacity@1380",
+        ]
+    );
+
+    // edges_in s = [0, 1, 2, 1, 0] -> first s=0 is unit 0 (@1000..1300), last s=2 is unit 2 (@1080..1380).
+    let path = project(&[ordered("TITLE", "edges_in")], line!());
+    assert_eq!(
+        sheet_points(&path, 0, 4000),
+        vec![
+            "t.units[0].opacity@1000",
+            "t.units[0].opacity@1300",
+            "t.units[2].opacity@1080",
+            "t.units[2].opacity@1380",
+        ]
+    );
+
+    // Even N = 4 ("WORD"):
+    // center_out s = [1, 0, 0, 1] -> first s=0 is unit 1 (@1000..1300), last s=1 is unit 3 (@1040..1340).
+    let path = project(&[ordered("WORD", "center_out")], line!());
+    assert_eq!(
+        sheet_points(&path, 0, 4000),
+        vec![
+            "t.units[1].opacity@1000",
+            "t.units[1].opacity@1300",
+            "t.units[3].opacity@1040",
+            "t.units[3].opacity@1340",
+        ]
+    );
+
+    // edges_in s = [0, 1, 1, 0] -> first s=0 is unit 0 (@1000..1300), last s=1 is unit 2 (@1040..1340).
+    let path = project(&[ordered("WORD", "edges_in")], line!());
+    assert_eq!(
+        sheet_points(&path, 0, 4000),
+        vec![
+            "t.units[0].opacity@1000",
+            "t.units[0].opacity@1300",
+            "t.units[2].opacity@1040",
+            "t.units[2].opacity@1340",
+        ]
+    );
+}
+
+#[test]
+fn unit_blur_is_bounded_between_zero_and_five_hundred_on_the_block_and_on_overrides() {
+    // A `units` block with only `blur` (and an override with only `blur`) is valid.
+    let valid = runs(
+        with(
+            title("t", ""),
+            "units",
+            json!({
+                "by": "letter",
+                "every": 40,
+                "blur": [{"t": 0, "v": 24}, {"t": 300, "v": 0, "ease": "ease-out"}],
+            }),
+        ),
+        json!([
+            {"text": "TIT"},
+            {"text": "L", "unit": {"blur": [{"t": 0, "v": 500}, {"t": 500, "v": 0, "ease": "linear"}]}},
+            {"text": "E"},
+        ]),
+    );
+    let report = report_on(&[valid]);
+    assert!(
+        !codes(&report).iter().any(|c| c.starts_with("E-")),
+        "{:?}",
+        codes(&report)
+    );
+
+    // Out-of-range blur values (< 0 or > 500) on `units.blur` or `runs[i].unit.blur` are schema errors.
+    for bad in [
+        json!(-0.1),
+        json!(500.1),
+        json!([{"t": 0, "v": -1}, {"t": 300, "v": 0, "ease": "linear"}]),
+        json!([{"t": 0, "v": 0}, {"t": 300, "v": 600, "ease": "linear"}]),
+    ] {
+        let block = with(
+            title("t", "TITLE"),
+            "units",
+            json!({"by": "letter", "every": 40, "blur": bad.clone()}),
+        );
+        let report = report_on(&[block]);
+        assert!(
+            codes(&report).iter().any(|c| c.starts_with("E-SCHEMA")),
+            "block {bad}: {:?}",
+            codes(&report)
+        );
+
+        let over = runs(
+            with(
+                title("t", ""),
+                "units",
+                json!({"by": "letter", "every": 40, "blur": 10}),
+            ),
+            json!([{"text": "A"}, {"text": "B", "unit": {"blur": bad.clone()}}]),
+        );
+        let report = report_on(&[over]);
+        assert!(
+            codes(&report).iter().any(|c| c.starts_with("E-SCHEMA")),
+            "override {bad}: {:?}",
+            codes(&report)
+        );
+    }
+
+    // Overriding `blur` when the block does not declare `blur` fires `E-UNIT-RUN-UNDECLARED`.
+    let undeclared = runs(
+        staggered("t", ""),
+        json!([
+            {"text": "A"},
+            {"text": "B", "unit": {"blur": [{"t": 0, "v": 20}, {"t": 300, "v": 0, "ease": "linear"}]}},
+        ]),
+    );
+    let report = report_on(&[undeclared]);
+    let errors = found(&report, "E-UNIT-RUN-UNDECLARED");
+    assert_eq!(errors.len(), 1, "{:?}", codes(&report));
+    assert_eq!(errors[0].fields["property"], "blur");
+}
+
+#[test]
+fn unit_blur_paints_a_blurred_glyph_and_zero_blur_matches_an_unblurred_title() {
+    let plain = project(&[title("t", "TITLE")], line!());
+    let blurred = with(
+        title("t", "TITLE"),
+        "units",
+        json!({
+            "by": "letter",
+            "every": 40,
+            "order": "center_out",
+            "blur": [{"t": 0, "v": 24}, {"t": 300, "v": 0, "ease": "linear"}],
+        }),
+    );
+    let p = project(&[blurred], line!());
+
+    // At t = 2500 every unit's blur has settled to 0, taking the zero-allocation fast path.
+    assert!(painted(&plain, 2500) == painted(&p, 2500));
+    // At t = 100 the units have blur > 0 and paint visibly blurred pixels.
+    assert!(painted(&plain, 100) != painted(&p, 100));
+
+    // `query --at` resolves each unit's `blur` at t = 100:
+    // center_out on "TITLE" (N = 5, every = 40) gives delays [80, 40, 0, 40, 80].
+    // Unit 2 (delay 0) is at 100 / 300 through 24 -> 0 linear = 16.0.
+    // Unit 0 (delay 80) is at 20 / 300 through 24 -> 0 linear = 22.4.
+    let view = stack_at(&p, 100);
+    let units = in_stack(&view, "t")["units"].as_array().unwrap();
+    assert!((units[2]["blur"].as_f64().unwrap() - 16.0).abs() < 1e-6);
+    assert!((units[0]["blur"].as_f64().unwrap() - 22.4).abs() < 1e-6);
+}
+
+#[test]
+fn unit_blur_widens_off_canvas_reach_by_the_gaussian_skirt_and_rides_shift() {
+    // Declared box sits at x = 1680, width = 1000, so left edge is at 1680 (600 px past 1080).
+    // A blur of 400 has sigma = 200 and skirt = ceil(3 * 200) = 600, reaching x = 1080;
+    // a blur of 402 has skirt = ceil(3 * 201) = 603, reaching inside the 1080 frame!
+    let reaching = with(
+        past_the_right_edge(),
+        "units",
+        json!({"by": "letter", "every": 40, "blur": 402}),
+    );
+    assert!(found(&report_on(&[reaching]), "R-OFF-CANVAS").is_empty());
+
+    // When still off-canvas, `widened` names `units.blur` or `runs[i].unit.blur` on all four edges.
+    let mut off = with(
+        past_the_right_edge(),
+        "units",
+        json!({"by": "letter", "every": 40, "blur": 20}),
+    );
+    off["runs"] = json!([
+        {"text": "TIT"},
+        {"text": "L", "unit": {"blur": 40}},
+        {"text": "E"},
+    ]);
+    let report = report_on(&[off]);
+    let findings = found(&report, "R-OFF-CANVAS");
+    assert_eq!(findings.len(), 1, "{:?}", codes(&report));
+    for edge in ["left", "right", "top", "bottom"] {
+        assert_eq!(findings[0].fields["widened"][edge], "runs[1].unit.blur");
+    }
+
+    // And `shift` carries `units.blur` and `runs[i].unit.blur`.
+    let mut shiftable = late_title();
+    shiftable["units"]["blur"] =
+        json!([{"t": 1000, "v": 24}, {"t": 1300, "v": 0, "ease": "ease-out"}]);
+    shiftable["runs"][1]["unit"]["blur"] =
+        json!([{"t": 1200, "v": 40}, {"t": 2000, "v": 0, "ease": "linear"}]);
+    let (_, written) = shifted(shiftable, 500);
+    assert_eq!(ts(&written["units"]["blur"]), [1500, 1800]);
+    assert_eq!(ts(&written["runs"][1]["unit"]["blur"]), [1700, 2500]);
 }

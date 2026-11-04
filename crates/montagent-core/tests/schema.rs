@@ -57,9 +57,18 @@ fn canonical_key_order_is_the_schemas_property_order() {
     let image = canonical_order(Published::Element("image")).expect("image is a published type");
     assert_eq!(&image[..6], &prefix);
     assert_eq!(
-        &image[6..15],
+        &image[6..16],
         &[
-            "source", "x", "y", "origin", "width", "height", "fit", "clip", "scale"
+            "source",
+            "x",
+            "y",
+            "motion_path",
+            "origin",
+            "width",
+            "height",
+            "fit",
+            "clip",
+            "scale"
         ]
     );
     // ADR-0068: `effects` appends after the type's existing fields.
@@ -67,10 +76,11 @@ fn canonical_key_order_is_the_schemas_property_order() {
 
     let text = canonical_order(Published::Element("text")).expect("text is a published type");
     assert_eq!(
-        &text[6..17],
+        &text[6..18],
         &[
             "x",
             "y",
+            "motion_path",
             "origin",
             "width",
             "height",
@@ -85,8 +95,8 @@ fn canonical_key_order_is_the_schemas_property_order() {
 
     let rect = canonical_order(Published::Element("rect")).expect("rect is a published type");
     assert_eq!(
-        &rect[6..12],
-        &["x", "y", "origin", "width", "height", "fill"]
+        &rect[6..13],
+        &["x", "y", "motion_path", "origin", "width", "height", "fill"]
     );
 
     let audio = canonical_order(Published::Element("audio")).expect("audio is a published type");
@@ -97,7 +107,7 @@ fn canonical_key_order_is_the_schemas_property_order() {
     // ADR-0158's dash fields follow `stroke_width`, as its stroke fields do on a `path`, and
     // ADR-0160's trim fields follow them, in its §2 order.
     assert_eq!(
-        &rect[12..20],
+        &rect[13..21],
         &[
             "stroke",
             "stroke_width",
@@ -145,6 +155,7 @@ fn canonical_key_order_is_the_schemas_property_order() {
             "opacity",
             "blend",
             "motion_blur",
+            "markers",
             "effects",
             "elements"
         ]

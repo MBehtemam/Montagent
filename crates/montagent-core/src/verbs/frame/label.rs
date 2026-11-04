@@ -230,6 +230,9 @@ pub(super) fn draw(
         stroke_width: None,
         dir: None,
         annotation: None,
+        features: None,
+        baseline_shift: None,
+        letter_spacing: None,
     }];
     let placement = montagent_text::place(
         fonts,
@@ -244,6 +247,7 @@ pub(super) fn draw(
             align: Align::Start,
             letter_spacing: 0.0,
             optional_ligatures_off: false,
+            features: None,
         },
     )
     .map_err(|e| format!("a tile label could not be laid out in the chrome face: {e}"))?;
@@ -286,7 +290,7 @@ pub(super) fn draw(
             blend: montagent_render::canvas::Blend::Normal,
             projection: None,
         },
-        Some(strip),
+        Some(strip.into()),
         &[],
     );
     Ok(())

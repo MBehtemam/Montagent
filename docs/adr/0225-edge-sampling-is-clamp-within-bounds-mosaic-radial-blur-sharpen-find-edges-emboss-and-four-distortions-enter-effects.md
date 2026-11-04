@@ -5,6 +5,8 @@ amends: 0040 (expands closed effects vocabulary with mosaic, radial_blur, find_e
 
 # Edge sampling is clamp within bounds, mosaic, radial_blur, sharpen, find_edges, emboss, and four distortions enter effects[]
 
+> **Amended by:** [ADR-0228](0228-evolving-procedural-fractal-noise-and-turbulent-displacement-are-refused-and-remain-on-montagent-prerender.md).
+
 [Which sharpen, edge-aware blur, distortion and deferred ADR-0156 filter members enter, and what is the edge-sampling rule?](https://github.com/MBehtemam/Montagent/issues/1064)
 on the After Effects map ([#896](https://github.com/MBehtemam/Montagent/issues/896)).
 
