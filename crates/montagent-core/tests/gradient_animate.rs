@@ -342,6 +342,7 @@ fn stop_order_walks_every_keyframe_of_a_stops_list() {
     assert_eq!(found[0].1["stop"], json!(2));
 }
 
+#[track_caller]
 fn one_colour(fill: Value) -> usize {
     findings(&project_with(fill), "R-GRADIENT-ONE-COLOUR").len()
 }
@@ -415,4 +416,108 @@ fn a_nested_list_is_held_to_the_ascending_t_and_ease_rules() {
         schema_errors(json!([{"t": 0, "v": 0}, {"t": 100, "v": 90}])),
         1
     );
+}
+
+#[test]
+fn keyed_sweep_and_two_point_conical_parameters_resolve_each_on_its_own_curve() {
+    let sweep_fill = json!({"gradient": "sweep",
+        "center": keyed(json!([0.0, 0.0]), json!([1.0, 0.5]), "linear"),
+        "angle": keyed(json!(0), json!(180), "linear"),
+        "stops": keyed(two("#FF0000", "#FF0000"), two("#0000FF", "#0000FF"), "linear")});
+    let sweep_path = project_with(sweep_fill);
+    assert!(
+        errors_of(&sweep_path).is_empty(),
+        "{:?}",
+        errors_of(&sweep_path)
+    );
+    let sweep_val = printed(&sweep_path, "box", "fill", 500)["value"].clone();
+    assert_eq!(sweep_val["center"], json!([0.5, 0.25]));
+    assert_eq!(sweep_val["angle"], json!(90));
+    assert_eq!(sweep_val["stops"][0]["color"], json!("#800080"));
+
+    let conical_fill = json!({"gradient": "two_point_conical",
+        "center": keyed(json!([0.2, 0.4]), json!([0.8, 0.6]), "linear"),
+        "radius": keyed(json!(0.5), json!(1.5), "linear"),
+        "focal": keyed(json!([0.0, 0.2]), json!([1.0, 0.8]), "linear"),
+        "stops": keyed(two("#FF0000", "#FF0000"), two("#0000FF", "#0000FF"), "linear")});
+    let conical_path = project_with(conical_fill);
+    assert!(
+        errors_of(&conical_path).is_empty(),
+        "{:?}",
+        errors_of(&conical_path)
+    );
+    let conical_val = printed(&conical_path, "box", "fill", 500)["value"].clone();
+    assert_eq!(conical_val["center"], json!([0.5, 0.5]));
+    assert_eq!(conical_val["radius"], json!(1));
+    assert_eq!(conical_val["focal"], json!([0.5, 0.5]));
+    assert_eq!(conical_val["stops"][0]["color"], json!("#800080"));
+}
+
+#[test]
+fn shift_splits_two_point_conical_focal_and_renders_what_it_did_before() {
+    let fill = json!({"gradient": "two_point_conical",
+        "center": keyed(json!([0.2, 0.2]), json!([0.8, 0.6]), "linear"),
+        "radius": keyed(json!(0.4), json!(1.2), "linear"),
+        "focal": keyed(json!([0.1, 0.3]), json!([0.9, 0.7]), "linear"),
+        "stops": keyed(two("#FF3366", "#3366FF"), two("#FFCC00", "#00CCFF"), "linear")});
+    let kept = project_with(fill.clone());
+    let split = project_with(fill);
+    let before: Vec<Vec<u8>> = [400, 500, 800].iter().map(|t| painted(&kept, *t)).collect();
+    let answer = shifted(&split, 500, 200);
+    assert!(
+        answer
+            .report()
+            .findings
+            .iter()
+            .all(|f| f.class != Class::Error),
+        "{:?}",
+        answer.report().findings
+    );
+    near_every_byte(&before[0], &painted(&split, 400));
+    near_every_byte(&before[1], &painted(&split, 500));
+    near_every_byte(&before[1], &painted(&split, 600));
+    near_every_byte(&before[2], &painted(&split, 1000));
+}
+
+#[test]
+fn one_colour_review_covers_animated_two_point_conical_radius_and_sweep_stops() {
+    let stops = two("#FFFFFF", "#000000");
+    let conical_radius = |from: i64, to: i64| {
+        json!({
+            "gradient": "two_point_conical",
+            "center": [0.5, 0.5],
+            "radius": keyed(json!(from), json!(to), "linear"),
+            "focal": [0.2, 0.3],
+            "stops": stops.clone()
+        })
+    };
+    assert_eq!(one_colour(conical_radius(0, 0)), 1);
+    assert_eq!(one_colour(conical_radius(0, 1)), 0);
+
+    // A gradient where only `focal` is keyed (and radius is 0) is also caught by `instants`.
+    let only_focal_keyed = json!({
+        "gradient": "two_point_conical",
+        "center": [0.5, 0.5],
+        "radius": 0,
+        "focal": keyed(json!([0.1, 0.1]), json!([0.9, 0.9]), "linear"),
+        "stops": stops
+    });
+    assert_eq!(one_colour(only_focal_keyed), 1);
+}
+
+#[test]
+fn animatable_table_registers_focal_as_a_pair_on_every_paint_bearing_element() {
+    use montagent_core::animatable::{Kind, of};
+    let kind_of = |element: &str, name: &str| {
+        of(element)
+            .iter()
+            .find(|property| property.name == name)
+            .map(|property| property.kind)
+    };
+    for element in ["rect", "ellipse", "path"] {
+        assert_eq!(kind_of(element, "fill.focal"), Some(Kind::Pair));
+        assert_eq!(kind_of(element, "stroke.focal"), Some(Kind::Pair));
+    }
+    assert_eq!(kind_of("text", "color.focal"), Some(Kind::Pair));
+    assert_eq!(kind_of("text", "stroke.focal"), Some(Kind::Pair));
 }

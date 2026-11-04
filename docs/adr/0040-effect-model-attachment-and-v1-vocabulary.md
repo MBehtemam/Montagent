@@ -63,6 +63,8 @@ amends: 0007 (strikes "text background box" from #22's candidate list, already s
 > - [ADR-0156](0156-four-named-effects-join-the-effects-list-and-a-code-drawn-piece-enters-as-pre-rendered-footage.md) — the
 >   vocabulary gains `grain`, `glow`, `posterize` and `directional_blur`; later members join
 >   one at a time by their own ADR
+>
+> Also amended by [ADR-0228](0228-evolving-procedural-fractal-noise-and-turbulent-displacement-are-refused-and-remain-on-montagent-prerender.md), [ADR-0231](0231-outline-color-overlay-and-inner-shadow-enter-effects-and-bevel-and-gradient-overlay-are-refused.md), [ADR-0233](0233-3d-models-and-multichannel-passes-are-refused-as-native-sources-and-3d-scenes-pre-render-via-headless-recipes.md).
 
 [#22](https://github.com/MBehtemam/Montagent/issues/22) asked five questions. #19 had
 already fixed the vocabulary as closed, named and published in the schema — never a

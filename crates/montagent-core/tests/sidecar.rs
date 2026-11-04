@@ -371,7 +371,7 @@ fn a_source_whose_filesystem_will_not_state_an_mtime_is_never_persisted() {
                     "source": media.display().to_string(),
                     "quad": {"video_stream_ms": null, "container_ms": 9999,
                              "start_time_ms": null, "r_frame_rate": null, "avg_frame_rate": null},
-                    "dimensions": null, "alpha": null, "codec_name": null, "audio": null
+                    "dimensions": null, "alpha": null, "codec_name": null, "color_space": null, "audio": null
                 }
             }
         }

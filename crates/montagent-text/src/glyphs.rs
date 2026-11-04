@@ -19,9 +19,11 @@
 //! map different characters, and answering from the file as a whole would report a glyph
 //! the chain entry cannot reach.
 
+use skrifa::raw::TableProvider;
 use skrifa::{FontRef, MetadataProvider};
 
-/// One face's character map, as the set of characters it claims to map.
+/// One face's character map, as the set of characters it claims to map, alongside the
+/// variation axes (`fvar`) and OpenType features (`GSUB`/`GPOS`) it exposes.
 ///
 /// Named for the OpenType table it is, rather than for the question it answers: *coverage*
 /// already names an unrelated thing in this project — ADR-0018's cross-track coverage, and
@@ -35,6 +37,10 @@ pub struct Charmap {
     /// `Charmap`, which borrows the font bytes and would tie every caller's lifetime to
     /// them.
     mapped: std::collections::BTreeSet<u32>,
+    /// Variation axes exposed in `fvar`: tag → `(min_value, max_value)` (ADR-0223).
+    axes: std::collections::BTreeMap<String, (f32, f32)>,
+    /// OpenType feature tags declared in `GSUB` or `GPOS` (ADR-0223).
+    features: std::collections::BTreeSet<String>,
 }
 
 impl Charmap {
@@ -50,6 +56,26 @@ impl Charmap {
     }
 
     fn read(font: &FontRef<'_>) -> Charmap {
+        let axes = font
+            .axes()
+            .iter()
+            .map(|a| (a.tag().to_string(), (a.min_value(), a.max_value())))
+            .collect();
+        let mut features = std::collections::BTreeSet::new();
+        if let Ok(gsub) = font.gsub()
+            && let Ok(fl) = gsub.feature_list()
+        {
+            for rec in fl.feature_records() {
+                features.insert(rec.feature_tag().to_string());
+            }
+        }
+        if let Ok(gpos) = font.gpos()
+            && let Ok(fl) = gpos.feature_list()
+        {
+            for rec in fl.feature_records() {
+                features.insert(rec.feature_tag().to_string());
+            }
+        }
         Charmap {
             mapped: font
                 .charmap()
@@ -60,12 +86,35 @@ impl Charmap {
                 .filter(|(_, glyph)| glyph.to_u32() != 0)
                 .map(|(c, _)| c)
                 .collect(),
+            axes,
+            features,
         }
     }
 
     /// Does this face map `c`?
     pub fn covers(&self, c: char) -> bool {
         self.mapped.contains(&(c as u32))
+    }
+
+    /// The `[min_value, max_value]` range for variation axis `tag` in `fvar`, if the face
+    /// exposes it (ADR-0223).
+    pub fn axis_range(&self, tag: &str) -> Option<(f32, f32)> {
+        self.axes.get(tag).copied()
+    }
+
+    /// All variation axes exposed in `fvar`, keyed by four-letter tag (ADR-0223).
+    pub fn axes(&self) -> &std::collections::BTreeMap<String, (f32, f32)> {
+        &self.axes
+    }
+
+    /// Does this face declare `tag` in `GSUB` or `GPOS` (ADR-0223)?
+    pub fn has_feature(&self, tag: &str) -> bool {
+        self.features.contains(tag)
+    }
+
+    /// All OpenType feature tags declared in `GSUB` or `GPOS` (ADR-0223).
+    pub fn features(&self) -> &std::collections::BTreeSet<String> {
+        &self.features
     }
 }
 

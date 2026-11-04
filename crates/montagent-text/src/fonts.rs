@@ -32,17 +32,19 @@ use std::sync::Arc;
 
 use parley::FontContext;
 use parley::fontique::{Blob, Collection, CollectionOptions, FontInfoOverride, SourceCache};
-use parley::style::{FontFamily, FontFamilyName};
+use parley::style::{FontFamily, FontFamilyName, FontStyle, FontVariation, FontWeight, FontWidth};
 
 use crate::sfnt;
 
 /// One entry in a font's ordered fallback chain, as the project's `fonts` table writes it.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct FontFile {
     /// The file itself, already resolved against the project (ADR-0053).
     pub path: PathBuf,
     /// For `.ttc` collections.
     pub index: Option<u32>,
+    /// Pinned OpenType variation axis coordinates (ADR-0223).
+    pub axes: Vec<(String, f32)>,
 }
 
 /// Why a declared chain did not reach the layout.
@@ -117,6 +119,8 @@ pub struct Fonts {
     context: FontContext,
     /// Key → the synthetic family names of its chain, in the order the author wrote them.
     chains: BTreeMap<String, Vec<String>>,
+    /// Key → the variation settings declared on its chain entries (ADR-0223).
+    variations: BTreeMap<String, Vec<FontVariation>>,
     /// Every font file this registry has actually read, in the order it read them.
     ///
     /// Kept so a caller can *report* it. ADR-0007's "the renderer opens nothing outside
@@ -150,6 +154,7 @@ impl Fonts {
                 source_cache: SourceCache::default(),
             },
             chains: BTreeMap::new(),
+            variations: BTreeMap::new(),
             opened: Vec::new(),
         }
     }
@@ -170,10 +175,19 @@ impl Fonts {
     /// judgment about the document out of the measuring path.
     pub fn register(&mut self, key: &str, chain: &[FontFile]) -> Result<(), FontError> {
         let mut families = Vec::with_capacity(chain.len());
+        let mut vars = Vec::new();
         for (position, file) in chain.iter().enumerate() {
             families.push(self.register_one(key, position, file)?);
+            for (tag_str, value) in &file.axes {
+                if let Some(tag) = parley::setting::Tag::parse(tag_str)
+                    && !vars.iter().any(|v: &FontVariation| v.tag == tag)
+                {
+                    vars.push(FontVariation { tag, value: *value });
+                }
+            }
         }
         self.chains.insert(key.to_string(), families);
+        self.variations.insert(key.to_string(), vars);
         Ok(())
     }
 
@@ -200,6 +214,11 @@ impl Fonts {
         self.chains.contains_key(key)
     }
 
+    /// The variation settings declared for `key` (ADR-0223).
+    pub(crate) fn variations(&self, key: &str) -> &[FontVariation] {
+        self.variations.get(key).map(Vec::as_slice).unwrap_or(&[])
+    }
+
     /// The parley context the layout shapes against.
     pub(crate) fn context(&mut self) -> &mut FontContext {
         &mut self.context
@@ -224,6 +243,7 @@ impl Fonts {
     ) -> Result<(), FontError> {
         let family = self.register_face(key, 0, bytes, index, None)?;
         self.chains.insert(key.to_string(), vec![family]);
+        self.variations.insert(key.to_string(), Vec::new());
         Ok(())
     }
 
@@ -272,7 +292,13 @@ impl Fonts {
             Blob::new(Arc::new(face.into_owned())),
             Some(FontInfoOverride {
                 family_name: Some(&family),
-                ..Default::default()
+                // Pin attributes to Parley's query defaults so `fontique` never synthesizes
+                // faux bold, faux italic, or unsolicited `wght=400`/`wdth=100` overrides on
+                // variable fonts whose OS/2 metadata differs from 400/normal (ADR-0223).
+                width: Some(FontWidth::NORMAL),
+                style: Some(FontStyle::Normal),
+                weight: Some(FontWeight::NORMAL),
+                axes: None,
             }),
         );
 
@@ -300,5 +326,6 @@ pub fn resolve(file: &str, index: Option<u32>, base: &Path) -> FontFile {
     FontFile {
         path: base.join(file),
         index,
+        axes: Vec::new(),
     }
 }

@@ -38,6 +38,9 @@ fn shaped_width(text: &str, size: i64) -> f64 {
         stroke_width: None,
         dir: None,
         annotation: None,
+        features: None,
+        baseline_shift: None,
+        letter_spacing: None,
     }];
     measure(
         &mut chrome::fonts(),
@@ -52,6 +55,7 @@ fn shaped_width(text: &str, size: i64) -> f64 {
             align: Align::Start,
             letter_spacing: 0.0,
             optional_ligatures_off: false,
+            features: None,
         },
     )
     .unwrap_or_else(|e| panic!("shaping {text:?} in the chrome face: {e}"))
@@ -182,6 +186,9 @@ fn a_character_outside_the_face_draws_a_visible_replacement_glyph() {
         stroke_width: None,
         dir: None,
         annotation: None,
+        features: None,
+        baseline_shift: None,
+        letter_spacing: None,
     }];
     let placement = place(
         &mut chrome::fonts(),
@@ -196,6 +203,7 @@ fn a_character_outside_the_face_draws_a_visible_replacement_glyph() {
             align: Align::Start,
             letter_spacing: 0.0,
             optional_ligatures_off: false,
+            features: None,
         },
     )
     .unwrap();

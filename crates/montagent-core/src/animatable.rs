@@ -165,10 +165,14 @@ fn derive(schema: &Value) -> Table {
 /// The schema reference of a text's own curve (ADR-0161 §2).
 const TEXT_PATH_REF: &str = "#/$defs/TextPath";
 
+/// The schema reference of a visual element's own trajectory (ADR-0218 §1).
+const MOTION_PATH_REF: &str = "#/$defs/MotionPath";
+
 /// The properties of one object branch whose type is an `Animatable{T}`, in schema order. A
 /// paint is followed by its gradient's parameters as nested paths — `fill.angle`,
-/// `fill.stops`, `fill.center`, `fill.radius` (ADR-0149 §6) — and a text's curve is read as
-/// its own nested `path.points` (ADR-0161 §8).
+/// `fill.stops`, `fill.center`, `fill.radius` (ADR-0149 §6) — a text's curve is read as its
+/// own nested `path.points` (ADR-0161 §8), and a visual element's trajectory is read as its
+/// own nested `motion_path.offset` (ADR-0218 §1).
 fn animatable_properties(defs: &Value, branch: &Value) -> Vec<Property> {
     let mut properties = Vec::new();
     for (name, property) in branch["properties"].as_object().into_iter().flatten() {
@@ -176,6 +180,17 @@ fn animatable_properties(defs: &Value, branch: &Value) -> Vec<Property> {
         // (ADR-0161 §8); its `closed` is static.
         if property["$ref"].as_str() == Some(TEXT_PATH_REF) {
             for nested in animatable_properties(defs, &defs["TextPath"]) {
+                properties.push(Property {
+                    name: format!("{name}.{}", nested.name),
+                    ..nested
+                });
+            }
+            continue;
+        }
+        // A visual element's trajectory carries its one animatable scalar nested, as
+        // `motion_path.offset` (ADR-0218 §1); its `closed`, `points` and `orient` are static.
+        if property["$ref"].as_str() == Some(MOTION_PATH_REF) {
+            for nested in animatable_properties(defs, &defs["MotionPath"]) {
                 properties.push(Property {
                     name: format!("{name}.{}", nested.name),
                     ..nested
@@ -236,11 +251,16 @@ fn typed(defs: &Value, name: &str, def: &str) -> Option<Property> {
         (_, Some("array")) => Kind::Pair,
         _ => return None,
     };
+    let bounds = if value["type"].as_str() == Some("array") {
+        &value["items"]
+    } else {
+        value
+    };
     Some(Property {
         name: name.to_string(),
         kind,
-        minimum: value["minimum"].as_f64(),
-        maximum: value["maximum"].as_f64(),
+        minimum: bounds["minimum"].as_f64(),
+        maximum: bounds["maximum"].as_f64(),
     })
 }
 
@@ -680,6 +700,23 @@ fn clamp(
             crate::model::PathOffset::RANGE.0,
             crate::model::PathOffset::RANGE.1,
         ),
+        // ADR-0218 §2: on an open motion_path, clamp offset into [0, 1]; on a closed one,
+        // clamp into [-1, 2] before wrapping.
+        "motion_path.offset" => {
+            if element
+                .get("motion_path")
+                .and_then(|mp| mp.get("closed"))
+                .and_then(Value::as_bool)
+                == Some(false)
+            {
+                number.clamp(0.0, 1.0)
+            } else {
+                number.clamp(
+                    crate::model::MotionPathOffset::RANGE.0,
+                    crate::model::MotionPathOffset::RANGE.1,
+                )
+            }
+        }
         _ => number,
     })
 }
@@ -770,6 +807,17 @@ fn clamp_parameter(
         let corner = (width.max(0.0), height.max(0.0));
         return Resolved::Points(clamped(vertices.clone(), ((0.0, 0.0), corner)));
     }
+    let property = declared.property;
+    let clamp_scalar = |mut v: f64| {
+        if (member == "twirl" || member == "bulge") && key == "radius" {
+            v = v.max(f64::MIN_POSITIVE);
+        }
+        v = property.minimum.map_or(v, |minimum| v.max(minimum));
+        property.maximum.map_or(v, |maximum| v.min(maximum))
+    };
+    if let Resolved::Pair([a, b]) = value {
+        return Resolved::Pair([clamp_scalar(a), clamp_scalar(b)]);
+    }
     let Resolved::Number(number) = value else {
         return value;
     };
@@ -784,15 +832,7 @@ fn clamp_parameter(
             _ => {}
         }
     }
-    let property = declared.property;
-    let number = property
-        .minimum
-        .map_or(number, |minimum| number.max(minimum));
-    Resolved::Number(
-        property
-            .maximum
-            .map_or(number, |maximum| number.min(maximum)),
-    )
+    Resolved::Number(clamp_scalar(number))
 }
 
 /// Half the shorter of two sides, at least `0`; unbounded where there are no sides to read.

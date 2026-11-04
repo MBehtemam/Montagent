@@ -5,6 +5,8 @@ amends: 0077 (reading 7's H.264 encode pipeline converts RGB to YUV with the BT.
 
 # sRGB is the working colour space, and video boundaries convert and tag BT.709
 
+> **Amended by:** [ADR-0235](0235-8-bit-srgb-is-the-sole-internal-buffer-and-16-32-bit-float-buffers-and-linear-light-blending-are-refused.md), [ADR-0236](0236-in-engine-hdr-encoding-and-tone-mapping-are-refused-from-render-and-hdr-mastering-stays-downstream.md).
+
 [#1057](https://github.com/MBehtemam/Montagent/issues/1057), on the map
 [#896](https://github.com/MBehtemam/Montagent/issues/896), from the colour-management census in
 [#904](https://github.com/MBehtemam/Montagent/issues/904) and

@@ -9,6 +9,8 @@ amends: 0040 (its "3D / perspective distortion" refusal on model grounds: a per-
 > projected, even at 0°, and only an element with neither field is unchanged (§1). The angles
 > compose as CSS's `perspective(d) rotateX(tilt) rotateY(swivel)` (§2). A review,
 > `R-PROJECTION-SOFT`, fires when the near edge's magnification d / (d − r) exceeds 2 (§8).
+>
+> Also amended by [ADR-0233](0233-3d-models-and-multichannel-passes-are-refused-as-native-sources-and-3d-scenes-pre-render-via-headless-recipes.md).
 
 [#705](https://github.com/MBehtemam/Montagent/issues/705), on the map
 [#663](https://github.com/MBehtemam/Montagent/issues/663).

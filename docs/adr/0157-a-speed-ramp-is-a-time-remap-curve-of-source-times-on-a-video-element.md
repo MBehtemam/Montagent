@@ -5,6 +5,8 @@ amends: 0005 (an element carrying `source_time` has no source range: `source_sta
 
 # A speed ramp is a time-remap curve of source times on a video element
 
+> **Amended by:** [ADR-0232](0232-frame-blend-mix-enters-video-and-optical-flow-echo-and-posterize-time-are-refused.md).
+
 [#706](https://github.com/MBehtemam/Montagent/issues/706), on the map
 [#663](https://github.com/MBehtemam/Montagent/issues/663). `speed` is one static multiplier
 ([ADR-0020](0020-speed-overrun-hold-loop.md)), so a clip cannot play at normal rate, slow to

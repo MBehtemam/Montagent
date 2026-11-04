@@ -342,6 +342,16 @@ pub fn shift(path: &FilePath, ask: &Ask) -> Answer {
                 report,
             };
         }
+
+        if ask.scope.is_none()
+            && let Some(markers) = &mut project.markers
+        {
+            for marker in markers {
+                if marker.at >= ask.at {
+                    marker.at += ask.delta;
+                }
+            }
+        }
     } else {
         // ---- Negative shift: excising timeline in [at, at + |delta|) (ADR-0200). ----
         let cut_start = ask.at;
@@ -715,6 +725,21 @@ pub fn shift(path: &FilePath, ask: &Ask) -> Answer {
                 receipt,
                 report,
             };
+        }
+
+        if ask.scope.is_none()
+            && let Some(markers) = &mut project.markers
+        {
+            if ask.delete {
+                markers.retain(|m| !(cut_start <= m.at && m.at < cut_end));
+            }
+            for marker in markers {
+                if marker.at >= cut_end {
+                    marker.at -= span;
+                } else if marker.at >= cut_start {
+                    marker.at = cut_start;
+                }
+            }
         }
 
         // 7. Collision check: ensure downstream shift didn't cause track overlap or layer tie.
@@ -1310,6 +1335,11 @@ fn split_list(
         }
         Kind::Integer => split_typed::<i64>(list, at, delta, |raw| bounded(raw).map(round_i64)),
         Kind::Number => split_typed::<f64>(list, at, delta, |raw| bounded(raw).map(round6)),
+        Kind::Pair if property.name == "blocks" => {
+            split_typed::<[i64; 2]>(list, at, delta, |raw: [f64; 2]| {
+                Ok([round_i64(bounded(raw[0])?), round_i64(bounded(raw[1])?)])
+            })
+        }
         Kind::Pair => split_typed::<Scale>(list, at, delta, |raw| Ok(round_scale(raw))),
         // A stop list splits stop by stop, and is refused where the resolved list is not a
         // legal literal: an offset out of 0..1 or crossed, or a colour out of range. Tested
@@ -1685,8 +1715,13 @@ fn excise_list(
         Kind::Number => excise_typed::<f64>(list, cut_start, span, &mut dropped, |raw| {
             bounded(raw).map(round6)
         }),
+        Kind::Pair if property.name == "blocks" => {
+            excise_typed::<[i64; 2]>(list, cut_start, span, &mut dropped, |raw: [f64; 2]| {
+                Ok([round_i64(bounded(raw[0])?), round_i64(bounded(raw[1])?)])
+            })
+        }
         Kind::Pair => excise_typed::<Scale>(list, cut_start, span, &mut dropped, |raw| {
-            Ok(round_scale(raw))
+            Ok(round_scale([bounded(raw[0])?, bounded(raw[1])?]))
         }),
         Kind::Stops => {
             excise_typed::<Stops>(list, cut_start, span, &mut dropped, |blend: StopsBlend| {

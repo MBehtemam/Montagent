@@ -19,6 +19,8 @@ amends: 0077 (reading 7's CRF 20 and preset `medium` are now a measured choice r
 > The encode pipeline now converts full-range sRGB to studio-swing Rec.709 via
 > `scale=in_range=pc:out_color_matrix=bt709:out_range=tv,setparams=colorspace=bt709:color_primaries=bt709:color_trc=bt709:range=tv`
 > and passes `-colorspace bt709 -color_primaries bt709 -color_trc bt709 -color_range tv`.
+>
+> Also amended by [ADR-0229](0229-image-sequence-export-and-png-in-mov-are-refused-from-render-and-prores-4444-is-the-sole-alpha-deliverable.md), [ADR-0234](0234-layered-psd-ai-import-and-scene-edit-detection-are-skill-scripts-and-source-interpretation-stays-upstream.md).
 
 [#628](https://github.com/MBehtemam/Montagent/issues/628), from
 [#532](https://github.com/MBehtemam/Montagent/issues/532) and

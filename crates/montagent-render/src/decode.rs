@@ -54,11 +54,16 @@ use std::process::{Command, Stdio};
 /// authority spawning its own `ffprobe` here is the thing ADR-0011 spent itself removing.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Decoder {
-    /// Whatever `ffmpeg` selects for the codec. Right for everything but the case below.
+    /// Whatever `ffmpeg` selects for the codec, with no known `color_space` stream tag
+    /// (ADR-0216 §2: `in_color_matrix=bt709:out_range=pc`).
     #[default]
     Auto,
+    /// Whatever `ffmpeg` selects for the codec, when `ffprobe` established an explicit
+    /// `color_space` matrix tag on the source stream (ADR-0216 §2: `out_range=pc`, leaving
+    /// `in_color_matrix=auto` and `in_range=auto` so `swscale` honours the stream's tag).
+    Tagged,
     /// `libvpx-vp9`, which surfaces VP9's alpha side stream where the native decoder
-    /// drops it.
+    /// drops it, with no known `color_space` stream tag.
     ///
     /// Asked for **only** where the source is VP9 *and* carries alpha, never for VP9 at
     /// large: ADR-0009 ships Montagent against *"an `ffmpeg` the user supplies"*, and an
@@ -67,16 +72,49 @@ pub enum Decoder {
     /// the alpha case it can only fail where the alternative was a silently wrong picture,
     /// and ADR-0006 prefers the loud error to that.
     LibVpxVp9,
+    /// `libvpx-vp9` when `ffprobe` also established an explicit `color_space` matrix tag.
+    LibVpxVp9Tagged,
 }
 
 impl Decoder {
-    /// The input-side arguments this choice adds, which is nothing at all for [`Auto`].
+    /// Attach whether `ffprobe` found a known `color_space` matrix tag on the video stream.
+    pub const fn with_tagged_matrix(self, tagged: bool) -> Self {
+        match (self, tagged) {
+            (Decoder::Auto | Decoder::Tagged, false) => Decoder::Auto,
+            (Decoder::Auto | Decoder::Tagged, true) => Decoder::Tagged,
+            (Decoder::LibVpxVp9 | Decoder::LibVpxVp9Tagged, false) => Decoder::LibVpxVp9,
+            (Decoder::LibVpxVp9 | Decoder::LibVpxVp9Tagged, true) => Decoder::LibVpxVp9Tagged,
+        }
+    }
+
+    /// Whether the source stream carries a known `color_space` matrix tag (ADR-0216 §2).
+    pub const fn has_tagged_matrix(self) -> bool {
+        matches!(self, Decoder::Tagged | Decoder::LibVpxVp9Tagged)
+    }
+
+    /// The input-side arguments this choice adds, which is nothing at all for [`Auto`] and
+    /// [`Tagged`].
     ///
     /// [`Auto`]: Decoder::Auto
+    /// [`Tagged`]: Decoder::Tagged
     fn args(self) -> &'static [&'static str] {
         match self {
-            Decoder::Auto => &[],
-            Decoder::LibVpxVp9 => &["-c:v", "libvpx-vp9"],
+            Decoder::Auto | Decoder::Tagged => &[],
+            Decoder::LibVpxVp9 | Decoder::LibVpxVp9Tagged => &["-c:v", "libvpx-vp9"],
+        }
+    }
+
+    /// ADR-0216 §2's `scale` filter for YUV → RGBA conversion:
+    /// - Tagged sources (`bt709`, `smpte170m`, `bt470bg`, `bt2020nc`, `gbr`, …) leave
+    ///   `in_color_matrix=auto` and `in_range=auto` so `swscale` honours the stream's own
+    ///   matrix and range, while pinning `out_range=pc` for full-range RGBA8 output.
+    /// - Untagged sources override `swscale`'s legacy `bt601` fallback with
+    ///   `in_color_matrix=bt709:out_range=pc`.
+    fn scale_filter(self, width: u32, height: u32) -> String {
+        if self.has_tagged_matrix() {
+            format!("scale={width}:{height}:out_range=pc")
+        } else {
+            format!("scale={width}:{height}:in_color_matrix=bt709:out_range=pc")
         }
     }
 }
@@ -212,7 +250,7 @@ pub fn frame_at(
     let threshold = format!("{}.{:03}001", at_ms / 1000, at_ms % 1000);
 
     let expected = (width as usize) * (height as usize) * 4;
-    let scale = format!("scale={width}:{height}");
+    let scale = decoder.scale_filter(width, height);
 
     // One spawn of `ffmpeg` over the window, with whichever output-side arguments pick the
     // frame wanted out of it.
@@ -578,13 +616,14 @@ pub fn frames_at(
         timeline_ms,
         source_ms,
     } = origin;
+    let scale = decoder.scale_filter(width, height);
     let filter = format!(
         "settb=1/1000000,\
          setpts='(ceil((2*(ceil((PTS-1)/1000)-{source_ms})-1)*{den}/(2*{num}))+{timeline_ms})*1000',\
          settb=1/{tick_base},\
          setpts='PTS-{first_tick}',\
          fps={fps}:round=up:start_time=0,\
-         scale={width}:{height}",
+         {scale}",
         tick_base = 1000 * i128::from(fps),
         first_tick = 1000 * i128::from(first),
     );
@@ -789,5 +828,252 @@ mod tests {
         .expect_err("nothing to run");
         assert!(e.contains("/nowhere/ffmpeg"), "{e}");
         assert!(e.contains("clip.mov"), "{e}");
+    }
+
+    #[test]
+    fn decoder_scale_filter_uses_auto_matrix_when_tagged_and_bt709_when_untagged() {
+        assert!(!Decoder::Auto.has_tagged_matrix());
+        assert_eq!(Decoder::Auto.with_tagged_matrix(true), Decoder::Tagged);
+        assert!(Decoder::Tagged.has_tagged_matrix());
+        assert!(Decoder::Tagged.args().is_empty());
+
+        assert!(!Decoder::LibVpxVp9.has_tagged_matrix());
+        assert_eq!(
+            Decoder::LibVpxVp9.with_tagged_matrix(true),
+            Decoder::LibVpxVp9Tagged
+        );
+        assert!(Decoder::LibVpxVp9Tagged.has_tagged_matrix());
+        assert_eq!(Decoder::LibVpxVp9Tagged.args(), &["-c:v", "libvpx-vp9"]);
+
+        assert_eq!(
+            Decoder::Auto.scale_filter(1920, 1080),
+            "scale=1920:1080:in_color_matrix=bt709:out_range=pc"
+        );
+        assert_eq!(
+            Decoder::LibVpxVp9.scale_filter(1920, 1080),
+            "scale=1920:1080:in_color_matrix=bt709:out_range=pc"
+        );
+        assert_eq!(
+            Decoder::Tagged.scale_filter(1920, 1080),
+            "scale=1920:1080:out_range=pc"
+        );
+        assert_eq!(
+            Decoder::LibVpxVp9Tagged.scale_filter(1920, 1080),
+            "scale=1920:1080:out_range=pc"
+        );
+    }
+
+    fn resolve_ffmpeg() -> Option<std::path::PathBuf> {
+        let path = std::env::var_os("PATH")?;
+        std::env::split_paths(&path)
+            .map(|dir| {
+                dir.join(if cfg!(windows) {
+                    "ffmpeg.exe"
+                } else {
+                    "ffmpeg"
+                })
+            })
+            .find(|candidate| candidate.is_file())
+    }
+
+    fn assert_rgb_within_two(frame: &DecodedFrame, expected: [u8; 3], context: &str) {
+        let idx = ((frame.height / 2) * frame.width + (frame.width / 2)) as usize * 4;
+        let actual = [frame.rgba[idx], frame.rgba[idx + 1], frame.rgba[idx + 2]];
+        let alpha = frame.rgba[idx + 3];
+        assert_eq!(alpha, 255, "{context}: expected opaque alpha");
+        for (ch, (&got, &want)) in ["R", "G", "B"]
+            .iter()
+            .zip(actual.iter().zip(expected.iter()))
+        {
+            let diff = (i16::from(got) - i16::from(want)).abs();
+            assert!(
+                diff <= 2,
+                "{context}: channel {ch} got {got}, expected {want} (±2), full RGB={actual:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn round_trip_dc3c28_through_encode_and_decode_stays_within_two_255ths() {
+        // ADR-0216 §5: rendering a project with `#DC3C28` (RGB 220, 60, 40) and decoding
+        // the output back via `decode::frame_at` recovers every channel within ±2/255.
+        let Some(ffmpeg) = resolve_ffmpeg() else {
+            return;
+        };
+        let dir =
+            std::env::temp_dir().join(format!("montagent-decode-bt709-rt-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).expect("temp dir");
+        struct Guard(std::path::PathBuf);
+        impl Drop for Guard {
+            fn drop(&mut self) {
+                let _ = std::fs::remove_dir_all(&self.0);
+            }
+        }
+        let _guard = Guard(dir.clone());
+
+        let (w, h) = (64u32, 64u32);
+        let rgb = [220u8, 60, 40];
+        let frame_bytes: Vec<u8> = rgb.repeat((w * h) as usize);
+        let target = dir.join("dc3c28.mp4");
+        let spec = crate::encode::Spec::new(w, h, 25.into(), crate::canvas::Rgba::BLACK);
+        let mut encoder = crate::encode::Encoder::start(&ffmpeg, &target, &spec).expect("spawn");
+        for _ in 0..5 {
+            encoder.push(&frame_bytes).expect("push");
+        }
+        encoder.finish().expect("finish");
+
+        let source = target.to_str().unwrap();
+        for decoder in [Decoder::Tagged, Decoder::Auto] {
+            let decoded = frame_at(&ffmpeg, source, decoder, 0, w, h).expect("frame_at");
+            assert_rgb_within_two(&decoded, rgb, &format!("frame_at({decoder:?})"));
+
+            let mut run = frames_from(
+                &ffmpeg,
+                source,
+                decoder,
+                0,
+                Pace {
+                    fps: 25,
+                    speed: (1, 1),
+                },
+                w,
+                h,
+            )
+            .expect("frames_from");
+            let first = run.next_frame().expect("read").expect("at least one frame");
+            assert_rgb_within_two(&first, rgb, &format!("frames_from({decoder:?})"));
+        }
+    }
+
+    #[test]
+    fn tagged_smpte170m_and_untagged_bt709_sources_both_decode_within_two_255ths() {
+        // ADR-0216 §2 & §5:
+        // - A tagged `smpte170m` (BT.601) source decoded with `Decoder::Tagged` uses
+        //   `scale=W:H:out_range=pc` so `swscale` honours the stream's `smpte170m` tag.
+        // - An untagged `bt709` source decoded with `Decoder::Auto` uses
+        //   `scale=W:H:in_color_matrix=bt709:out_range=pc` so `swscale` does not fall back
+        //   to `bt601`.
+        let Some(ffmpeg) = resolve_ffmpeg() else {
+            return;
+        };
+        let dir = std::env::temp_dir().join(format!(
+            "montagent-decode-tagged-vs-untagged-{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).expect("temp dir");
+        struct Guard(std::path::PathBuf);
+        impl Drop for Guard {
+            fn drop(&mut self) {
+                let _ = std::fs::remove_dir_all(&self.0);
+            }
+        }
+        let _guard = Guard(dir.clone());
+
+        let (w, h) = (64u32, 64u32);
+        let rgb = [220u8, 60, 40];
+
+        // 1. Tagged smpte170m source.
+        let smpte_path = dir.join("tagged_smpte170m.mp4");
+        let status = Command::new(&ffmpeg)
+            .args([
+                "-hide_banner",
+                "-loglevel",
+                "error",
+                "-f",
+                "lavfi",
+                "-i",
+                "color=c=0xDC3C28:s=64x64:r=25:d=0.2,format=rgb24",
+                "-vf",
+                "scale=in_range=pc:out_color_matrix=bt601:out_range=tv,\
+                 setparams=colorspace=smpte170m:color_primaries=smpte170m:color_trc=smpte170m:range=tv",
+                "-c:v",
+                crate::floor::VIDEO_ENCODER,
+                "-crf",
+                "10",
+                "-pix_fmt",
+                "yuv420p",
+                "-colorspace",
+                "smpte170m",
+                "-color_primaries",
+                "smpte170m",
+                "-color_trc",
+                "smpte170m",
+                "-color_range",
+                "tv",
+                "-y",
+            ])
+            .arg(&smpte_path)
+            .status()
+            .expect("spawned ffmpeg for smpte170m");
+        assert!(status.success(), "encoded tagged smpte170m fixture");
+
+        // 2. Untagged bt709 source (matrix converted with bt709, stream tags stripped to unknown).
+        let untagged_path = dir.join("untagged_bt709.mp4");
+        let status = Command::new(&ffmpeg)
+            .args([
+                "-hide_banner",
+                "-loglevel",
+                "error",
+                "-f",
+                "lavfi",
+                "-i",
+                "color=c=0xDC3C28:s=64x64:r=25:d=0.2,format=rgb24",
+                "-vf",
+                "scale=in_range=pc:out_color_matrix=bt709:out_range=tv,\
+                 setparams=colorspace=unknown:color_primaries=unknown:color_trc=unknown:range=tv",
+                "-c:v",
+                crate::floor::VIDEO_ENCODER,
+                "-crf",
+                "10",
+                "-pix_fmt",
+                "yuv420p",
+                "-y",
+            ])
+            .arg(&untagged_path)
+            .status()
+            .expect("spawned ffmpeg for untagged bt709");
+        assert!(status.success(), "encoded untagged bt709 fixture");
+
+        let smpte_str = smpte_path.to_str().unwrap();
+        let decoded_smpte =
+            frame_at(&ffmpeg, smpte_str, Decoder::Tagged, 0, w, h).expect("smpte frame_at");
+        assert_rgb_within_two(&decoded_smpte, rgb, "tagged smpte170m frame_at");
+        let mut smpte_run = frames_from(
+            &ffmpeg,
+            smpte_str,
+            Decoder::Tagged,
+            0,
+            Pace {
+                fps: 25,
+                speed: (1, 1),
+            },
+            w,
+            h,
+        )
+        .expect("smpte frames_from");
+        let smpte_first = smpte_run.next_frame().unwrap().unwrap();
+        assert_rgb_within_two(&smpte_first, rgb, "tagged smpte170m frames_from");
+
+        let untagged_str = untagged_path.to_str().unwrap();
+        let decoded_untagged =
+            frame_at(&ffmpeg, untagged_str, Decoder::Auto, 0, w, h).expect("untagged frame_at");
+        assert_rgb_within_two(&decoded_untagged, rgb, "untagged bt709 frame_at");
+        let mut untagged_run = frames_from(
+            &ffmpeg,
+            untagged_str,
+            Decoder::Auto,
+            0,
+            Pace {
+                fps: 25,
+                speed: (1, 1),
+            },
+            w,
+            h,
+        )
+        .expect("untagged frames_from");
+        let untagged_first = untagged_run.next_frame().unwrap().unwrap();
+        assert_rgb_within_two(&untagged_first, rgb, "untagged bt709 frames_from");
     }
 }

@@ -64,7 +64,7 @@ impl Drop for ForcedPrefixCache {
 
 /// The effects whose result depends on the canvas and their own parameters alone. Every
 /// other name, `grain` (keyed on the local frame) among them, ends the prefix.
-const STATIC_EFFECTS: [&str; 10] = [
+const STATIC_EFFECTS: [&str; 27] = [
     "blur",
     "shadow",
     "mask",
@@ -75,6 +75,23 @@ const STATIC_EFFECTS: [&str; 10] = [
     "chroma",
     "posterize",
     "glow",
+    "vibrance",
+    "hue_rotate",
+    "invert",
+    "mosaic",
+    "radial_blur",
+    "find_edges",
+    "emboss",
+    "sharpen",
+    "twirl",
+    "bulge",
+    "optics_compensation",
+    "offset",
+    "matte",
+    "luma_key",
+    "outline",
+    "color_overlay",
+    "inner_shadow",
 ];
 
 /// Whether `element` paints the same pixels on every frame it is present in, as far as its

@@ -12,6 +12,8 @@ amended-by: 0007 (fonts carve-out), 0053 (resolution base, no assetRoot, absolut
 >   assetRoot, absolute-path and missing-source questions that ADR left open
 > - [ADR-0140](0140-an-image-element-changes-its-file-over-time-through-timed-swaps.md) — an image's `swaps` name other files, inline, each for a
 >   timed window; `source` is what it draws outside them
+>
+> Also amended by [ADR-0234](0234-layered-psd-ai-import-and-scene-edit-detection-are-skill-scripts-and-source-interpretation-stays-upstream.md), [ADR-0238](0238-openexr-sequences-and-cinema-raw-formats-are-refused-and-conform-upstream-to-prores-4444.md).
 
 An element's `source` is written on the element itself — a relative path today, a
 URL where the file lives elsewhere. Montagent has no `assets` block declaring

@@ -62,4 +62,4 @@ pub use ink::InkSeam;
 pub use metrics::FaceMetrics;
 pub use names::FaceNames;
 pub use place::{Align, Cluster, Glyph, PathEl, Placement, place};
-pub use spacing::{Suppressed, first_suppressed};
+pub use spacing::{Suppressed, first_suppressed, first_suppressed_where};

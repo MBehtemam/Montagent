@@ -124,7 +124,9 @@ pub(super) fn hints(
             // Its own layer stays unhinted and passes the bound on (#722): a hint on it
             // moved a level on a few pixels under a flip. Its filter is already cropped to
             // its reach, so Skia's bounds of it are that crop.
-            Effect::DirectionalBlur { .. } => content = filter.compute_fast_bounds(content),
+            Effect::DirectionalBlur { .. } | Effect::Outline { .. } => {
+                content = filter.compute_fast_bounds(content);
+            }
             // Unhinted for the same reason under a rotation, and its output is its input's.
             _ => {}
         }
@@ -173,7 +175,9 @@ impl<'a> Plan<'a> {
         };
         // ADR-0156's members are inside the derivation (#722 measured all three, hint on and
         // off): `glow` is a blur, `posterize` keeps the bound, and `directional_blur` reaches
-        // its cropped reach. ADR-0049's four colour filters and `chroma` stay outside it.
+        // its cropped reach. ADR-0231's `outline`, `color_overlay` and `inner_shadow` likewise
+        // keep transparent black transparent outside their declared reach. ADR-0049's four
+        // colour filters and `chroma` stay outside it.
         if blurs().next().is_none()
             || !effects.iter().all(|effect| {
                 matches!(
@@ -185,6 +189,9 @@ impl<'a> Plan<'a> {
                         | Effect::Glow { .. }
                         | Effect::Posterize { .. }
                         | Effect::DirectionalBlur { .. }
+                        | Effect::Outline { .. }
+                        | Effect::ColorOverlay { .. }
+                        | Effect::InnerShadow { .. }
                 )
             })
         {
@@ -217,6 +224,11 @@ impl<'a> Plan<'a> {
         // counts as a blur here (#698): its σ meets the same cap, and its reach joins the sum.
         let feathers = effects.iter().filter_map(|effect| match *effect {
             Effect::Mask { feather, .. } if feather > 0.0 => Some((feather, 0.0, 0.0)),
+            Effect::InnerShadow { dx, dy, radius, .. }
+                if radius > 0.0 || dx != 0.0 || dy != 0.0 =>
+            {
+                Some((radius, dx, dy))
+            }
             _ => None,
         });
         let mut outset = (0.0f32, 0.0f32);
@@ -228,12 +240,21 @@ impl<'a> Plan<'a> {
             outset.0 += (3.0 * sigma.0).ceil() + (dx as f32 * scale.0).abs() + 2.0;
             outset.1 += (3.0 * sigma.1).ceil() + (dy as f32 * scale.1).abs() + 2.0;
         }
-        // A directional blur reaches its crop: its declared reach, rounded up, and a pixel.
+        // A directional blur reaches its crop, and an outline reaches its dilation: declared
+        // reach, rounded up, and a pixel.
         for effect in effects {
-            if let Effect::DirectionalBlur { angle, length } = *effect {
-                let (x, y) = super::named::directional_reach(angle, length);
-                outset.0 += (x * scale.0).ceil() + 2.0;
-                outset.1 += (y * scale.1).ceil() + 2.0;
+            match *effect {
+                Effect::DirectionalBlur { angle, length } => {
+                    let (x, y) = super::named::directional_reach(angle, length);
+                    outset.0 += (x * scale.0).ceil() + 2.0;
+                    outset.1 += (y * scale.1).ceil() + 2.0;
+                }
+                Effect::Outline { width, .. } if width > 0.0 => {
+                    let w = width as f32;
+                    outset.0 += (w * scale.0).ceil() + 2.0;
+                    outset.1 += (w * scale.1).ceil() + 2.0;
+                }
+                _ => {}
             }
         }
         if !(outset.0 <= MAX_OUTSET && outset.1 <= MAX_OUTSET) {
@@ -313,7 +334,15 @@ mod tests {
         let canvas = surface.canvas();
         canvas.translate((200.0, 100.0));
         canvas.scale(scale);
-        let filters: Vec<_> = effects.iter().map(|e| e.filter()).collect();
+        let filters: Vec<_> = effects
+            .iter()
+            .map(|e| {
+                e.filter(crate::canvas::Extent {
+                    width: 100.0,
+                    height: 40.0,
+                })
+            })
+            .collect();
         hints(canvas, effects, &filters, &|canvas| {
             canvas.draw_rect(Rect::from_xywh(0.0, 0.0, 100.0, 40.0), &Paint::default());
         })

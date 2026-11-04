@@ -420,6 +420,7 @@ pub fn fcpxml_to_project(xml_text: &str) -> Result<Project, FcpxmlError> {
                 speed: None,
                 overrun: None,
                 volume: None,
+                markers: None,
                 audio_effects: None,
             })
         } else {
@@ -430,6 +431,7 @@ pub fn fcpxml_to_project(xml_text: &str) -> Result<Project, FcpxmlError> {
                 source_time: None,
                 x: None,
                 y: None,
+                motion_path: None,
                 origin: None,
                 width: frame_width,
                 height: frame_height,
@@ -446,7 +448,9 @@ pub fn fcpxml_to_project(xml_text: &str) -> Result<Project, FcpxmlError> {
                 role: None,
                 speed: None,
                 overrun: None,
+                frame_blend: None,
                 volume: None,
+                markers: None,
                 effects: None,
                 audio_effects: None,
             })
@@ -512,6 +516,7 @@ pub fn fcpxml_to_project(xml_text: &str) -> Result<Project, FcpxmlError> {
         master: None,
         effects: None,
         quiet: None,
+        markers: None,
         fonts: None,
         font_vendor: None,
         tracks,

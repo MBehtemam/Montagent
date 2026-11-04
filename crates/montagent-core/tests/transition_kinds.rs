@@ -915,3 +915,301 @@ fn a_slide_in_order_and_a_push_or_wipe_in_either_order_stay_clean() {
         );
     }
 }
+
+// ---------------------------------------------------------------------------
+// ADR-0220: `iris`, `radial_wipe`, `blinds`, and `wipe`'s `angle`
+// ---------------------------------------------------------------------------
+
+#[test]
+fn iris_radial_wipe_blinds_and_angled_wipe_validate_clean() {
+    let valid = [
+        transition("iris", json!({})),
+        transition(
+            "iris",
+            json!({"shape": "circle", "direction": "out", "center": [120, 80], "ease": "ease-in-out"}),
+        ),
+        transition("iris", json!({"shape": "rect", "direction": "in"})),
+        transition("radial_wipe", json!({})),
+        transition(
+            "radial_wipe",
+            json!({"direction": "counter_clockwise", "start_angle": 90.0, "center": [200, 100], "ease": "ease-in"}),
+        ),
+        transition("blinds", json!({"direction": "left"})),
+        transition(
+            "blinds",
+            json!({"direction": "down", "slats": 6, "ease": "ease-out"}),
+        ),
+        transition("wipe", json!({"angle": 0.0})),
+        transition("wipe", json!({"angle": 45.0, "ease": "ease-in-out"})),
+        transition("wipe", json!({"angle": -30.0})),
+    ];
+    for element in valid {
+        let report = validated(&bridged(element.clone()));
+        assert!(
+            report
+                .findings
+                .iter()
+                .all(|f| f.class != montagent_core::finding::Class::Error),
+            "{element}: {:?}",
+            codes(&report)
+        );
+    }
+}
+
+#[test]
+fn wipe_with_neither_or_both_direction_and_angle_is_e_transition_direction_or_angle() {
+    for extra in [json!({}), json!({"direction": "left", "angle": 45.0})] {
+        let report = validated(&bridged(transition("wipe", extra.clone())));
+        let found = findings_of(&report, "E-TRANSITION-DIRECTION-OR-ANGLE");
+        assert_eq!(found.len(), 1, "{extra}: {:?}", codes(&report));
+        assert_eq!(found[0].class, montagent_core::finding::Class::Error);
+        assert!(
+            !schema_faults(&report).is_empty(),
+            "schema also rejects {extra}"
+        );
+    }
+}
+
+#[test]
+fn unsupported_transition_keys_emit_e_transition_unsupported_key() {
+    let cases = [
+        ("crossfade", json!({"angle": 45.0}), "angle"),
+        ("push", json!({"direction": "left", "angle": 45.0}), "angle"),
+        ("slide", json!({"direction": "left", "slats": 4}), "slats"),
+        ("iris", json!({"start_angle": 90.0}), "start_angle"),
+        ("iris", json!({"slats": 6}), "slats"),
+        ("radial_wipe", json!({"shape": "circle"}), "shape"),
+        ("radial_wipe", json!({"angle": 45.0}), "angle"),
+        (
+            "blinds",
+            json!({"direction": "left", "center": [100, 100]}),
+            "center",
+        ),
+        (
+            "blinds",
+            json!({"direction": "left", "shape": "rect"}),
+            "shape",
+        ),
+        ("wipe", json!({"direction": "left", "slats": 5}), "slats"),
+    ];
+    for (kind, extra, key) in cases {
+        let report = validated(&bridged(transition(kind, extra.clone())));
+        let found = findings_of(&report, "E-TRANSITION-UNSUPPORTED-KEY");
+        assert!(
+            found.iter().any(|f| f.fields["key"] == key),
+            "{kind} {extra} expected E-TRANSITION-UNSUPPORTED-KEY for {key}: {:?}",
+            codes(&report)
+        );
+        assert!(
+            !schema_faults(&report).is_empty(),
+            "schema also rejects {kind} {extra}"
+        );
+    }
+    // And a direction keyword belonging to another kind is a schema error.
+    for (kind, dir) in [("iris", "left"), ("radial_wipe", "up"), ("blinds", "out")] {
+        let report = validated(&bridged(transition(kind, json!({"direction": dir}))));
+        assert!(
+            !schema_faults(&report).is_empty(),
+            "{kind} direction={dir} should be rejected by schema"
+        );
+    }
+}
+
+#[test]
+fn blinds_with_zero_or_negative_slats_is_e_transition_slats_zero() {
+    for slats in [0, -5] {
+        let report = validated(&bridged(transition(
+            "blinds",
+            json!({"direction": "right", "slats": slats}),
+        )));
+        let found = findings_of(&report, "E-TRANSITION-SLATS-ZERO");
+        assert_eq!(found.len(), 1, "slats={slats}: {:?}", codes(&report));
+        assert_eq!(found[0].fields["slats"], slats);
+        assert!(
+            !schema_faults(&report).is_empty(),
+            "schema also rejects slats={slats}"
+        );
+    }
+}
+
+#[test]
+fn wipe_cardinal_angles_paint_the_exact_same_pixels_as_named_directions() {
+    let pairs = [
+        (0.0, "right"),
+        (90.0, "down"),
+        (180.0, "left"),
+        (270.0, "up"),
+    ];
+    for (angle, direction) in pairs {
+        let by_angle = bridged(transition("wipe", json!({"angle": angle})));
+        let by_dir = bridged(transition("wipe", json!({"direction": direction})));
+        for instant in [1000, 1240, 1500, 1760, 1960] {
+            let p_angle = picture(&by_angle, instant);
+            let p_dir = picture(&by_dir, instant);
+            assert_eq!(
+                p_angle.as_raw(),
+                p_dir.as_raw(),
+                "wipe angle={angle} vs direction={direction} differed at {instant}"
+            );
+        }
+    }
+}
+
+#[test]
+fn new_transition_apertures_partition_the_frame_with_zero_backdrop_bleed() {
+    let transitions = [
+        transition("wipe", json!({"angle": 45.0})),
+        transition("wipe", json!({"angle": 135.0})),
+        transition("wipe", json!({"angle": -30.0})),
+        transition("iris", json!({"shape": "circle", "direction": "out"})),
+        transition(
+            "iris",
+            json!({"shape": "circle", "direction": "in", "center": [100, 50]}),
+        ),
+        transition("iris", json!({"shape": "rect", "direction": "out"})),
+        transition(
+            "iris",
+            json!({"shape": "rect", "direction": "in", "center": [300, 150]}),
+        ),
+        transition("radial_wipe", json!({"direction": "clockwise"})),
+        transition(
+            "radial_wipe",
+            json!({"direction": "counter_clockwise", "start_angle": 45.0, "center": [120, 140]}),
+        ),
+        transition("blinds", json!({"direction": "left", "slats": 7})),
+        transition("blinds", json!({"direction": "right", "slats": 10})),
+        transition("blinds", json!({"direction": "up", "slats": 6})),
+        transition("blinds", json!({"direction": "down", "slats": 8})),
+    ];
+    for t in transitions {
+        for body in [bridged(t.clone()), swapped_layers(t.clone())] {
+            for instant in [1000, 1200, 1500, 1800, 1960] {
+                let painted = picture(&body, instant);
+                assert_eq!(
+                    count(&painted, GREEN),
+                    0,
+                    "{t} showed green background at {instant}"
+                );
+                assert_eq!(
+                    count(&painted, RED) + count(&painted, BLUE),
+                    400 * 200,
+                    "{t} painted a blended or unexpected pixel at {instant}"
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn iris_out_and_in_reveal_from_center_and_edges_respectively() {
+    let out = picture(
+        &bridged(transition(
+            "iris",
+            json!({"shape": "circle", "direction": "out"}),
+        )),
+        1500,
+    );
+    assert_eq!(
+        rgb(&out, 200, 100),
+        BLUE,
+        "center of iris out is incoming `b`"
+    );
+    assert_eq!(
+        rgb(&out, 5, 5),
+        RED,
+        "corner of iris out at p=0.5 is outgoing `a`"
+    );
+
+    let inward = picture(
+        &bridged(transition(
+            "iris",
+            json!({"shape": "circle", "direction": "in"}),
+        )),
+        1500,
+    );
+    assert_eq!(
+        rgb(&inward, 200, 100),
+        RED,
+        "center of iris in at p=0.5 is outgoing `a`"
+    );
+    assert_eq!(
+        rgb(&inward, 5, 5),
+        BLUE,
+        "corner of iris in at p=0.5 is incoming `b`"
+    );
+}
+
+#[test]
+fn radial_wipe_sweeps_clockwise_or_counter_clockwise_from_twelve_oclock() {
+    // At t = 1250 (p = 0.25, 90 degrees sweep from 12 o'clock / -y):
+    // clockwise sweeps the top-right quadrant (x > 200, y < 100) into `b` (BLUE).
+    let cw = picture(
+        &bridged(transition("radial_wipe", json!({"direction": "clockwise"}))),
+        1250,
+    );
+    assert_eq!(
+        rgb(&cw, 250, 50),
+        BLUE,
+        "top-right is swept by clockwise quarter turn"
+    );
+    assert_eq!(rgb(&cw, 250, 150), RED, "bottom-right is not yet swept");
+    assert_eq!(rgb(&cw, 150, 150), RED, "bottom-left is not yet swept");
+    assert_eq!(rgb(&cw, 150, 50), RED, "top-left is not yet swept");
+
+    // counter_clockwise sweeps the top-left quadrant (x < 200, y < 100) into `b` (BLUE).
+    let ccw = picture(
+        &bridged(transition(
+            "radial_wipe",
+            json!({"direction": "counter_clockwise"}),
+        )),
+        1250,
+    );
+    assert_eq!(
+        rgb(&ccw, 150, 50),
+        BLUE,
+        "top-left is swept by counter_clockwise quarter turn"
+    );
+    assert_eq!(rgb(&ccw, 250, 50), RED, "top-right is not swept");
+}
+
+#[test]
+fn blinds_partition_the_frame_into_slats_that_fill_along_direction() {
+    // 4 vertical slats across 400 px -> each slat is 100 px wide. At p = 0.5, a `right`
+    // blinds fills the left 50 px of each slat with incoming `b` (BLUE) and leaves the
+    // right 50 px of each slat with outgoing `a` (RED).
+    let mid = picture(
+        &bridged(transition(
+            "blinds",
+            json!({"direction": "right", "slats": 4}),
+        )),
+        1500,
+    );
+    for slat in 0..4u32 {
+        let base = slat * 100;
+        assert_eq!(rgb(&mid, base + 25, 100), BLUE, "slat {slat} first half");
+        assert_eq!(rgb(&mid, base + 75, 100), RED, "slat {slat} second half");
+    }
+}
+
+#[test]
+fn query_at_reports_conservative_bounding_boxes_for_non_single_rect_apertures() {
+    // Rect iris out at p = 0.5: incoming `b` is clipped to the centered half-frame box
+    // [100..300, 50..150], while outgoing `a` is the surrounding frame ring whose
+    // conservative AABB is the full 400x200 frame.
+    let view = queried(
+        &bridged(transition(
+            "iris",
+            json!({"shape": "rect", "direction": "out"}),
+        )),
+        1500,
+    );
+    assert_eq!(
+        row(&view, "b")["transition"]["box"],
+        json!({"x": 100, "y": 50, "width": 200, "height": 100})
+    );
+    assert_eq!(
+        row(&view, "a")["transition"]["box"],
+        json!({"x": 0, "y": 0, "width": 400, "height": 200})
+    );
+    assert!(view["not_covered"].as_array().expect("a list").is_empty());
+}

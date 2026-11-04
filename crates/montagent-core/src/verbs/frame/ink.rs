@@ -36,6 +36,20 @@ fn shader(gradient: &Gradient, frame: [f32; 4]) -> Option<Shader> {
             center: center.fractions(),
             radius: radius.fraction(),
         },
+        Gradient::Sweep { center, angle, .. } => GradientKind::Sweep {
+            center: center.fractions(),
+            angle: angle.degrees(),
+        },
+        Gradient::TwoPointConical {
+            center,
+            radius,
+            focal,
+            ..
+        } => GradientKind::TwoPointConical {
+            center: center.fractions(),
+            radius: radius.fraction(),
+            focal: focal.fractions(),
+        },
     };
     let stops = gradient
         .stops()

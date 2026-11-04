@@ -18,6 +18,8 @@ amends: 0005 (delivers the nearest-boundary message this ADR commissioned, for t
 >   — the destroyed-coincidence precedent this ADR extends
 > - [ADR-0063](0063-compare-drift-checks-keyframe-instant-relationships.md) — designs the
 >   destroyed-coincidence mechanics it deferred
+>
+> Also amended by [ADR-0232](0232-frame-blend-mix-enters-video-and-optical-flow-echo-and-posterize-time-are-refused.md).
 
 [Ticket #69](https://github.com/MBehtemam/Montagent/issues/69), graduated from
 [#12](https://github.com/MBehtemam/Montagent/issues/12). This is what remained after

@@ -25,12 +25,17 @@ This page holds the rules every element shares. The rest are on pages of their o
 served beside this one and each fitting one read. Read a page before you write what it covers:
 
 - **`montagent://format/text.md`**: a `text` element. Runs and line breaks, direction and
-  `align`, captions, `letter_spacing` and ligatures, `line_height`, fonts and their vendoring,
-  and a line bent along its own curve (`path`, `path_offset`).
+  `align`, captions, `letter_spacing` and ligatures, OpenType `features` and `baseline_shift`,
+  `line_height`, fonts (`axes`) and their vendoring, and a line bent along its own curve
+  (`path`, `path_offset`).
 - **`montagent://format/compositing.md`**: how elements combine. Paint and gradients, effect
-  order, `blend` and shadows, masks, `chroma`, `grain` and textures, the named effects
-  (`posterize`, `glow`, `directional_blur`), `motion_blur`, and which bottom layers are drawn
+  order, `blend` and shadows, masks, `chroma`, `motion_blur`, and which bottom layers are drawn
   once and reused (the static prefix).
+- **`montagent://format/effects.md`**: `grain` and textures, the named `effects` members
+  (`posterize`, `glow`, `directional_blur`, `mosaic`, `radial_blur`, `find_edges`, `emboss`,
+  `sharpen`, `twirl`, `bulge`, `optics_compensation`, `offset`, `vibrance`, `hue_rotate`,
+  `invert`, `matte`, `luma_key`, `outline`, `color_overlay`, `inner_shadow`), and perspective
+  projection (`swivel`, `tilt`, `perspective`).
 - **`montagent://format/transitions.md`**: a `transition` element. Its `kind`, `direction` and
   `ease`, the window it must equal, and the sound it carries across that window (`audio`,
   `audio_crossfade`).
@@ -184,6 +189,14 @@ the scaffold writes `background`, `duration` and `output` exactly when you asked
   be a target.
 - **`group` is render-inert.** It says two elements belong to one authorial unit and
   nothing more — no timing, no stacking, no drawing consequence.
+- **`markers` are timeline annotations, and render-inert for picture and sound** (ADR-0230).
+  Both the project root and visual, audio, and `nest` elements accept an optional `markers`
+  list of `{at, duration?, label?, kind?}`, where `kind` is one of `"comment"` (the default),
+  `"chapter"`, `"beat"` or `"cue"`. Project-level markers are in absolute timeline
+  milliseconds (`0 <= at <= duration`), move with global `shift` operations, and export
+  `"chapter"` markers to container chapter metadata on `render`. Element-level markers are
+  relative to the element's `start`, remain untouched by `shift`, and never export as
+  chapters.
 
 ## Geometry
 
@@ -216,42 +229,8 @@ the scaffold writes `background`, `duration` and `output` exactly when you asked
 - **`stroke` never enlarges the declared rect** (ADR-0014). On a `rect` or `ellipse` it falls inside
   it; on text it falls outside the glyph contour and grows into the box rather than past it;
   on a `path` it is centred on the outline, and `validate` checks the box contains it (the paths page).
-
-### Projection: `swivel`, `tilt` and `perspective` (ADR-0167, ADR-0168)
-
-Any visual element may be projected: drawn as a flat plane turned in front of an eye. Nothing
-gains a depth, a sort order or an occlusion.
-
-- **`swivel`** turns it about its vertical axis through `origin`, in degrees: positive sends the
-  right edge away (CSS `rotateY`, Premiere's Swivel). **`tilt`** turns it about its horizontal
-  axis: positive sends the top edge away (CSS `rotateX`, Premiere's Tilt). Both animate and
-  are never normalised. **`perspective`** is the eye's distance in px, straight in front of the
-  origin point (CSS's meaning): greater than 0, no default, required with either angle and an
-  error without one. Smaller is stronger foreshortening; `scale` stays the only size control.
-- **The order.** The element is drawn flat with its `effects` and mask, in list order; that
-  picture is projected about `origin`; then `scale`, `rotation` and `x`/`y` act on it. The
-  angles compose as CSS's `perspective(d) rotateX(tilt) rotateY(swivel)`: swivel first. So a
-  shadow tilts with its card (one that stays on the ground is a second element), and text and
-  paths are projected as their flat pixels. `clip` stays frame space; `opacity` and `blend`
-  wrap the projected picture.
-- **A written angle always projects**, even at `0`: writing `swivel: 0` changes an element's
-  bytes slightly (a resample), and a keyed angle passing 0 never switches path. Only an
-  element with neither field is unchanged.
-- **Facing away draws nothing**, and neither does exactly edge-on (90°). A card flip is two
-  elements: the front swivels 0 → 180, the back −180 → 0. A mirrored back is a second element
-  with `scale: [-1, 1]`. An ease that overshoots past 90° blinks the element out for those
-  frames. `R-PROJECTION-AWAY` says when an element never faces the eye.
-- **The eye bound.** `perspective` must exceed r, the distance from the origin point to the
-  farthest corner of the box widened by every effect's reach (a blur's spread, a shadow's
-  offset), at every key and eased extreme; `E-PROJECTION-EYE` names the value that passes. A
-  1920 × 1080 element with no reach needs more than about 1102 about `center` and 1994 about
-  `center-left`. As `perspective` nears r the near edge is magnified about d / (d − r) and
-  draws soft: `R-PROJECTION-SOFT` fires past 2×, and a larger value reduces it.
-- **What the tools read.** The checks (`R-OFF-CANVAS`, the layer tie, `blend`) read the
-  projected quadrilateral's bounds; `query --at` prints `facing`, the four `corners` and the
-  bounds as `ink_box`, empty while it paints nothing. On `text` they project the declared
-  box, which holds the block of lines the picture projects.
-- **A nest takes no projection** (ADR-0167 §10); only an element is projected.
+- **Perspective projection (`swivel`, `tilt`, `perspective`)** turns any visual element in front
+  of an eye about `origin` after its `effects` and mask (ADR-0167, ADR-0168; see the effects page).
 
 ## Values
 
@@ -266,6 +245,11 @@ gains a depth, a sort order or an occlusion.
 - **`overrun` has no `"none"` value** (ADR-0020) — it is present when needed and absent otherwise.
   `"hold"` is video-only; the correct spelling of "then silence" on audio is a shorter
   element and a gap.
+- **`frame_blend` on `video` is `"none"` or `"mix"`** (ADR-0232). Omitted or `"none"`, sub-frame
+  source instants hold the nearest prior source frame (ADR-0096); `"mix"` linearly cross-dissolves
+  between the two adjacent source video frames by the fractional elapsed time between their
+  presentation timestamps. Optical-flow retiming, echo/trail compositing, and posterize-time frame
+  stepping are outside the format.
 - **`ease` is required on every keyframe record except the first, and forbidden on the
   first** (ADR-0038). Easing describes the interpolation *arriving at* a keyframe, and nothing arrives
   at the first one. Presence is a pure function of position.

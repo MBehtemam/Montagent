@@ -181,6 +181,21 @@ impl Interpolate for [f64; 2] {
     }
 }
 
+impl Interpolate for [i64; 2] {
+    type Out = [f64; 2];
+
+    fn between(a: &Self, b: &Self, p: f64) -> [f64; 2] {
+        [
+            f64::between(&(a[0] as f64), &(b[0] as f64), p),
+            f64::between(&(a[1] as f64), &(b[1] as f64), p),
+        ]
+    }
+
+    fn held(value: &Self) -> [f64; 2] {
+        [value[0] as f64, value[1] as f64]
+    }
+}
+
 /// One vertex of a path between two keyframes: the written vertex's numbers, each
 /// interpolated separately, so continuous (ADR-0154 §3). A handle is present where either
 /// end writes it; one end missing it reads as the zero offset a missing handle means, so a

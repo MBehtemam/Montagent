@@ -12,6 +12,8 @@ amends: 0040 (the `effects` vocabulary gains `grain`, `glow`, `posterize` and `d
 > **Amended by [ADR-0171](0171-svg-and-lottie-do-not-enter-as-sources-and-each-is-pre-rendered-through-the-skill.md).**
 > §7's pre-render route widens from a code-drawn piece to an SVG still and a Lottie animation,
 > under shared size, text and recipe rules.
+>
+> Also amended by [ADR-0228](0228-evolving-procedural-fractal-noise-and-turbulent-displacement-are-refused-and-remain-on-montagent-prerender.md), [ADR-0229](0229-image-sequence-export-and-png-in-mov-are-refused-from-render-and-prores-4444-is-the-sole-alpha-deliverable.md), [ADR-0231](0231-outline-color-overlay-and-inner-shadow-enter-effects-and-bevel-and-gradient-overlay-are-refused.md), [ADR-0232](0232-frame-blend-mix-enters-video-and-optical-flow-echo-and-posterize-time-are-refused.md), [ADR-0233](0233-3d-models-and-multichannel-passes-are-refused-as-native-sources-and-3d-scenes-pre-render-via-headless-recipes.md).
 
 [#704](https://github.com/MBehtemam/Montagent/issues/704), on the map
 [#663](https://github.com/MBehtemam/Montagent/issues/663). The painter already runs a

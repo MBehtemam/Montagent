@@ -132,10 +132,12 @@ fn fonts() -> Fonts {
                 FontFile {
                     path: workspace("fixtures/benchmark/spy-trailer/fonts/Oswald-SemiBold.ttf"),
                     index: None,
+                    axes: Vec::new(),
                 },
                 FontFile {
                     path: workspace("fixtures/letter-spacing/fonts/NotoNaskhArabic-Regular.ttf"),
                     index: None,
+                    axes: Vec::new(),
                 },
             ],
         )
@@ -155,6 +157,7 @@ fn spec<'a>(runs: &'a [Run<'a>], letter_spacing: f64) -> Spec<'a> {
         align: Align::Start,
         letter_spacing,
         optional_ligatures_off: true,
+        features: None,
     }
 }
 

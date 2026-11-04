@@ -5,6 +5,8 @@ amends: 0011 (deliverables), 0077 (render readings), 0143 (H.264 default paramet
 
 # The output field accepts a path string or a structured output config with container inference
 
+> **Amended by:** [ADR-0229](0229-image-sequence-export-and-png-in-mov-are-refused-from-render-and-prores-4444-is-the-sole-alpha-deliverable.md), [ADR-0230](0230-markers-enter-project-and-elements-as-render-inert-annotations-and-chapters-export-to-container.md).
+
 [#983](https://github.com/MBehtemam/Montagent/issues/983), [#1002](https://github.com/MBehtemam/Montagent/issues/1002), [#1003](https://github.com/MBehtemam/Montagent/issues/1003).
 
 ## Context

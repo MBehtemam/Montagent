@@ -159,6 +159,7 @@ pub fn otio_to_project(otio_json: &str) -> Result<Project, OtioError> {
                             speed,
                             overrun: None,
                             volume: None,
+                            markers: None,
                             audio_effects: None,
                         })
                     } else {
@@ -169,6 +170,7 @@ pub fn otio_to_project(otio_json: &str) -> Result<Project, OtioError> {
                             source_time: None,
                             x: None,
                             y: None,
+                            motion_path: None,
                             origin: None,
                             width: frame_width,
                             height: frame_height,
@@ -185,7 +187,9 @@ pub fn otio_to_project(otio_json: &str) -> Result<Project, OtioError> {
                             role: None,
                             speed,
                             overrun: None,
+                            frame_blend: None,
                             volume: None,
+                            markers: None,
                             effects: None,
                             audio_effects: None,
                         })
@@ -243,6 +247,7 @@ pub fn otio_to_project(otio_json: &str) -> Result<Project, OtioError> {
         master: None,
         effects: None,
         quiet: None,
+        markers: None,
         fonts: None,
         font_vendor: None,
         tracks,

@@ -1,4 +1,4 @@
-//! ADR-0244 / Issue #1141: Skill verification engine.
+//! ADR-0242 / Issue #1141: Skill verification engine.
 //!
 //! Validates installed skills against the active binary's commands, flags,
 //! registered finding codes, published resources, and project schemas.
@@ -46,8 +46,12 @@ static FONTS_SUBCOMMANDS: &[CommandDef] = &[
             "--google-family",
             "--google-file",
             "--revision",
+            "--weight",
+            "--style",
+            "--family",
+            "--face-index",
+            "--expected-sha256",
             "--json",
-            "--verbose",
             "-h",
             "--help",
         ],
@@ -56,13 +60,24 @@ static FONTS_SUBCOMMANDS: &[CommandDef] = &[
         name: "list",
         aliases: &[],
         subcommands: &[],
-        flags: &["--json", "-h", "--help"],
+        flags: &["--root", "--json", "-h", "--help"],
     },
     CommandDef {
         name: "vendor",
         aliases: &[],
         subcommands: &[],
-        flags: &["--destination", "--json", "--verbose", "-h", "--help"],
+        flags: &[
+            "--licence",
+            "--source",
+            "--as",
+            "--receipt",
+            "--resolution",
+            "--face-index",
+            "--json",
+            "--verbose",
+            "-h",
+            "--help",
+        ],
     },
 ];
 
@@ -128,23 +143,14 @@ static COMMANDS: &[CommandDef] = &[
         name: "timeline",
         aliases: &[],
         subcommands: &[],
-        flags: &["--json", "--verbose", "-h", "--help"],
+        flags: &["--json", "-h", "--help"],
     },
     CommandDef {
         name: "query",
         aliases: &[],
         subcommands: &[],
         flags: &[
-            "--at",
-            "--range",
-            "--kind",
-            "--id",
-            "--property",
-            "--order",
-            "--json",
-            "--verbose",
-            "-h",
-            "--help",
+            "--at", "--from", "--to", "--where", "--census", "--json", "-h", "--help",
         ],
     },
     CommandDef {
@@ -153,13 +159,16 @@ static COMMANDS: &[CommandDef] = &[
         subcommands: &[],
         flags: &[
             "--at",
-            "--span",
+            "--from",
+            "--to",
+            "--keyframes",
+            "--infill-ceiling",
+            "--crop",
+            "--png",
             "--full",
-            "--sheet",
             "--output",
             "--out",
             "--json",
-            "--verbose",
             "-h",
             "--help",
         ],
@@ -170,10 +179,13 @@ static COMMANDS: &[CommandDef] = &[
         subcommands: &[],
         flags: &[
             "--at",
-            "--span",
             "--element",
+            "--elements",
+            "--all",
+            "--scopes",
+            "--layout",
+            "--ranges",
             "--json",
-            "--verbose",
             "-h",
             "--help",
         ],
@@ -183,13 +195,14 @@ static COMMANDS: &[CommandDef] = &[
         aliases: &[],
         subcommands: &[],
         flags: &[
+            "--from",
+            "--to",
             "--output",
             "--out",
-            "--profile",
-            "--preset",
-            "--crf",
-            "--estimate",
+            "--no-clobber",
             "--progress-file",
+            "--profile",
+            "--stems-only",
             "--json",
             "--verbose",
             "-h",
@@ -224,8 +237,10 @@ static COMMANDS: &[CommandDef] = &[
         subcommands: &[],
         flags: &[
             "--at",
-            "--by",
-            "--dry-run",
+            "--delta",
+            "--scope",
+            "--delete",
+            "--release",
             "--json",
             "--verbose",
             "-h",
@@ -501,7 +516,7 @@ fn check_file(file: &Path, report: &mut Report) {
     for block in prose_blocks(&text) {
         // Resource URIs
         for uri in uris(&block.text) {
-            if crate::resources::find(&uri).is_none() {
+            if crate::resources::serve(&uri).is_none() {
                 report.push(
                     Finding::new("E-SKILL-RESOURCE-UNKNOWN")
                         .at_file(&file_str)
@@ -572,7 +587,7 @@ fn check_command(
 
     let mut current_cmds = COMMANDS;
     let mut path: Vec<&str> = Vec::new();
-    let mut active_flags: &'static [&'static str] = &[];
+    let mut active_flags: &'static [&'static str] = &["--version", "-V", "--help", "-h"];
     let mut rest = tokens;
 
     while let Some((&token, tail)) = rest.split_first() {
@@ -722,7 +737,13 @@ fn validate_snippet(file: &str, line: usize, body: &str, report: &mut Report) {
     let errors: Vec<&Finding> = validation
         .findings
         .iter()
-        .filter(|f| f.class == crate::finding::Class::Error)
+        .filter(|f| {
+            f.class == crate::finding::Class::Error
+                && !matches!(
+                    f.code.as_str(),
+                    "E-SOURCE-MISSING" | "E-FONT-MISSING" | "E-LUT-MISSING"
+                )
+        })
         .collect();
 
     if !errors.is_empty() {

@@ -1099,7 +1099,7 @@ fn declined(unusable: crate::transition::Unusable) -> Declined {
         // A `kind` the format does not have is `validate`'s schema error, and nothing here
         // invents a resolution for it.
         Unusable::Kind(other) => undrawable(format!(
-            "a transition is a `crossfade`, `wipe`, `slide`, `push` or `audio_crossfade`, and this one is a \
+            "a transition is a `crossfade`, `wipe`, `slide`, `push`, `iris`, `radial_wipe`, `blinds` or `audio_crossfade`, and this one is a \
              `{other}`"
         )),
         Unusable::NoKind => undrawable("it states no `kind`"),
@@ -1130,6 +1130,24 @@ fn region_of(rect: Rect) -> Region {
         y: rect.y,
         width: rect.width,
         height: rect.height,
+    }
+}
+
+fn aperture_of(aperture: crate::transition::Aperture) -> montagent_render::canvas::Aperture {
+    use crate::transition::Aperture as Core;
+    use montagent_render::canvas::Aperture as Paint;
+    match aperture {
+        Core::Rect(rect) => Paint::Rect(region_of(rect)),
+        Core::MultiRect(rects) => Paint::MultiRect(rects.into_iter().map(region_of).collect()),
+        Core::Path {
+            bounds,
+            shape,
+            invert,
+        } => Paint::Path {
+            bounds: region_of(bounds),
+            shape,
+            invert,
+        },
     }
 }
 
@@ -2350,7 +2368,13 @@ impl<'a> Painter<'a> {
         // rather than repeating it. Unreachable from `render`, whose mix pre-flight refuses
         // the same document first (ADR-0093 ruling 6, condition 1); reachable from `frame`,
         // which draws what it is given.
-        if let Some(held) = self.held.as_ref().filter(|_| self.sampling) {
+        let frame_blend = element
+            .get("frame_blend")
+            .and_then(|v| serde_json::from_value::<crate::model::FrameBlend>(v.clone()).ok())
+            .unwrap_or_default();
+        if frame_blend == crate::model::FrameBlend::None
+            && let Some(held) = self.held.as_ref().filter(|_| self.sampling)
+        {
             return Ok(held.clone());
         }
         let offset = playhead.offset.ok_or_else(|| {
@@ -2407,15 +2431,22 @@ impl<'a> Painter<'a> {
                 }),
             }),
         };
-        let decoded = self
-            .supplier
-            .supply(&request)
-            .map_err(|failure| undecodable(failure.detail()))?;
+        let decoded = match frame_blend {
+            crate::model::FrameBlend::None => self
+                .supplier
+                .supply(&request)
+                .map_err(|failure| undecodable(failure.detail()))?,
+            crate::model::FrameBlend::Mix => {
+                let s_ms = resolve_mix_source_ms(element, self.t, self.sampling, offset);
+                decode_mixed(&request, element, playhead, s_ms)
+                    .map_err(|failure| undecodable(failure.detail()))?
+            }
+        };
         let raster =
             Raster::from_rgba(&decoded.rgba, decoded.width, decoded.height).ok_or_else(|| {
                 undecodable("its decoded frame was not the size asked for".to_string())
             })?;
-        if self.sampling {
+        if self.sampling && frame_blend == crate::model::FrameBlend::None {
             self.held = Some(raster.clone());
         }
         Ok(raster)
@@ -2540,6 +2571,7 @@ impl<'a> Painter<'a> {
                 // read from the file (ADR-0151).
                 letter_spacing: crate::verbs::measure::letter_spacing_read(element, self.t),
                 optional_ligatures_off: crate::verbs::measure::optional_ligatures_off(element),
+                features: crate::verbs::measure::features_of(element),
             },
         );
         let placement = match placement {
@@ -2669,18 +2701,18 @@ impl<'a> Painter<'a> {
     }
 
     /// The frame-space aperture the element is painted through: its own `clip` (ADR-0025,
-    /// `image` and `video` only), moved with it by a slide or push, and cut by a wipe
-    /// (ADR-0150). Whole pixels, so the edge is hard and the same on every painter.
-    fn clip(&self, element: &Value) -> Option<Region> {
+    /// `image` and `video` only), moved with it by a slide or push, and cut by a transition
+    /// (ADR-0150, ADR-0220). Hard-aliased, so the edge is sharp and the same on every painter.
+    fn clip(&self, element: &Value) -> Option<montagent_render::canvas::Aperture> {
         let own = match element.get("type").and_then(Value::as_str) {
             Some("image" | "video" | "nest") => geometry::clip_rect(element),
             _ => None,
         };
-        self.bridge(element).aperture(own).map(region_of)
+        self.bridge(element).aperture(own).map(aperture_of)
     }
 }
 
-/// `blend`, as the canvas's mode (ADR-0147). Omitted, or not one of the five words, is
+/// `blend`, as the canvas's mode (ADR-0147, ADR-0221). Omitted, or not a valid blend word, is
 /// `normal`: a bad value is the schema check's error and never reaches a render.
 fn blend_of(element: &Value) -> montagent_render::canvas::Blend {
     use montagent_render::canvas::Blend as Paint;
@@ -2693,6 +2725,18 @@ fn blend_of(element: &Value) -> montagent_render::canvas::Blend {
         model::Blend::Screen => Paint::Screen,
         model::Blend::Overlay => Paint::Overlay,
         model::Blend::Add => Paint::Add,
+        model::Blend::Darken => Paint::Darken,
+        model::Blend::Lighten => Paint::Lighten,
+        model::Blend::ColorDodge => Paint::ColorDodge,
+        model::Blend::ColorBurn => Paint::ColorBurn,
+        model::Blend::HardLight => Paint::HardLight,
+        model::Blend::SoftLight => Paint::SoftLight,
+        model::Blend::Difference => Paint::Difference,
+        model::Blend::Exclusion => Paint::Exclusion,
+        model::Blend::Hue => Paint::Hue,
+        model::Blend::Saturation => Paint::Saturation,
+        model::Blend::Color => Paint::Color,
+        model::Blend::Luminosity => Paint::Luminosity,
     }
 }
 
@@ -2768,14 +2812,98 @@ fn video_of(probe: &crate::media::probe::Probe) -> supply::Video {
         rate.filter(|rate| rate.num > 0 && rate.den > 0)
             .map(|rate| (1000 * rate.den + rate.num - 1) / rate.num)
     };
+    let fps = quad
+        .r_frame_rate
+        .or(quad.avg_frame_rate)
+        .filter(|rate| rate.num > 0 && rate.den > 0)
+        .map(|rate| (rate.num, rate.den));
     supply::Video {
         decoder: probe.decoder(),
+        start_ms: quad.start_time_ms.unwrap_or(0),
         end_ms: length.map(|length| quad.start_time_ms.unwrap_or(0) + length),
         frame_ms: period(quad.r_frame_rate).max(period(quad.avg_frame_rate)),
+        fps,
         pixels: probe
             .dimensions
             .map(|dimensions| (dimensions.decoded.width, dimensions.decoded.height)),
     }
+}
+
+/// Resolves the source time $S(t)$ in milliseconds for `frame_blend: "mix"` (ADR-0232).
+fn resolve_mix_source_ms(element: &Value, t: (i128, i128), sampling: bool, offset: i64) -> f64 {
+    if !sampling {
+        return offset as f64;
+    }
+    if crate::remap::is_remapped(element) {
+        if let Some(Ok(animatable::Resolved::Number(value))) =
+            animatable::read(element, crate::remap::FIELD, t.0, t.1)
+        {
+            return value;
+        }
+        return offset as f64;
+    }
+    let Some(start) = element.get("start").and_then(|v| v.as_i64()) else {
+        return offset as f64;
+    };
+    let source_start = element
+        .get("source_start")
+        .and_then(|v| v.as_i64())
+        .unwrap_or(0) as f64;
+    let (s_num, s_den) = speed_of(element);
+    let speed = (s_num as f64) / (s_den as f64);
+    let t_ms = (t.0 as f64) / (t.1 as f64);
+    let elapsed = (t_ms - (start as f64)).max(0.0);
+    source_start + elapsed * speed
+}
+
+/// Decodes and linearly blends two adjacent source video frames under `frame_blend: "mix"` (ADR-0232).
+fn decode_mixed(
+    request: &supply::Request<'_>,
+    element: &Value,
+    playhead: Playhead,
+    s_ms: f64,
+) -> Result<montagent_render::decode::DecodedFrame, supply::Failure> {
+    if playhead.origin.is_none() && !crate::remap::is_remapped(element) {
+        return request.frame_at();
+    }
+    let Some((r_num, r_den)) = request.video.fps else {
+        return request.frame_at();
+    };
+    let start_ms = request.video.start_ms as f64;
+    if s_ms < start_ms {
+        return request.frame_at();
+    }
+    let k =
+        (((s_ms - start_ms) * (r_num as f64)) / (1000.0 * (r_den as f64)) + 1e-9).floor() as i64;
+    let t_a = start_ms + (k as f64) * 1000.0 * (r_den as f64) / (r_num as f64);
+    let t_b = start_ms + ((k + 1) as f64) * 1000.0 * (r_den as f64) / (r_num as f64);
+    if t_b <= t_a {
+        return request.frame_at();
+    }
+    let w = ((s_ms - t_a) / (t_b - t_a)).clamp(0.0, 1.0);
+    let b_at_or_past_end = request
+        .video
+        .end_ms
+        .is_some_and(|end_ms| t_b >= (end_ms as f64) - 1e-6);
+    if w <= 1e-6 || w >= 1.0 - 1e-6 || b_at_or_past_end {
+        return request.frame_at();
+    }
+    let offset_a = ((t_a - 1e-9).ceil() as i64).max(request.video.start_ms);
+    let offset_b = ((t_b - 1e-9).ceil() as i64).max(offset_a);
+    if offset_a == offset_b {
+        return request.frame_at();
+    }
+    let mut frame_a = request.frame_at_offset(offset_a)?;
+    if let Ok(frame_b) = request.frame_at_offset(offset_b)
+        && frame_a.rgba.len() == frame_b.rgba.len()
+    {
+        let inv_w = 1.0 - w;
+        for (a, &b) in frame_a.rgba.iter_mut().zip(frame_b.rgba.iter()) {
+            let mixed = (*a as f64) * inv_w + (b as f64) * w;
+            *a = mixed.round().clamp(0.0, 255.0) as u8;
+        }
+    }
+    Ok(frame_a)
 }
 
 fn paints_of(
@@ -2902,6 +3030,7 @@ pub(crate) fn unit_draws(
                 body: index,
                 matrix: pose.matrix(pivot).map(|v| v as f32),
                 opacity: pose.opacity.clamp(0.0, 1.0) as f32,
+                blur: pose.blur.max(0.0) as f32,
             })
         })
         .collect();
@@ -3292,6 +3421,10 @@ pub(crate) fn effect_of(
     // is a document the model refuses and never reaches.
     let number = |key: &str| read(key)?.ok()?.number();
     let colour = |key: &str| rgba_of(&read(key)?.ok()?.colour()?);
+    let pair = |key: &str| match read(key)?.ok()? {
+        animatable::Resolved::Pair(p) => Some(p),
+        _ => None,
+    };
     Some(match declared {
         model::Effect::Blur { .. } => Effect::Blur {
             radius: number("radius")?,
@@ -3429,6 +3562,131 @@ pub(crate) fn effect_of(
                 intensity: intensity.unwrap_or(1.0),
             }
         }
+        model::Effect::Vibrance { .. } => Effect::Vibrance {
+            amount: number("amount")?,
+        },
+        model::Effect::HueRotate { .. } => Effect::HueRotate {
+            angle: number("angle")?,
+        },
+        model::Effect::Invert { .. } => Effect::Invert {
+            amount: number("amount")?,
+        },
+        model::Effect::Outline { opacity, .. } => Effect::Outline {
+            width: number("width")?,
+            colour: colour("color")?,
+            opacity: match opacity {
+                Some(_) => number("opacity")?,
+                None => 1.0,
+            },
+        },
+        model::Effect::ColorOverlay { opacity, .. } => Effect::ColorOverlay {
+            colour: colour("color")?,
+            opacity: match opacity {
+                Some(_) => number("opacity")?,
+                None => 1.0,
+            },
+        },
+        model::Effect::InnerShadow { .. } => Effect::InnerShadow {
+            dx: number("dx")?,
+            dy: number("dy")?,
+            radius: number("radius")?,
+            colour: colour("color")?,
+            opacity: number("opacity")?,
+        },
+        model::Effect::Matte {
+            choke,
+            feather,
+            contrast,
+        } => Effect::Matte {
+            choke: match choke {
+                Some(_) => number("choke")?,
+                None => 0.0,
+            },
+            feather: match feather {
+                Some(_) => number("feather")?,
+                None => 0.0,
+            },
+            contrast: match contrast {
+                Some(_) => number("contrast")?,
+                None => 1.0,
+            },
+        },
+        model::Effect::LumaKey {
+            threshold,
+            tolerance,
+            softness,
+            invert,
+        } => Effect::LumaKey {
+            threshold: match threshold {
+                Some(_) => number("threshold")?,
+                None => 0.0,
+            },
+            tolerance: match tolerance {
+                Some(_) => number("tolerance")?,
+                None => 0.1,
+            },
+            softness: match softness {
+                Some(_) => number("softness")?,
+                None => 0.0,
+            },
+            invert: invert.unwrap_or(false),
+        },
+        model::Effect::Mosaic { .. } => {
+            let [bx, by] = pair("blocks")?;
+            Effect::Mosaic {
+                blocks: [bx.round().max(1.0), by.round().max(1.0)],
+            }
+        }
+        model::Effect::RadialBlur { kind, center, .. } => Effect::RadialBlur {
+            kind: match kind {
+                model::RadialBlurKind::Zoom => montagent_render::canvas::RadialBlurKind::Zoom,
+                model::RadialBlurKind::Spin => montagent_render::canvas::RadialBlurKind::Spin,
+            },
+            center: match center {
+                Some(_) => pair("center")?,
+                None => [0.5, 0.5],
+            },
+            amount: number("amount")?,
+        },
+        model::Effect::FindEdges { invert } => Effect::FindEdges {
+            invert: invert.unwrap_or(false),
+        },
+        model::Effect::Emboss { contrast, .. } => Effect::Emboss {
+            angle: number("angle")?,
+            height: number("height")?,
+            contrast: match contrast {
+                Some(_) => number("contrast")?,
+                None => 1.0,
+            },
+        },
+        model::Effect::Sharpen { .. } => Effect::Sharpen {
+            amount: number("amount")?,
+        },
+        model::Effect::Twirl { center, .. } => Effect::Twirl {
+            center: match center {
+                Some(_) => pair("center")?,
+                None => [0.5, 0.5],
+            },
+            radius: number("radius")?,
+            angle: number("angle")?,
+        },
+        model::Effect::Bulge { center, .. } => Effect::Bulge {
+            center: match center {
+                Some(_) => pair("center")?,
+                None => [0.5, 0.5],
+            },
+            radius: number("radius")?,
+            height: number("height")?,
+        },
+        model::Effect::OpticsCompensation { reverse, .. } => Effect::OpticsCompensation {
+            fov: number("fov")?,
+            reverse: reverse.unwrap_or(false),
+        },
+        model::Effect::Offset { wrap, .. } => Effect::Offset {
+            shift_x: number("shift_x")?,
+            shift_y: number("shift_y")?,
+            wrap: wrap.unwrap_or(true),
+        },
     })
 }
 

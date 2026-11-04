@@ -24,7 +24,7 @@ use crate::units::{LISTS, Plan, by_name, grouping};
 
 /// Every stagger check, over every `text` element in the document.
 pub fn check(document: &Loose, report: &mut Report) {
-    for (track, element) in document.elements_in_tracks() {
+    for (track, element) in document.all_elements_in_tracks() {
         if element.get("type").and_then(Value::as_str) != Some("text") {
             continue;
         }

@@ -5,6 +5,8 @@ amends: 0077 (a moving element carrying `motion_blur` is also resolved at exact 
 
 # Motion blur is a per-element field that accumulates the element over a centred shutter
 
+> **Amended by:** [ADR-0232](0232-frame-blend-mix-enters-video-and-optical-flow-echo-and-posterize-time-are-refused.md).
+
 [#702](https://github.com/MBehtemam/Montagent/issues/702), on the map
 [#663](https://github.com/MBehtemam/Montagent/issues/663). Montagent paints one sharp image
 per frame. A fast move shows as separate copies, so the craft skill sets speed limits on

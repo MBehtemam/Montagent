@@ -103,14 +103,24 @@ pub fn drawn_rect(
     // property rather than read as one integer; at or below zero it occupies nothing.
     let (width, height) = crate::animatable::painted_box(element, i128::from(instant), 1)?;
 
-    let rotation = number::<f64>(element, "rotation", instant, 0.0);
+    let sample = crate::motion_path::at(element, (i128::from(instant), 1));
+    let base_rotation = number::<f64>(element, "rotation", instant, 0.0);
+    let rotation = sample
+        .as_ref()
+        .map_or(base_rotation, |s| s.effective_rotation(base_rotation));
     if rotation != 0.0 {
         return Some(Err(NotAxisAligned::Rotated(rotation)));
     }
 
     let (frame_width, frame_height) = frame;
-    let x = number::<i64>(element, "x", instant, frame_width as f64 / 2.0);
-    let y = number::<i64>(element, "y", instant, frame_height as f64 / 2.0);
+    let x = sample.as_ref().map_or_else(
+        || number::<i64>(element, "x", instant, frame_width as f64 / 2.0),
+        |s| s.x,
+    );
+    let y = sample.as_ref().map_or_else(
+        || number::<i64>(element, "y", instant, frame_height as f64 / 2.0),
+        |s| s.y,
+    );
     let [scale_x, scale_y] = number::<[f64; 2]>(element, "scale", instant, [1.0, 1.0]);
 
     let origin = match element.get("origin") {
@@ -250,7 +260,7 @@ pub(crate) fn bridged_visible_rect(
                 ..rect
             };
             match bridge.aperture(clip_rect(element)) {
-                Some(aperture) => moved.intersect(aperture).map(Ok),
+                Some(aperture) => moved.intersect(aperture.bounds()).map(Ok),
                 None => Some(Ok(moved)),
             }
         }
@@ -432,7 +442,11 @@ pub fn ink_box(
     instant: i64,
     frame: (i64, i64),
 ) -> Result<InkBox, String> {
-    let rotation = number::<f64>(element, "rotation", instant, 0.0);
+    let sample = crate::motion_path::at(element, (i128::from(instant), 1));
+    let base_rotation = number::<f64>(element, "rotation", instant, 0.0);
+    let rotation = sample
+        .as_ref()
+        .map_or(base_rotation, |s| s.effective_rotation(base_rotation));
     if rotation != 0.0 {
         return Err(format!(
             "its resolved `rotation` is {rotation}°; the ink box is not derived for a \
@@ -457,8 +471,16 @@ pub fn ink_box(
         };
         let (fx, fy) = origin_fraction(origin);
         let side = |key| element.get(key).and_then(Value::as_f64).unwrap_or(0.0);
-        let left = number::<i64>(element, "x", instant, frame.0 as f64 / 2.0) - fx * side("width");
-        let top = number::<i64>(element, "y", instant, frame.1 as f64 / 2.0) - fy * side("height");
+        let x = sample.as_ref().map_or_else(
+            || number::<i64>(element, "x", instant, frame.0 as f64 / 2.0),
+            |s| s.x,
+        );
+        let y = sample.as_ref().map_or_else(
+            || number::<i64>(element, "y", instant, frame.1 as f64 / 2.0),
+            |s| s.y,
+        );
+        let left = x - fx * side("width");
+        let top = y - fy * side("height");
         let [l, t, r, b] = ink;
         return Ok(InkBox {
             x: left + l,
@@ -474,7 +496,13 @@ pub fn ink_box(
         register(document, &key, &mut fonts).map_err(|e| e.to_string())?;
     }
 
-    let resolved_y = number::<i64>(element, "y", instant, frame.1 as f64 / 2.0).round() as i64;
+    let resolved_y = sample
+        .as_ref()
+        .map_or_else(
+            || number::<i64>(element, "y", instant, frame.1 as f64 / 2.0),
+            |s| s.y,
+        )
+        .round() as i64;
     let runs = runs_of(element);
     // A malformed `align` refuses rather than answer for `start`, as a malformed `origin`
     // does below: the ink box is an answer about the document as written.
@@ -502,11 +530,15 @@ pub fn ink_box(
             // The spaced line at this instant (ADR-0151): the ink box measures it.
             letter_spacing: crate::verbs::measure::letter_spacing_at(element, instant),
             optional_ligatures_off: crate::verbs::measure::optional_ligatures_off(element),
+            features: crate::verbs::measure::features_of(element),
         },
     )
     .map_err(|e| e.to_string())?;
 
-    let resolved_x = number::<i64>(element, "x", instant, frame.0 as f64 / 2.0);
+    let resolved_x = sample.as_ref().map_or_else(
+        || number::<i64>(element, "x", instant, frame.0 as f64 / 2.0),
+        |s| s.x,
+    );
     let origin = match element.get("origin") {
         None | Some(Value::Null) => Origin::Center,
         Some(value) => serde_json::from_value(value.clone())
@@ -530,8 +562,8 @@ pub fn ink_box(
         let right = left + line.extent_width;
         ink_left = ink_left.min(left);
         ink_right = ink_right.max(right);
-        ink_top = ink_top.min(line.baseline_y - line.ascent - stroke);
-        ink_bottom = ink_bottom.max(line.baseline_y + line.descent + stroke);
+        ink_top = ink_top.min(line.baseline_y - line.shifted_ascent - stroke);
+        ink_bottom = ink_bottom.max(line.baseline_y + line.shifted_descent + stroke);
     }
     for ann in &measured.annotations {
         let left = block_left + ann.x;

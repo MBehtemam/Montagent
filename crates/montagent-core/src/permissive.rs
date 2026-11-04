@@ -174,6 +174,30 @@ impl Loose {
             })
     }
 
+    /// Every element in the document (including children nested inside `nest` elements),
+    /// paired with the name of the top-level track it sits in.
+    pub fn all_elements_in_tracks(&self) -> Vec<(Option<&str>, &Value)> {
+        fn push_element<'a>(
+            track: Option<&'a str>,
+            element: &'a Value,
+            out: &mut Vec<(Option<&'a str>, &'a Value)>,
+        ) {
+            out.push((track, element));
+            if element.get("type").and_then(Value::as_str) == Some("nest")
+                && let Some(children) = element.get("elements").and_then(Value::as_array)
+            {
+                for child in children {
+                    push_element(track, child, out);
+                }
+            }
+        }
+        let mut out = Vec::new();
+        for (track, element) in self.elements_in_tracks() {
+            push_element(track, element, &mut out);
+        }
+        out
+    }
+
     /// Every element across every track, paired with its enclosing track.
     pub fn elements_with_track(&self) -> impl Iterator<Item = (&Value, &Value)> {
         self.value["tracks"]

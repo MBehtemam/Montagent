@@ -8,6 +8,8 @@ amends: 0027 (discharges its "reopens as a fresh scope question" clause: the que
 > **Amended by [ADR-0215](0215-after-effects-is-precedent-for-rendered-results-and-capcut-and-premiere-stay-first-for-shape.md)**: §5's "reference-class tool gains native import" reopen trigger
 > continues to mean CapCut or Premiere; After Effects precedent alone does not reopen native SVG
 > or Lottie import while §1 and §2's `skia_pin`, byte-identity, clock and literal-value grounds hold.
+>
+> Also amended by [ADR-0233](0233-3d-models-and-multichannel-passes-are-refused-as-native-sources-and-3d-scenes-pre-render-via-headless-recipes.md), [ADR-0234](0234-layered-psd-ai-import-and-scene-edit-detection-are-skill-scripts-and-source-interpretation-stays-upstream.md), [ADR-0238](0238-openexr-sequences-and-cinema-raw-formats-are-refused-and-conform-upstream-to-prores-4444.md).
 
 [#790](https://github.com/MBehtemam/Montagent/issues/790), on the map
 [#663](https://github.com/MBehtemam/Montagent/issues/663): capability 12, the map's last.

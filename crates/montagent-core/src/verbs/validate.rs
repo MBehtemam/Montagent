@@ -150,6 +150,7 @@ fn run_checks(
     // format does not publish — which is ADR-0016's whole migration mechanism, and was
     // unfired until this call existed.
     crate::checks::schema::check(document, report);
+    crate::checks::frame_blend::check(document, report);
     crate::checks::retired::check(document, report);
     crate::checks::anchor::check(document, report);
     // ADR-0060's layer tie (#209): two elements resolving to one layer whose boxes
@@ -173,6 +174,7 @@ fn run_checks(
     // instant of the half-open clock, and every check above steps over it for that reason.
     // `render` refused it and this list said nothing, so this is the check that owns it.
     crate::checks::range::check(document, report);
+    crate::checks::markers::check(document, report);
     // The cross-track coverage question the track check cannot see (ADR-0018, #200):
     // group-scoped pairing, not a frame-wide union — see `crate::checks::coverage`.
     crate::checks::coverage::check(document, report);
@@ -238,6 +240,9 @@ fn run_checks(
     // ADR-0161 §8: the same four point errors on a text's own `path`, a line break on a
     // text carrying one, and a `path_offset` with no `path`. Document-only.
     crate::checks::text_path::check(document, report);
+    // ADR-0218 §4: `motion_path` exclusivity with `x`/`y`, curve geometry (`E-PATH-TOO-FEW-POINTS`,
+    // `E-PATH-DANGLING-HANDLE`, `E-MOTION-PATH-ZERO-LENGTH`), and open-path `offset` bounds.
+    crate::checks::motion_path::check(document, report);
     // ADR-0158 §6–§7: a stroke join, miter limit or cap with nothing to shape, a miter and
     // its limit apart, and a cap where none draws. Document-only.
     crate::checks::stroke::check(document, report);

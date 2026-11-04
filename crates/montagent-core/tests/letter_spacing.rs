@@ -105,18 +105,38 @@ fn letter_spacing_is_a_text_field_static_or_keyed_in_integers() {
 }
 
 #[test]
-fn letter_spacing_on_a_run_is_a_schema_error() {
-    // Element-level only (ADR-0151): a run may not override it.
-    let mut element = title("a", "TITLE");
-    element["runs"][0]["letter_spacing"] = json!(200);
-    let report = report_on(&[element]);
-    let unknown: Vec<_> = report
-        .findings
-        .iter()
-        .filter(|f| f.code == "E-SCHEMA-UNKNOWN-KEY")
-        .collect();
-    assert_eq!(unknown.len(), 1, "{:?}", codes(&report));
-    assert_eq!(unknown[0].fields["key"], "letter_spacing");
+fn letter_spacing_on_a_run_is_static_integer_only_and_conflicts_with_animated_element_spacing() {
+    // ADR-0223 §4: `Run.letter_spacing` is a static `i32` (`0` allowed so a run can reset
+    // element-level tracking); keyframe arrays on a run are rejected by the schema, and
+    // combining `Run.letter_spacing` with a keyframe-array `TextElement.letter_spacing`
+    // emits `E-RUN-LETTER-SPACING-CONFLICT`.
+    let mut valid = title("a", "TITLE");
+    valid["letter_spacing"] = json!(200);
+    valid["runs"] = json!([
+        {"text": "TI", "letter_spacing": 0},
+        {"text": "TLE", "letter_spacing": 400},
+    ]);
+    let report = report_on(&[valid]);
+    assert!(
+        !codes(&report).iter().any(|c| c.starts_with("E-")),
+        "{:?}",
+        codes(&report)
+    );
+
+    let mut keyed_on_run = title("b", "TITLE");
+    keyed_on_run["runs"][0]["letter_spacing"] =
+        json!([{"t": 0, "v": 0}, {"t": 1000, "v": 200, "ease": "linear"}]);
+    let report = report_on(&[keyed_on_run]);
+    assert!(codes(&report).contains(&"E-SCHEMA"), "{:?}", codes(&report));
+
+    let mut conflict = tracking_out("c", "TITLE");
+    conflict["runs"][0]["letter_spacing"] = json!(0);
+    let report = report_on(&[conflict]);
+    assert!(
+        codes(&report).contains(&"E-RUN-LETTER-SPACING-CONFLICT"),
+        "{:?}",
+        codes(&report)
+    );
 }
 
 #[test]

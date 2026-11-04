@@ -5,6 +5,8 @@ amends: 0037 (its evidence does not reproduce — erratum below; and its deferre
 
 # Recorded intent is one pattern with several fields, and the time axis instantiates it
 
+> **Amended by:** [ADR-0230](0230-markers-enter-project-and-elements-as-render-inert-annotations-and-chapters-export-to-container.md).
+
 [Ticket #324](https://github.com/MBehtemam/Montagent/issues/324), merging the map's two
 **recorded intent** fog patches. Four exemplars, found independently on three axes, each
 naming the same gap: **the format has no way to record what an author meant.** Every value

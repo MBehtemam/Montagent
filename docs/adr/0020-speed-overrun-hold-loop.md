@@ -20,6 +20,8 @@ amends: 0005 (settles the `speed`/`fill` fields it named but left undefined)
 > - [ADR-0157](0157-a-speed-ramp-is-a-time-remap-curve-of-source-times-on-a-video-element.md) — reverse
 >   playback is settled for video as a falling segment of `source_time`, not a future
 >   explicit field; `speed` and `overrun` are refused on an element carrying `source_time`
+>
+> Also amended by [ADR-0232](0232-frame-blend-mix-enters-video-and-optical-flow-echo-and-posterize-time-are-refused.md).
 
 [ADR-0005](./0005-absolute-integer-milliseconds.md) required a time-based
 element to declare why its timeline range differs from its source range, and
