@@ -65,11 +65,17 @@ that missed one read `main` and reasoned from a domain model several decisions
 stale. `main` is the single place an agent should have to look.
 
 **ADRs are amended, never rewritten.** A later ADR that corrects an earlier one
-says so in its own text, and the earlier one gets a short pointer under its title
-naming the amendment and what in it no longer holds. A reader landing on an ADR
-must be able to see it has been superseded without having read the one that
-superseded it — `docs/adr/0006-validate-reports-facts-and-render-enforces.md` is
-the worked example.
+declares `amends:` in its YAML frontmatter, adds an `"Amended by"` banner under
+the amended ADR's title (`docs/adr/0006-validate-reports-facts-and-render-enforces.md`
+is the worked example), and updates both the *Amended by* column and the opening
+headline counts in `docs/adr/README.md`. Every ADR change must pass
+`python3 docs/adr/check_amendment_banners.py` (enforced by `.github/workflows/adr-banners.yml`).
+
+**Schema and glossary stay in lockstep.** Adding or changing a project format
+field, finding code (`crates/montagent-core/src/registry.rs`), or report key
+requires:
+1. Updating `CONTEXT.md` and the governing ADR under `docs/adr/`.
+2. Regenerating the published schema via `cargo run -p montagent-core --example schema > schema/montagent.schema.json` and verifying `cargo test -p montagent-core --test schema`.
 
 **An audio capability's ADR conforms to [ADR-0173](../adr/0173-every-audio-capability-is-accepted-by-a-measured-repo-test-and-verify-checks-only-what-master-declares.md)**: it names a measured repo test
 and fills in that ADR's checklist (§8).
@@ -98,12 +104,9 @@ The form the evidence takes depends on the claim:
 
 Before writing `status: accepted`, the merging session confirms every artifact
 the ADR's prose cites resolves to a path that exists on the branch being
-merged, and that any committed numeric check actually runs clean. This is a
-checklist step, not a mechanical gate — this repo has no CI, and a script that
-only greps for a linked path would prove the path exists without proving it
-grounds the claim or that it was tiered correctly.
+merged, and that any committed numeric check actually runs clean.
 
-The motivating failure, left otherwise unfixed until now: ADR-0006's *"every
+The motivating failure: ADR-0006's *"every
 numeric claim... was verified by script against the file"* cited a project
 file that was never committed —
 `git log --all --diff-filter=A -- '*.montagent.json'` returns exactly one

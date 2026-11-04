@@ -68,7 +68,13 @@ See `montagent://format.md`.
     .unwrap();
 
     let out = montagent(&["skills", "check", dir.to_str().unwrap()]);
-    assert_eq!(out.code, Some(0), "stdout: {}, stderr: {}", out.stdout, out.stderr);
+    assert_eq!(
+        out.code,
+        Some(0),
+        "stdout: {}, stderr: {}",
+        out.stdout,
+        out.stderr
+    );
 }
 
 #[test]
@@ -88,8 +94,18 @@ Run unknown flag: `montagent validate --unknown-flag-xyz project.json`.
     .unwrap();
 
     let out = montagent(&["skills", "check", dir.to_str().unwrap()]);
-    assert_eq!(out.code, Some(1), "stdout: {}, stderr: {}", out.stdout, out.stderr);
-    assert!(out.stdout.contains("E-SKILL-FLAG-UNKNOWN"), "{}", out.stdout);
+    assert_eq!(
+        out.code,
+        Some(1),
+        "stdout: {}, stderr: {}",
+        out.stdout,
+        out.stderr
+    );
+    assert!(
+        out.stdout.contains("E-SKILL-FLAG-UNKNOWN"),
+        "{}",
+        out.stdout
+    );
 }
 
 #[test]
@@ -109,7 +125,13 @@ Unknown code: `E-CODE-THAT-DOES-NOT-EXIST`.
     .unwrap();
 
     let out = montagent(&["skills", "check", dir.to_str().unwrap(), "--json"]);
-    assert_eq!(out.code, Some(1), "stdout: {}, stderr: {}", out.stdout, out.stderr);
+    assert_eq!(
+        out.code,
+        Some(1),
+        "stdout: {}, stderr: {}",
+        out.stdout,
+        out.stderr
+    );
     let parsed: serde_json::Value = serde_json::from_str(&out.stdout)
         .unwrap_or_else(|e| panic!("invalid json: {e}, stdout: {}", out.stdout));
     assert_eq!(parsed["summary"]["error"], 1);
@@ -133,13 +155,25 @@ Valid command: `montagent validate project.json`.
     .unwrap();
 
     let out = montagent(&["skills-check", dir.to_str().unwrap()]);
-    assert_eq!(out.code, Some(0), "stdout: {}, stderr: {}", out.stdout, out.stderr);
+    assert_eq!(
+        out.code,
+        Some(0),
+        "stdout: {}, stderr: {}",
+        out.stdout,
+        out.stderr
+    );
 }
 
 #[test]
 fn cli_skills_check_nonexistent_path_returns_exit_3() {
     let out = montagent(&["skills", "check", "/path/that/does/not/exist/9999"]);
-    assert_eq!(out.code, Some(3), "stdout: {}, stderr: {}", out.stdout, out.stderr);
+    assert_eq!(
+        out.code,
+        Some(3),
+        "stdout: {}, stderr: {}",
+        out.stdout,
+        out.stderr
+    );
     assert!(
         out.stdout.contains("E-INVOCATION") || out.stderr.contains("E-INVOCATION"),
         "stdout: {}, stderr: {}",

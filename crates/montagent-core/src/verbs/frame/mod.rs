@@ -1263,6 +1263,13 @@ pub(crate) struct Painter<'a> {
     nest_reused: bool,
 }
 
+struct IsolatedProvenance {
+    before: (usize, usize, usize, usize),
+    sources: Vec<String>,
+    fonts: Vec<String>,
+    registry: montagent_text::Fonts,
+}
+
 impl<'a> Painter<'a> {
     /// A painter for `frame`: its findings are `review`, and it answers with a picture.
     pub(crate) fn new(
@@ -1517,14 +1524,7 @@ impl<'a> Painter<'a> {
         }
     }
 
-    fn isolate_provenance(
-        &mut self,
-    ) -> (
-        (usize, usize, usize, usize),
-        Vec<String>,
-        Vec<String>,
-        montagent_text::Fonts,
-    ) {
+    fn isolate_provenance(&mut self) -> IsolatedProvenance {
         let before = (
             self.painted.len(),
             self.not_painted.len(),
@@ -1534,17 +1534,22 @@ impl<'a> Painter<'a> {
         let sources = std::mem::take(&mut self.sources);
         let fonts = std::mem::take(&mut self.fonts);
         let registry = std::mem::replace(&mut self.registry, montagent_text::Fonts::new());
-        (before, sources, fonts, registry)
+        IsolatedProvenance {
+            before,
+            sources,
+            fonts,
+            registry,
+        }
     }
 
     fn finish_isolated_record(
         &mut self,
-        (before, mut sources, mut fonts, registry): (
-            (usize, usize, usize, usize),
-            Vec<String>,
-            Vec<String>,
-            montagent_text::Fonts,
-        ),
+        IsolatedProvenance {
+            before,
+            mut sources,
+            mut fonts,
+            registry,
+        }: IsolatedProvenance,
     ) -> prefix::Record {
         let local_sources = std::mem::take(&mut self.sources);
         let local_fonts = std::mem::take(&mut self.fonts);

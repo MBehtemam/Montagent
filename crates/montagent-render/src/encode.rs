@@ -97,10 +97,7 @@ impl Settings {
     /// given them. `-threads` follows `-c:v`, so it is the encoder's thread count and not
     /// the raw input's.
     pub fn args(&self) -> Vec<String> {
-        let mut args = vec![
-            "-c:v".to_string(),
-            self.encoder.to_string(),
-        ];
+        let mut args = vec!["-c:v".to_string(), self.encoder.to_string()];
         if let Some(preset) = self.preset {
             args.extend(["-preset".to_string(), preset.to_string()]);
         }

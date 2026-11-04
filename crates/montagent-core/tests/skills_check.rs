@@ -199,10 +199,7 @@ fn skills_check_missing_directory_returns_invocation_error() {
 
     assert_eq!(report.exit_code(), ExitCode::BadInvocation);
     assert!(
-        report
-            .findings
-            .iter()
-            .any(|f| f.code == "E-INVOCATION"),
+        report.findings.iter().any(|f| f.code == "E-INVOCATION"),
         "expected E-INVOCATION, got: {:?}",
         report.findings
     );

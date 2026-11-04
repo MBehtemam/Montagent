@@ -537,7 +537,13 @@ fn check_file(file: &Path, report: &mut Report) {
 
             // Check commands: e.g. `montagent validate`
             if first == "montagent" && tokens.len() > 1 {
-                check_command(&file_str, block.line, &tokens[1..], &block.opted_out, report);
+                check_command(
+                    &file_str,
+                    block.line,
+                    &tokens[1..],
+                    &block.opted_out,
+                    report,
+                );
             }
         }
     }

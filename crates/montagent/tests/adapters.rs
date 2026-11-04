@@ -93,7 +93,12 @@ fn cli_fmt_writes_and_exits_0() {
     let out = montagent(&["fmt", project.to_str().unwrap()]);
 
     assert_eq!(out.code, Some(0), "{}{}", out.stdout, out.stderr);
-    assert!(out.stdout.contains("montagent fmt: 1 change applied (1 rule) to"), "{}", out.stdout);
+    assert!(
+        out.stdout
+            .contains("montagent fmt: 1 change applied (1 rule) to"),
+        "{}",
+        out.stdout
+    );
     assert!(!out.stdout.contains("Run montagent fmt"), "{}", out.stdout);
     assert!(!out.stdout.contains("NOT CHECKED"), "{}", out.stdout);
     assert_eq!(
@@ -103,7 +108,11 @@ fn cli_fmt_writes_and_exits_0() {
 
     let out2 = montagent(&["fmt", project.to_str().unwrap()]);
     assert_eq!(out2.code, Some(0), "{}{}", out2.stdout, out2.stderr);
-    assert!(out2.stdout.contains("montagent fmt: 0 changes applied to"), "{}", out2.stdout);
+    assert!(
+        out2.stdout.contains("montagent fmt: 0 changes applied to"),
+        "{}",
+        out2.stdout
+    );
 }
 
 #[test]
@@ -631,7 +640,7 @@ fn cli_fonts_vendor_with_bare_project_filename_succeeds() {
 
     let out = Command::new(binary())
         .current_dir(project_dir)
-        .args(&[
+        .args([
             "fonts",
             "vendor",
             "p.montagent.json",

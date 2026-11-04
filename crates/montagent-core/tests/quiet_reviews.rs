@@ -17,7 +17,8 @@ fn tempdir() -> std::path::PathBuf {
 }
 
 #[test]
-fn project_quiet_accepts_review_codes_without_skipping_analysis_and_rejects_error_codes_with_e_quiet_forbidden() {
+fn project_quiet_accepts_review_codes_without_skipping_analysis_and_rejects_error_codes_with_e_quiet_forbidden()
+ {
     let dir = tempdir();
 
     // 1. Valid `quiet` with `R-EASE-INERT` on a project that triggers `R-EASE-INERT`
@@ -91,7 +92,8 @@ fn project_quiet_accepts_review_codes_without_skipping_analysis_and_rejects_erro
 }
 
 #[test]
-fn wire_and_text_render_omit_quieted_reviews_report_quieted_count_in_summary_and_hint_on_collapsed_lines() {
+fn wire_and_text_render_omit_quieted_reviews_report_quieted_count_in_summary_and_hint_on_collapsed_lines()
+ {
     use montagent_core::finding::Finding;
     use montagent_core::registry::CheckSet;
     use montagent_core::report::Report;
@@ -196,4 +198,3 @@ fn wire_and_text_render_omit_quieted_reviews_report_quieted_count_in_summary_and
         "--no-quiet must restore R-EASE-INERT:\n{overridden_text}"
     );
 }
-

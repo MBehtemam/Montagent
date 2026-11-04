@@ -2080,7 +2080,9 @@ fn video_block(heading: &str, video: &Value, first: &[String], options: Options)
             "prores_ks" => {
                 let profile = video["video_profile"].as_str().unwrap_or("standard");
                 let pix_fmt = video["pixel_format"].as_str().unwrap_or("yuv422p10le");
-                format!("encoder     prores_ks, profile {profile}, {pix_fmt}, {threads} threads, ffmpeg {ffmpeg}")
+                format!(
+                    "encoder     prores_ks, profile {profile}, {pix_fmt}, {threads} threads, ffmpeg {ffmpeg}"
+                )
             }
             "dnxhd" => {
                 let profile = video["video_profile"].as_str().unwrap_or("dnxhr_hq");
@@ -2089,7 +2091,9 @@ fn video_block(heading: &str, video: &Value, first: &[String], options: Options)
             _ => {
                 let preset = video["preset"].as_str().unwrap_or("medium");
                 let crf = video["crf"].as_u64().unwrap_or(20);
-                format!("encoder     {encoder}, preset {preset}, CRF {crf}, {threads} threads, ffmpeg {ffmpeg}")
+                format!(
+                    "encoder     {encoder}, preset {preset}, CRF {crf}, {threads} threads, ffmpeg {ffmpeg}"
+                )
             }
         };
         out.push_str(&row(line));
