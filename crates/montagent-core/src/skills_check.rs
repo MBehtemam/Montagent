@@ -1,4 +1,4 @@
-//! ADR-0244 / Issue #1141: Skill verification engine.
+//! ADR-0242 / Issue #1141: Skill verification engine.
 //!
 //! Validates installed skills against the active binary's commands, flags,
 //! registered finding codes, published resources, and project schemas.
@@ -52,7 +52,6 @@ static FONTS_SUBCOMMANDS: &[CommandDef] = &[
             "--face-index",
             "--expected-sha256",
             "--json",
-            "--verbose",
             "-h",
             "--help",
         ],
@@ -71,7 +70,6 @@ static FONTS_SUBCOMMANDS: &[CommandDef] = &[
             "--licence",
             "--source",
             "--as",
-            "--destination",
             "--receipt",
             "--resolution",
             "--face-index",
@@ -145,27 +143,14 @@ static COMMANDS: &[CommandDef] = &[
         name: "timeline",
         aliases: &[],
         subcommands: &[],
-        flags: &["--json", "--verbose", "-h", "--help"],
+        flags: &["--json", "-h", "--help"],
     },
     CommandDef {
         name: "query",
         aliases: &[],
         subcommands: &[],
         flags: &[
-            "--at",
-            "--from",
-            "--to",
-            "--where",
-            "--census",
-            "--range",
-            "--kind",
-            "--id",
-            "--property",
-            "--order",
-            "--json",
-            "--verbose",
-            "-h",
-            "--help",
+            "--at", "--from", "--to", "--where", "--census", "--json", "-h", "--help",
         ],
     },
     CommandDef {
@@ -180,13 +165,10 @@ static COMMANDS: &[CommandDef] = &[
             "--infill-ceiling",
             "--crop",
             "--png",
-            "--span",
             "--full",
-            "--sheet",
             "--output",
             "--out",
             "--json",
-            "--verbose",
             "-h",
             "--help",
         ],
@@ -197,7 +179,6 @@ static COMMANDS: &[CommandDef] = &[
         subcommands: &[],
         flags: &[
             "--at",
-            "--span",
             "--element",
             "--elements",
             "--all",
@@ -205,7 +186,6 @@ static COMMANDS: &[CommandDef] = &[
             "--layout",
             "--ranges",
             "--json",
-            "--verbose",
             "-h",
             "--help",
         ],
@@ -223,9 +203,6 @@ static COMMANDS: &[CommandDef] = &[
             "--progress-file",
             "--profile",
             "--stems-only",
-            "--preset",
-            "--crf",
-            "--estimate",
             "--json",
             "--verbose",
             "-h",
@@ -264,8 +241,6 @@ static COMMANDS: &[CommandDef] = &[
             "--scope",
             "--delete",
             "--release",
-            "--by",
-            "--dry-run",
             "--json",
             "--verbose",
             "-h",
@@ -541,7 +516,7 @@ fn check_file(file: &Path, report: &mut Report) {
     for block in prose_blocks(&text) {
         // Resource URIs
         for uri in uris(&block.text) {
-            if crate::resources::find(&uri).is_none() {
+            if crate::resources::serve(&uri).is_none() {
                 report.push(
                     Finding::new("E-SKILL-RESOURCE-UNKNOWN")
                         .at_file(&file_str)

@@ -33,8 +33,9 @@ served beside this one and each fitting one read. Read a page before you write w
   once and reused (the static prefix).
 - **`montagent://format/effects.md`**: `grain` and textures, the named `effects` members
   (`posterize`, `glow`, `directional_blur`, `mosaic`, `radial_blur`, `find_edges`, `emboss`,
-  `sharpen`, `twirl`, `bulge`, `optics_compensation`, `offset`), and perspective projection
-  (`swivel`, `tilt`, `perspective`).
+  `sharpen`, `twirl`, `bulge`, `optics_compensation`, `offset`, `vibrance`, `hue_rotate`,
+  `invert`, `matte`, `luma_key`, `outline`, `color_overlay`, `inner_shadow`), and perspective
+  projection (`swivel`, `tilt`, `perspective`).
 - **`montagent://format/transitions.md`**: a `transition` element. Its `kind`, `direction` and
   `ease`, the window it must equal, and the sound it carries across that window (`audio`,
   `audio_crossfade`).

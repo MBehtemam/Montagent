@@ -148,7 +148,8 @@ fn feature_list(container: &serde_json::Value) -> Option<Vec<String>> {
 pub(crate) fn styled_text(document: &crate::permissive::Loose) -> Vec<StyledText> {
     use serde_json::Value;
     document
-        .elements_in_tracks()
+        .all_elements_in_tracks()
+        .into_iter()
         .filter(|(_, element)| element.get("type").and_then(Value::as_str) == Some("text"))
         .map(|(track, element)| StyledText {
             subject: subject_of(element.get("id").and_then(Value::as_str)),

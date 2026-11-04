@@ -38,39 +38,26 @@ pub(crate) fn speaks_for(element: &Value, reason: &str) -> bool {
 
 /// Run the `frame_blend` check across every `video` element in `document`.
 pub fn check(document: &Loose, report: &mut Report) {
-    for (track, element) in document.elements_in_tracks() {
-        check_element(document, track, element, report);
-    }
-}
-
-fn check_element(document: &Loose, track: Option<&str>, element: &Value, report: &mut Report) {
-    match element.get("type").and_then(Value::as_str) {
-        Some("video") => {
-            let Some(fb) = element.get("frame_blend") else {
-                return;
-            };
-            if serde_json::from_value::<FrameBlend>(fb.clone()).is_ok() {
-                return;
-            }
-            let id = element.get("id").and_then(Value::as_str);
-            let subject = crate::checks::subject_of(id);
-            let finding = Finding::new("E-INVALID-FRAME-BLEND")
-                .at_file(document.path())
-                .at_element(subject.clone())
-                .field("element", json!(subject))
-                .field("value", fb.clone());
-            report.push(match track {
-                Some(name) => finding.at_track(name),
-                None => finding,
-            });
+    for (track, element) in document.all_elements_in_tracks() {
+        if element.get("type").and_then(Value::as_str) != Some("video") {
+            continue;
         }
-        Some("nest") => {
-            if let Some(children) = element.get("elements").and_then(Value::as_array) {
-                for child in children {
-                    check_element(document, track, child, report);
-                }
-            }
+        let Some(fb) = element.get("frame_blend") else {
+            continue;
+        };
+        if serde_json::from_value::<FrameBlend>(fb.clone()).is_ok() {
+            continue;
         }
-        _ => {}
+        let id = element.get("id").and_then(Value::as_str);
+        let subject = crate::checks::subject_of(id);
+        let finding = Finding::new("E-INVALID-FRAME-BLEND")
+            .at_file(document.path())
+            .at_element(subject.clone())
+            .field("element", json!(subject))
+            .field("value", fb.clone());
+        report.push(match track {
+            Some(name) => finding.at_track(name),
+            None => finding,
+        });
     }
 }

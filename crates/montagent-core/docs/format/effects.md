@@ -1,9 +1,11 @@
 # The Montagent project format: grain and named effects
 
 A page of `montagent://format.md`, which holds the rules every element shares and lists the
-other pages; read it first. This page holds `grain` and the named `effects` members
+other pages; read it first. This page holds `grain`, the named `effects` members
 (`posterize`, `glow`, `directional_blur`, `mosaic`, `radial_blur`, `find_edges`, `emboss`,
-`sharpen`, `twirl`, `bulge`, `optics_compensation` and `offset`). Like the rest of the format
+`sharpen`, `twirl`, `bulge`, `optics_compensation`, `offset`, `vibrance`, `hue_rotate`,
+`invert`, `matte`, `luma_key`, `outline`, `color_overlay` and `inner_shadow`), and perspective
+projection (`swivel`, `tilt`, `perspective`). Like the rest of the format
 docs, every rule here is an accepted decision in the ADR series, cited inline by number, and
 the ADR is right where the two disagree.
 

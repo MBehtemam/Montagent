@@ -27,7 +27,7 @@ use crate::verbs::measure::written_letter_spacings;
 /// `E-RUN-LETTER-SPACING-CONFLICT` and `R-SPACING-SUPPRESSED`, over every `text` element in
 /// the document.
 pub fn check(document: &Loose, report: &mut Report) {
-    for (track, element) in document.elements_in_tracks() {
+    for (track, element) in document.all_elements_in_tracks() {
         if element.get("type").and_then(Value::as_str) != Some("text") {
             continue;
         }

@@ -20,38 +20,8 @@ use crate::report::Report;
 use crate::verbs::query::geometry;
 
 pub fn check(document: &Loose, report: &mut Report) {
-    walk_tracks(&document.value()["tracks"], &mut |track, element| {
+    for (track, element) in document.all_elements_in_tracks() {
         check_element(document, track, element, report);
-    });
-}
-
-fn walk_tracks<'a>(tracks: &'a Value, f: &mut dyn FnMut(Option<&'a str>, &'a Value)) {
-    let Some(tracks) = tracks.as_array() else {
-        return;
-    };
-    for track in tracks {
-        let name = track.get("name").and_then(Value::as_str);
-        let Some(elements) = track.get("elements").and_then(Value::as_array) else {
-            continue;
-        };
-        for element in elements {
-            walk_element(name, element, f);
-        }
-    }
-}
-
-fn walk_element<'a>(
-    track: Option<&'a str>,
-    element: &'a Value,
-    f: &mut dyn FnMut(Option<&'a str>, &'a Value),
-) {
-    f(track, element);
-    if element.get("type").and_then(Value::as_str) == Some("nest")
-        && let Some(children) = element.get("elements").and_then(Value::as_array)
-    {
-        for child in children {
-            walk_element(track, child, f);
-        }
     }
 }
 
