@@ -55,8 +55,8 @@
 //!
 //! ADR-0011 names the components this answer must carry and not the shape it is written in,
 //! so the keys below — and the readings above and below them — are this ticket's own.
-//! [#269](https://github.com/MBehtemam/Montagent/issues/269) carries them for ratification,
-//! rather than leaving them to be discovered from this file.
+//! [#269](https://github.com/MBehtemam/Montagent/issues/269) carries them for ratification
+//! (ratified in ADR-0246), rather than leaving them to be discovered from this file.
 //!
 //! ## Why declared properties only, and no defaults
 //!

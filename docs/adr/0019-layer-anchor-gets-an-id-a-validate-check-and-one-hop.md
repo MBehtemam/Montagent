@@ -5,6 +5,8 @@ amends: 0004 (the anchor's target namespace, chaining and hardening), 0006 (two 
 
 # The layer anchor names an element's `id`, resolves in one hop, and `validate` checks both
 
+> **Amended by [ADR-0246](./0246-ratify-canonical-key-order-check-boundaries-and-profile-prefix-diagnostics.md)**: ratifies the four anchor finding codes (`E-ANCHOR-MISSING`, `E-ANCHOR-SELF`, `E-ANCHOR-CHAIN`, `R-ANCHOR-DISJOINT`, #243).
+
 [ADR-0004](./0004-tracks-as-constrained-lanes.md) gave an element the option of
 stating its stacking relative to another: `{"below": "title"}`. It never said
 what `"title"` names, whether the reference can chain, or what happens when it

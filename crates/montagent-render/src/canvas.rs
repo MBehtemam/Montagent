@@ -32,8 +32,8 @@
 //!   `scale` is isotropic, which is every keyframe in the fixture, and visible the moment
 //!   `sx != sy` — which ADR-0012 makes the *only* spelling there is, by requiring the pair.
 //!   No ADR states the order; it is recorded here and raised as
-//!   [#274](https://github.com/MBehtemam/Montagent/issues/274) rather than left to be
-//!   discovered from a stretched, tilted card.
+//!   [#274](https://github.com/MBehtemam/Montagent/issues/274) (ratified in ADR-0246)
+//!   rather than left to be discovered from a stretched, tilted card.
 //! - **`opacity` is one layer, not a per-paint alpha.** An element with a fill *and* an
 //!   inside stroke overlaps itself, and multiplying alpha into both paints would blend the
 //!   overlap twice and darken the stroke's inner edge. A `save_layer_alpha` composites the
@@ -105,8 +105,8 @@ impl Rgba {
     /// JPEG, which carries no alpha, so a transparent default would reach the agent as
     /// black anyway — while making PNG and JPEG of the same instant disagree. Opaque black
     /// makes the two forms the same picture. Raised as
-    /// [#274](https://github.com/MBehtemam/Montagent/issues/274) rather than left to be
-    /// discovered from the code.
+    /// [#274](https://github.com/MBehtemam/Montagent/issues/274) (ratified in ADR-0246)
+    /// rather than left to be discovered from the code.
     pub const BLACK: Rgba = Rgba([0x00, 0x00, 0x00, 0xFF]);
     /// Fully transparent black — what a project with alpha: true is cleared to when no background is declared (ADR-0203).
     pub const TRANSPARENT: Rgba = Rgba([0x00, 0x00, 0x00, 0x00]);
@@ -1120,7 +1120,7 @@ impl MaskShape {
 /// API takes σ directly. CSS is the one an agent has seen before and the one the reference
 /// class's own numbers are quoted in, so it is the one written here — and it is a function
 /// rather than a literal so the day an ADR states otherwise there is one line to change.
-/// Raised at [#280](https://github.com/MBehtemam/Montagent/issues/280).
+/// Raised at [#280](https://github.com/MBehtemam/Montagent/issues/280) (ratified in ADR-0246).
 fn sigma(radius: f64) -> f32 {
     (radius.max(0.0) / 2.0) as f32
 }
@@ -1255,7 +1255,7 @@ impl Effect {
                 // and does not say what the pair means, and multiplying is both what
                 // every editor offering the two controls does and what keeps
                 // `opacity: 1` the identity. Raised at
-                // [#280](https://github.com/MBehtemam/Montagent/issues/280).
+                // [#280](https://github.com/MBehtemam/Montagent/issues/280) (ratified in ADR-0246).
                 let [r, g, b, a] = colour.0;
                 let alpha = f32::from(a) / 255.0 * opacity.clamp(0.0, 1.0) as f32;
                 let colour = Color4f::new(
@@ -2511,7 +2511,7 @@ impl Canvas {
         // included. Inside them, a half-transparent element would cast a full-strength
         // shadow, which is the one thing every editor in the reference class agrees it
         // does not do. Neither ADR-0012 nor ADR-0040 says which wraps which; raised at
-        // [#280](https://github.com/MBehtemam/Montagent/issues/280).
+        // [#280](https://github.com/MBehtemam/Montagent/issues/280) (ratified in ADR-0246).
         //
         // **The blend is the same layer's paint** (ADR-0147): effects, then `opacity`, then
         // the mode, so the finished element, shadow included, is composited once inside

@@ -4,6 +4,8 @@ status: accepted
 
 # The tool surface reads, checks and renders — the agent brings its own editor
 
+> **Amended by [ADR-0246](./0246-ratify-canonical-key-order-check-boundaries-and-profile-prefix-diagnostics.md)**: ratifies `query --at`'s JSON shape and declared-only values (#269), `frame --out` / `JPEG_QUALITY` / opaque-black default background (#274), `frame.transitions` (#280), and `render.profile.prefix_ended_by` (#975).
+
 > **Amended by [ADR-0159](0159-a-remote-instance-moves-bytes-through-a-plain-http-door-into-named-workspaces.md)**, for a remote instance only. A tool's `project` is
 > a path inside a named workspace, `render`'s result also carries a download URL, and a plain-HTTP
 > byte door moves files beside MCP. The MCP verbs are unchanged, and stdio is untouched.

@@ -261,4 +261,6 @@ two disagree.
   drawn every frame, a static one between moving ones included.
 - **`audio` and `transition` elements draw nothing** (ADR-0198): on any layer, they neither
   join nor end the run, and their start or end does not restart it.
-- `render --profile` counts `frames_painted` (drawn) and `frames_reused` (copied from the run).
+- `render --profile` counts `frames_painted` (drawn) and `frames_reused` (copied from the run),
+  and lists in `prefix_ended_by` which element ended the run, its `type`, `layer`, `reason`, and
+  how many `frames` it ended the run on.

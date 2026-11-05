@@ -33,9 +33,9 @@
 //!
 //! That argument may well be right, and it is still a spec sentence being read narrowly by
 //! a module comment. It is raised as
-//! [#274](https://github.com/MBehtemam/Montagent/issues/274), because a decision that a
-//! whole stage of a named pipeline is a no-op belongs in an ADR amendment rather than
-//! here.
+//! [#274](https://github.com/MBehtemam/Montagent/issues/274) and ratified in ADR-0246,
+//! because a decision that a whole stage of a named pipeline is a no-op belongs in an ADR
+//! amendment rather than here.
 
 use std::path::Path;
 use std::process::{Command, Stdio};

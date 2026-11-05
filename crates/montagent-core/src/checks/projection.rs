@@ -197,18 +197,7 @@ fn eye(element: &Value, range: (i64, i64)) -> Option<Finding> {
         }
     }
     if let Some((instant, why, d, r)) = worst_eye {
-        let passing = r.floor() as i64 + 1;
-        return Some(
-            Finding::new("E-PROJECTION-EYE")
-                .field("instant", json!(instant))
-                .field("why", json!(why.words()))
-                .field("perspective", json!(hundredths(d)))
-                .field("r", json!(hundredths(r)))
-                .field("passing", json!(passing))
-                .repair_value(
-                    json!({"value": format!("raise `perspective` to {passing} at {instant} ms")}),
-                ),
-        );
+        return Some(eye_finding(instant, why.words(), d, r));
     }
     let (instant, magnification, r) = worst_soft?;
     Some(
@@ -217,6 +206,18 @@ fn eye(element: &Value, range: (i64, i64)) -> Option<Finding> {
             .field("magnification", json!(hundredths(magnification)))
             .field("perspective", json!((2.0 * r).ceil() as i64)),
     )
+}
+
+/// `E-PROJECTION-EYE` at `instant` for `why`, with `perspective` `d` and eye bound `r`.
+pub(crate) fn eye_finding(instant: i64, why: &str, d: f64, r: f64) -> Finding {
+    let passing = r.floor() as i64 + 1;
+    Finding::new("E-PROJECTION-EYE")
+        .field("instant", json!(instant))
+        .field("why", json!(why))
+        .field("perspective", json!(hundredths(d)))
+        .field("r", json!(hundredths(r)))
+        .field("passing", json!(passing))
+        .repair_value(json!({"value": format!("raise `perspective` to {passing} at {instant} ms")}))
 }
 
 /// Whether the element faces away or is edge-on at every frame `render` paints inside its

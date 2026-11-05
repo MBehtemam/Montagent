@@ -49,7 +49,7 @@
 //! load-bearing one — without it the check fires on 7 of 7 of the committed fixture's
 //! `photo` elements, so **the narrowing rather than the ADR is what decides this check's
 //! reach**, which is a thing an ADR should settle and a module doc should not. Raised as
-//! [#285](https://github.com/MBehtemam/Montagent/issues/285).
+//! [#285](https://github.com/MBehtemam/Montagent/issues/285) and ratified in ADR-0246.
 //!
 //! ## Exact arithmetic
 //!

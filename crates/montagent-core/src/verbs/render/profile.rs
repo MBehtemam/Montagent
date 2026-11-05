@@ -47,6 +47,14 @@ impl Cost {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+struct PrefixEnder {
+    id: String,
+    kind: String,
+    layer: Option<i64>,
+    reason: String,
+}
+
 /// One painter's costs, or the sum of several.
 #[derive(Debug, Default, Clone)]
 pub(crate) struct Profile {
@@ -54,6 +62,7 @@ pub(crate) struct Profile {
     elements: BTreeMap<String, (String, Cost)>,
     types: BTreeMap<String, Cost>,
     effects: BTreeMap<&'static str, Cost>,
+    prefix_ended_by: BTreeMap<PrefixEnder, u64>,
 }
 
 impl Profile {
@@ -90,6 +99,25 @@ impl Profile {
         self.effects.entry(name).or_default().add(spent, 1);
     }
 
+    /// The first drawn layer that ended the static prefix on this frame (#975).
+    pub(crate) fn prefix_ended_by(
+        &mut self,
+        id: &str,
+        kind: &str,
+        layer: Option<i64>,
+        reason: &str,
+    ) {
+        *self
+            .prefix_ended_by
+            .entry(PrefixEnder {
+                id: id.to_string(),
+                kind: kind.to_string(),
+                layer,
+                reason: reason.to_string(),
+            })
+            .or_default() += 1;
+    }
+
     pub(crate) fn merge(&mut self, other: &Profile) {
         for (id, (kind, cost)) in &other.elements {
             self.elements
@@ -106,6 +134,9 @@ impl Profile {
                 .entry(name)
                 .or_default()
                 .add(cost.spent, cost.count);
+        }
+        for (ender, frames) in &other.prefix_ended_by {
+            *self.prefix_ended_by.entry(ender.clone()).or_default() += frames;
         }
     }
 
@@ -152,6 +183,8 @@ impl Profile {
         types.sort_by(|a, b| b.1.spent.cmp(&a.1.spent).then_with(|| a.0.cmp(b.0)));
         let mut effects: Vec<(&&'static str, &Cost)> = self.effects.iter().collect();
         effects.sort_by(|a, b| b.1.spent.cmp(&a.1.spent).then_with(|| a.0.cmp(b.0)));
+        let mut prefix_ended_by: Vec<(&PrefixEnder, &u64)> = self.prefix_ended_by.iter().collect();
+        prefix_ended_by.sort_by(|a, b| b.1.cmp(a.1).then_with(|| a.0.cmp(b.0)));
 
         let mut block = json!({
             "unit": "ms",
@@ -179,6 +212,13 @@ impl Profile {
             })).collect::<Vec<_>>(),
             "effects": effects.iter().map(|(name, cost)| json!({
                 "effect": name, "cpu_ms": ms1(cost.spent), "applications": cost.count,
+            })).collect::<Vec<_>>(),
+            "prefix_ended_by": prefix_ended_by.iter().map(|(ender, frames)| json!({
+                "id": ender.id,
+                "type": ender.kind,
+                "layer": ender.layer,
+                "reason": ender.reason,
+                "frames": frames,
             })).collect::<Vec<_>>(),
         });
         if let (Some(remainder), Some(object)) = (remainder, block.as_object_mut()) {

@@ -741,8 +741,7 @@ pub struct Element {
     /// which introduced the override, nor ADR-0019, which fixed the anchor's semantics,
     /// took it. It is placed here rather than at the head of each type's tail because it is
     /// a field of *every* type, which is what the prefix means; the per-type tails are the
-    /// fields that differ. Unratified surface, raised as #243 rather than left to be
-    /// discovered from the struct.
+    /// fields that differ. Raised as #243 and ratified in ADR-0246.
     pub layer: Option<Layer>,
     /// The type-discriminated remainder. `type` is written between `id` and `group`, which
     /// is why the prefix is assembled by hand rather than by `#[serde(flatten)]`.
@@ -1410,8 +1409,8 @@ fn static_orient<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Option<bo
 /// ADR-0014 adds follow, in the order that ADR's own headings introduce them — `stroke`,
 /// `stroke_width`, then `radius`. ADR-0041 hands a new field's position to the ADR that
 /// introduces it and ADR-0014 did not take it explicitly, so that reading is this
-/// ticket's and is raised as [#274](https://github.com/MBehtemam/Montagent/issues/274)
-/// rather than left to be discovered from the struct.
+/// ticket's, raised as [#274](https://github.com/MBehtemam/Montagent/issues/274) and
+/// ratified in ADR-0246.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Rect {
@@ -1515,8 +1514,8 @@ pub struct Rect {
 /// sentence is what resolves it: the ADR that fixes a type's full property set fixes it,
 /// and that ADR is ADR-0014, whose own heading is *"`radius` is a field on `rect`"*. So the
 /// inheritance holds for every field ADR-0041 measured and stops at the one ADR-0014 gave
-/// to `rect` alone. Raised as [#274](https://github.com/MBehtemam/Montagent/issues/274)
-/// rather than left as a discrepancy a reader has to reconcile.
+/// to `rect` alone. Raised as [#274](https://github.com/MBehtemam/Montagent/issues/274) and
+/// ratified in ADR-0246.
 ///
 /// [ADR-0041]: ../../../../docs/adr/0041-canonical-key-order-is-schema-order-validate-checks-it-fmt-splits.md
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]

@@ -5,6 +5,8 @@ amends: 0007 (strikes "text background box" from #22's candidate list, already s
 
 # The effect model: attachment, order, v1 vocabulary, and what's deliberately absent
 
+> **Amended by [ADR-0246](./0246-ratify-canonical-key-order-check-boundaries-and-profile-prefix-diagnostics.md)**: ratifies `blur`/`shadow` `radius = 2σ`, `opacity` composited outside `effects`, and multiplicative `shadow.opacity` (#280).
+
 > **Amended by [ADR-0227](./0227-standalone-matte-and-luma-key-enter-effects-and-iterative-chokers-and-roughen-edges-are-refused.md)**: Standalone matte and luma_key enter effects[], and iterative chokers and roughen edges are refused.
 
 > **Amended by [ADR-0225](./0225-edge-sampling-is-clamp-within-bounds-mosaic-radial-blur-sharpen-find-edges-emboss-and-four-distortions-enter-effects.md)**: Edge sampling is clamp within bounds, mosaic, radial_blur, sharpen, find_edges, emboss, and four distortions enter effects[].

@@ -5,6 +5,8 @@ amends: 0013 (tiebreak (2) is false; the fit-deviation note becomes an error at 
 
 # `fit` is a derivation claim, not a layout mode — and `gravity` retires
 
+> **Amended by [ADR-0246](./0246-ratify-canonical-key-order-check-boundaries-and-profile-prefix-diagnostics.md)**: ratifies sample aspect ratio (SAR) as an input to `fit` derivation arithmetic rather than raw source blit (#274).
+
 > **Amended by [ADR-0023](./0023-video-source-dimensions-par-and-rotation.md)**, which
 > discharges the "PAR and video source dimensions" deferral below. "Source dimensions"
 > is generalised from *decoded, orientation-applied* to *decoded, rotation-resolved,

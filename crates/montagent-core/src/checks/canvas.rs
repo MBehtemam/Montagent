@@ -41,8 +41,8 @@
 //! says *"at any instant"* — so this is the module's reading, taken because the
 //! alternative (a closed-form intersection over an eased bezier segment) is arithmetic no
 //! ADR specifies and the reported union would still be the union of what was measured.
-//! Raised as [#285](https://github.com/MBehtemam/Montagent/issues/285) rather than left to
-//! be discovered from the behaviour.
+//! Raised as [#285](https://github.com/MBehtemam/Montagent/issues/285) (ratified in
+//! ADR-0246) rather than left to be discovered from the behaviour.
 //!
 //! ## The *declared* rect
 //!
@@ -71,8 +71,7 @@
 //! gates nothing, and ADR-0044's own reasoning is that a finding nobody can act on is the
 //! alarm fatigue ADR-0006 calls a safety problem. It does cost coverage — ADR-0044 says
 //! *"the finding applies uniformly to every visual element type"* — so it too is
-//! [#285](https://github.com/MBehtemam/Montagent/issues/285) and not this module's to
-//! settle.
+//! [#285](https://github.com/MBehtemam/Montagent/issues/285) (ratified in ADR-0246).
 //!
 //! **Document-only**: `frame`, element geometry and keyframes are all the check reads —
 //! *"no new field"*, and no disk.

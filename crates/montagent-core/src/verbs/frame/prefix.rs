@@ -94,46 +94,56 @@ const STATIC_EFFECTS: [&str; 27] = [
     "inner_shadow",
 ];
 
-/// Whether `element` paints the same pixels on every frame it is present in, as far as its
-/// own document goes. (Whether a running transition bridges it is per frame, and asked of
-/// the painter.)
+/// Why `element` cannot join the static prefix, or `None` when it paints the same pixels on
+/// every frame it is present in as far as its own document goes. (Whether a running
+/// transition bridges it is per frame, and asked of the painter.)
 ///
 /// A whitelist: a still-image, text or vector element, `normal` blend, no `motion_blur`, no
 /// keyframe anywhere (every animatable property, effect parameters and gradient parameters
 /// included, is read through [`animatable::declared`]), only effects that read nothing but
 /// their parameters, and, on a `text`, no `units` stagger and no `highlight` window.
-pub(crate) fn invariant(element: &Value) -> bool {
+pub(crate) fn non_invariant_reason(element: &Value) -> Option<String> {
     let kind = element.get("type").and_then(Value::as_str);
     if !matches!(
         kind,
         Some("image" | "text" | "rect" | "ellipse" | "path" | "nest")
     ) {
-        return false;
+        return Some(kind.unwrap_or("unknown").to_string());
     }
-    if element
+    if let Some(blend) = element
         .get("blend")
         .and_then(Value::as_str)
-        .is_some_and(|blend| blend != "normal")
-        || element.get("motion_blur").is_some()
-        || element.get("group").is_some()
-        || element.get("units").is_some()
+        .filter(|&blend| blend != "normal")
     {
-        return false;
+        return Some(format!("blend: {blend}"));
     }
-    if animatable::declared(element)
-        .iter()
-        .any(|declared| declared.records().is_some())
+    if element.get("motion_blur").is_some() {
+        return Some("motion_blur".to_string());
+    }
+    if element.get("group").is_some() {
+        return Some("group".to_string());
+    }
+    if element.get("units").is_some() {
+        return Some("units".to_string());
+    }
+    if let Some(declared) = animatable::declared(element)
+        .into_iter()
+        .find(|declared| declared.records().is_some())
     {
-        return false;
+        return Some(format!("keyframe on {}", declared.path));
     }
     let effects = element.get("effects").and_then(Value::as_array);
-    if effects.into_iter().flatten().any(|effect| {
+    if let Some(effect) = effects.into_iter().flatten().find(|effect| {
         !effect
             .get("name")
             .and_then(Value::as_str)
             .is_some_and(|name| STATIC_EFFECTS.contains(&name))
     }) {
-        return false;
+        let name = effect
+            .get("name")
+            .and_then(Value::as_str)
+            .unwrap_or("unknown");
+        return Some(format!("effect: {name}"));
     }
     if kind == Some("nest") {
         let (Some(nest_start), Some(nest_end), Some(children)) = (
@@ -141,23 +151,38 @@ pub(crate) fn invariant(element: &Value) -> bool {
             element.get("end").and_then(Value::as_i64),
             element.get("elements").and_then(Value::as_array),
         ) else {
-            return false;
+            return Some("non-invariant nest child".to_string());
         };
-        return children.iter().all(|child| {
+        for child in children {
             let child_kind = child.get("type").and_then(Value::as_str);
             if matches!(child_kind, Some("audio")) {
-                return true;
+                continue;
             }
-            child.get("start").and_then(Value::as_i64) == Some(nest_start)
-                && child.get("end").and_then(Value::as_i64) == Some(nest_end)
-                && invariant(child)
-        });
+            if child.get("start").and_then(Value::as_i64) != Some(nest_start)
+                || child.get("end").and_then(Value::as_i64) != Some(nest_end)
+            {
+                return Some("non-invariant nest child".to_string());
+            }
+            if let Some(reason) = non_invariant_reason(child) {
+                return Some(format!("non-invariant nest child ({reason})"));
+            }
+        }
+        return None;
     }
     let highlighted = element
         .get("runs")
         .and_then(Value::as_array)
         .is_some_and(|runs| runs.iter().any(|run| run.get("highlight").is_some()));
-    !highlighted
+    if highlighted {
+        return Some("highlight".to_string());
+    }
+    None
+}
+
+/// Whether `element` paints the same pixels on every frame it is present in, as far as its
+/// own document goes.
+pub(crate) fn invariant(element: &Value) -> bool {
+    non_invariant_reason(element).is_none()
 }
 
 /// The latest immutable composite, shared across one render's painters. The mutex only

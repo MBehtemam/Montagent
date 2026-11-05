@@ -8,6 +8,8 @@ amended-by: 0029 (baseline placement within the line slot), 0030 (`line_height`'
 
 # Text is styled runs at a literal size, in fonts the project declares
 
+> **Amended by [ADR-0246](./0246-ratify-canonical-key-order-check-boundaries-and-profile-prefix-diagnostics.md)**: ratifies that a run's `highlight` window is paint-only and never moves a glyph (#280).
+
 > **Amended by [ADR-0223](0223-font-entries-pin-static-variable-axes-and-text-and-runs-gain-closed-opentype-features-baseline-shift-and-run-letter-spacing.md)**: a `FontFile` chain entry gains optional static `axes` (`wght`, `wdth`, `slnt`, `ital`, `opsz`) validated against `fvar` (`E-FONT-AXIS`); `TextElement` and `Run` gain optional closed OpenType `features` validated against `GSUB`/`GPOS` (`E-FONT-FEATURE`); `Run` gains optional `baseline_shift` and static `letter_spacing`; Faux Italic and All Caps join Faux Bold as explicit refusals.
 
 > **Amended by [ADR-0214](0214-multi-line-text-range-decorations-are-run-level-objects-rendered-via-per-line-skrrect-boxes.md)**: a run

@@ -7,6 +7,8 @@ amends: 0033 (discharges the deferred "loop seam is out of scope for this check
 
 # `loop` is a boolean project field; the wrap seam reuses `R-SOURCE-CUT-POP` unchanged
 
+> **Amended by [ADR-0246](./0246-ratify-canonical-key-order-check-boundaries-and-profile-prefix-diagnostics.md)**: ratifies that `R-SOURCE-CUT-POP` under `loop: true` checks a single full-duration element wrapping onto itself (#285).
+
 [ADR-0033](./0033-same-source-cut-continuity-is-a-review-check.md) specified
 `R-SOURCE-CUT-POP` — same track, same canonicalized source, no gap, resolved
 transform properties compared at the cut — and explicitly declined to make it

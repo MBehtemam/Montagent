@@ -5,6 +5,8 @@ amends: 0005 (publishes the sampling rule the frame-alignment paragraph promised
 
 # Off-grid keyframe times stay legal; `validate` gains an unreached-target check, and `measure` gains the grid arithmetic
 
+> **Amended by [ADR-0246](./0246-ratify-canonical-key-order-check-boundaries-and-profile-prefix-diagnostics.md)**: ratifies that `R-SOURCE-UNREACHED` excludes still `image` elements and requires at least one whole frame (`1000 / fps` ms) unreached (#285).
+
 > **Amended by [ADR-0199](./0199-fractional-and-ntsc-timebases-are-exact-rational-fractions-and-timeline-points-stay-integer-milliseconds.md)**: Fractional and NTSC timebases are exact rational fractions and timeline points stay integer milliseconds.
 
 > **Amended by [ADR-0077](./0077-the-nine-render-readings-are-ratified.md)**, which states which whole

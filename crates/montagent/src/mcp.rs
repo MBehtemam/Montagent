@@ -411,7 +411,9 @@ pub struct RenderParams {
     /// Add `render.profile` to the answer: CPU milliseconds per element id, element type and
     /// effect, plus the stage split (decode, paint, encode wait), summed across painters.
     /// Element and type rows count `frames_painted` (frames drawn) and `frames_reused`
-    /// (frames copied from the static prefix of unchanging bottom layers instead). Timing
+    /// (frames copied from the static prefix of unchanging bottom layers instead), and
+    /// `prefix_ended_by` names which element stopped the static prefix, why, at what layer,
+    /// and on how many frames. Timing
     /// slows the render, so it is never a speed measurement; the file's bytes are the same.
     /// Meant for a slice: pair it with `from`/`to`.
     #[serde(default)]
