@@ -5,6 +5,8 @@ amends: 0144 (§2/§6 by reference, §7's shared painter state), 0194 (decision 
 
 # Time-invariant bottom layers share a byte-identical prefix composite
 
+> **Amended by [ADR-0246](./0246-ratify-canonical-key-order-check-boundaries-and-profile-prefix-diagnostics.md)**: `render.profile.prefix_ended_by` names which element ended the static prefix, why, at what layer, and on how many frames (#975).
+
 > **Amended by [ADR-0245](./0245-nested-scenes-cache-their-offscreen-child-composites-by-relative-subgraph-hash.md)**: Nested scenes cache their offscreen child composites by relative sub-graph hash and time-invariant `nest` elements join the bottom static prefix (#1144).
 
 > **Amended by [ADR-0205](./0205-project-level-master-effects-filter-the-composite-at-the-device-boundary.md)**: Project-level master effects filter the composite at the device boundary.

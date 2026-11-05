@@ -109,14 +109,16 @@ macro_rules! index_uri {
     };
 }
 
-/// What the MCP server tells an agent on connecting: where to start learning the format.
+/// What the MCP server tells an agent on connecting: where to start learning the format,
+/// and the minimal check loop (`edit → validate → frame/preview → render`).
 ///
 /// It starts the agent at the index rather than at `schema.json` (ADR-0137 §7): agents read
 /// the URIs they are told about, so the pointer decides whether the pieces are used at all.
 pub const SERVER_INSTRUCTIONS: &str = concat!(
     "Montagent reads, checks and renders a declarative video project. Edit the project file \
      with your ordinary file tools — there is no CRUD API — and call these tools for the \
-     things a text editor cannot do. To learn the format, read `",
+     things a text editor cannot do. Loop: edit → `validate` → look with `frame`/`preview` → \
+     `render`. To learn the format, read `",
     format_uri!(),
     "` (the rules the schema cannot express, and the pages it lists) and start the shape \
      at `",

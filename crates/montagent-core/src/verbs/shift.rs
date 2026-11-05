@@ -640,6 +640,7 @@ pub fn shift(path: &FilePath, ask: &Ask) -> Answer {
                         unwritable.push((element.id.clone(), track.name.clone(), refusal));
                     }
                     carry_unit_lists(&mut element.body, -span);
+                    carry_highlights(&mut element.body, -span);
                     if let Err(refusal) = carry_nest_children(&mut element.body, -span) {
                         unwritable.push((element.id.clone(), track.name.clone(), refusal));
                     }
@@ -671,8 +672,11 @@ pub fn shift(path: &FilePath, ask: &Ask) -> Answer {
                     }
                     if let Err(refusal) = res {
                         unwritable.push((element.id.clone(), track.name.clone(), refusal));
-                    } else if carries_units {
-                        carry_unit_lists(&mut element.body, -span);
+                    } else {
+                        if carries_units {
+                            carry_unit_lists(&mut element.body, -span);
+                        }
+                        excise_highlights(&mut element.body, cut_start, span);
                     }
                     new_instants.insert((element.id.clone(), Side::Start), element.start);
                     new_instants.insert((element.id.clone(), Side::End), element.end);
@@ -684,6 +688,8 @@ pub fn shift(path: &FilePath, ask: &Ask) -> Answer {
                     // Starts inside cut, ends after cut
                     element.start = cut_start;
                     element.end -= span;
+                    let carries_units =
+                        stagger_window(&element).is_some_and(|(start, _)| start >= cut_end);
                     let element_id = element.id.clone();
                     let mut dropped_kfs = Vec::new();
                     let res = edit_lists(&mut element.body, |path, property, list| {
@@ -699,6 +705,11 @@ pub fn shift(path: &FilePath, ask: &Ask) -> Answer {
                     }
                     if let Err(refusal) = res {
                         unwritable.push((element.id.clone(), track.name.clone(), refusal));
+                    } else {
+                        if carries_units {
+                            carry_unit_lists(&mut element.body, -span);
+                        }
+                        excise_highlights(&mut element.body, cut_start, span);
                     }
                     new_instants.insert((element.id.clone(), Side::Start), element.start);
                     new_instants.insert((element.id.clone(), Side::End), element.end);
@@ -879,6 +890,7 @@ fn transform_element(element: &mut Element, at: i64, delta: i64, in_scope: bool)
             return Outcome::Unwritable(refusal);
         }
         carry_unit_lists(&mut element.body, delta);
+        carry_highlights(&mut element.body, delta);
         if let Err(refusal) = carry_nest_children(&mut element.body, delta) {
             return Outcome::Unwritable(refusal);
         }
@@ -900,6 +912,7 @@ fn transform_element(element: &mut Element, at: i64, delta: i64, in_scope: bool)
             if carries_units {
                 carry_unit_lists(&mut element.body, delta);
             }
+            shift_highlights(&mut element.body, at, delta);
             if let Body::Nest(nest) = &mut element.body {
                 for child in &mut nest.elements {
                     let outcome = transform_element(child, at, delta, true);
@@ -928,9 +941,75 @@ fn carry_nest_children(body: &mut Body, delta: i64) -> Result<(), Unwritable> {
             Ok(())
         })?;
         carry_unit_lists(&mut child.body, delta);
+        carry_highlights(&mut child.body, delta);
         carry_nest_children(&mut child.body, delta)?;
     }
     Ok(())
+}
+
+/// Every run's `highlight` window (ADR-0048) moves by `delta` when its `text` element moves
+/// whole.
+fn carry_highlights(body: &mut Body, delta: i64) {
+    let Body::Text(text) = body else {
+        return;
+    };
+    for run in &mut text.runs {
+        if let Some(highlight) = &mut run.highlight {
+            highlight.start += delta;
+            highlight.end += delta;
+        }
+    }
+}
+
+/// On a straddling `text` element under a positive shift at `at` by `delta`, each run's
+/// `highlight` window follows the same boundary arithmetic as the element itself: a window
+/// ending at or before `at` stays, one starting at or after `at` shifts by `delta`, and one
+/// straddling `at` lengthens by `delta`.
+fn shift_highlights(body: &mut Body, at: i64, delta: i64) {
+    let Body::Text(text) = body else {
+        return;
+    };
+    for run in &mut text.runs {
+        if let Some(highlight) = &mut run.highlight {
+            if highlight.start >= at {
+                highlight.start += delta;
+            }
+            if highlight.end > at {
+                highlight.end += delta;
+            }
+        }
+    }
+}
+
+/// On a `text` element overlapping the excised span `[cut_start, cut_start + span)`, map
+/// each run's `highlight` endpoints across the cut and drop any window wholly contained in
+/// the excised span.
+fn excise_highlights(body: &mut Body, cut_start: i64, span: i64) {
+    let Body::Text(text) = body else {
+        return;
+    };
+    let cut_end = cut_start + span;
+    let map_instant = |t: i64| {
+        if t <= cut_start {
+            t
+        } else if t >= cut_end {
+            t - span
+        } else {
+            cut_start
+        }
+    };
+    for run in &mut text.runs {
+        if let Some(highlight) = &mut run.highlight {
+            let new_start = map_instant(highlight.start);
+            let new_end = map_instant(highlight.end);
+            if new_end <= new_start {
+                run.highlight = None;
+            } else {
+                highlight.start = new_start;
+                highlight.end = new_end;
+            }
+        }
+    }
 }
 
 /// Every stagger list moves by `delta`: the `units` block's and every run override's

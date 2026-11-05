@@ -514,7 +514,7 @@ at the painted instant {instant} ms, {side}{/instant}.",
     // dangling one's next move is; one code could not carry both. And a code is
     // ADR-0006's *"handle for suppressing a class"* and the identity `compare` will diff
     // on, so three conditions an author fixes three different ways are three handles.
-    // The split is surface the ADR series has not ratified — raised as #243.
+    // Raised as #243 and ratified in ADR-0246.
     CheckSpec {
         code: "E-ANCHOR-MISSING",
         classes: &[Error],
@@ -617,8 +617,7 @@ element its own integer `layer`, or an anchor naming the other.",
         // touch; silence would pass a tie nobody looked at. ADR-0006 has a third answer,
         // and this is it: a check that could not run says so, and gates nothing.
         //
-        // ADR-0060 does not name this case, so the code is surface the ADR series has not
-        // ratified — raised as #282 rather than left to be discovered from this table.
+        // ADR-0060 did not name this case; raised as #282 and ratified in ADR-0246.
         // #282 also records what this refusal does *not* do: it is per pair and is never
         // narrowed by a bounding-box pre-test, so a rotated element ties `unchecked` with
         // something across the frame it could not possibly touch.
@@ -1590,9 +1589,11 @@ so it changes nothing. Drop it, or add the angle you meant.",
     },
     CheckSpec {
         // ADR-0167 §5, §8. Advise: the bound names the one value that clears it, so the fix
-        // is one edit (ADR-0167's four tests).
+        // is one edit (ADR-0167's four tests). `review` from `frame` (#793), where the
+        // picture is still returned and the finding explains why the element is missing from
+        // it.
         code: "E-PROJECTION-EYE",
-        classes: &[Error],
+        classes: &[Error, Review],
         repair: Some(Advise),
         threshold: Internal,
         adr: "ADR-0167",

@@ -392,7 +392,8 @@ enum Command {
         /// type and effect, and the stage split (decode, paint, encode wait), summed across
         /// painters (ADR-0194). Each element and type row counts `frames_painted` (frames it
         /// was drawn on) and `frames_reused` (frames its pixels were copied from the static
-        /// prefix instead, ADR-0195).
+        /// prefix instead, ADR-0195), and `prefix_ended_by` names which element stopped the
+        /// static prefix, why, at what layer, and on how many frames.
         ///
         /// Timing slows a render, so a profiled run is never a speed measurement; it paints
         /// the same bytes as one without. It is for finding what a slice costs: use it with

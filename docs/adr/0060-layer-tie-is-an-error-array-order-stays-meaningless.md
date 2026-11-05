@@ -5,6 +5,8 @@ amends: 0004 (array order carries no meaning is extended from timing to stacking
 
 # A geometry-overlapping layer tie is an error, not a fallback order; array order stays meaningless
 
+> **Amended by [ADR-0246](./0246-ratify-canonical-key-order-check-boundaries-and-profile-prefix-diagnostics.md)**: ratifies `U-LAYER-TIE-ROTATED` (`unchecked`) per rotated pair, same-track overlap deferral to `E-TRACK-OVERLAP`, and file-level pair location (#282).
+
 > **Amended by [ADR-0098](0098-the-tile-label-is-a-floored-fitted-line-naming-the-change-at-its-own-boundary.md).** This ADR's words stand; what it records is a consequence
 > it did not spell out. Because a tie is an error **only when the boxes overlap in time and
 > space**, a tie between non-overlapping elements is *legal* — so **resolved `layer` is not a

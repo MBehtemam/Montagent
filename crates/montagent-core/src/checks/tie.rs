@@ -53,8 +53,8 @@
 //! which is counted and never a verdict. The refusal is per pair and is not narrowed: a
 //! disjoint bounding box would *prove* no collision and could stay silent, but computing
 //! one is rotated-footprint geometry [`crate::verbs::query::geometry`] declines to own.
-//! Both that and the code itself are surface no ADR ratifies — raised as
-//! [#282](https://github.com/MBehtemam/Montagent/issues/282).
+//! Raised as [#282](https://github.com/MBehtemam/Montagent/issues/282) and ratified in
+//! ADR-0246.
 //!
 //! *Resolution.* Which layer an element is on is [`crate::stack`]'s answer, asked here and
 //! never re-derived — the same index [`crate::checks::anchor`] and the rasterizer read, so
@@ -168,7 +168,7 @@ pub fn check(document: &Loose, report: &mut Report) {
                 // ADR-0006 calls a safety property. On the same reasoning
                 // `crate::checks::anchor` leaves the schema's facts to the schema check.
                 // ADR-0060 states no such exception; the silence is this check's own
-                // reading and is raised as #282.
+                // reading, raised as #282 and ratified in ADR-0246.
                 if a.track_index == b.track_index {
                     continue;
                 }
@@ -177,7 +177,7 @@ pub fn check(document: &Loose, report: &mut Report) {
                     // No `at_track`: every pair that reaches here spans two tracks, and
                     // a finding located at either one would be making the arbitrary choice
                     // between them that the whole check exists to refuse. ADR-0006
-                    // contemplates no finding about a *pair*, so this too is #282.
+                    // contemplates no finding about a *pair*, so this too is #282 (ADR-0246).
                     report.push(finding);
                 }
             }

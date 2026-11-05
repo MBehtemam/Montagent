@@ -4,6 +4,8 @@ status: accepted
 
 # Same-source cut continuity is a `review` check, keyed on source and track — not `group`
 
+> **Amended by [ADR-0246](./0246-ratify-canonical-key-order-check-boundaries-and-profile-prefix-diagnostics.md)**: ratifies emitting one `R-SOURCE-CUT-POP` finding per cut with all discontinuous properties in `detail` (#285).
+
 > **Amended by [ADR-0062](./0062-loop-declares-a-boolean-wrap-r-source-cut-pop-extends-mechanically.md)**,
 > which discharges this ADR's deferred loop-seam fog entry: a project-level
 > boolean `loop` field, and confirmation that the wrap extension is exactly

@@ -266,14 +266,15 @@ fn prepare(ask: &Acquire, fetch: &Fetch) -> Result<Value, Failure> {
                 ));
             }
             let mut candidates = Vec::new();
-            let mut suitable = Vec::new();
+            let mut static_suitable = Vec::new();
+            let mut variable_suitable = Vec::new();
             for path in paths {
                 let url = format!("https://raw.githubusercontent.com/google/fonts/{commit}/{path}");
                 let (data, final_url) = fetch(&url)?;
                 let names = montagent_text::names::faces(&data)
                     .map_err(|e| failure("invalid_payload", e))?;
                 let metadata = metadata(&data)?;
-                let matches = metadata.iter().any(|m| {
+                let face_matches_base = |m: &Value| {
                     ask.face_index.is_none_or(|i| m["index"] == i)
                         && family_key.as_ref().is_none_or(|requested| {
                             names.iter().any(|face| {
@@ -285,18 +286,45 @@ fn prepare(ask: &Acquire, fetch: &Fetch) -> Result<Value, Failure> {
                                         .is_some_and(|f| normal(f) == *requested)
                             })
                         })
-                        && weight.is_none_or(|w| m["weight"] == w)
                         && style.as_ref().is_none_or(|s| m["style"] == *s)
+                };
+                let matches_static = metadata.iter().any(|m| {
+                    face_matches_base(m)
+                        && weight.is_none_or(|w| m["weight"] == w)
                         && (!(weight.is_some() || style.is_some()) || m["variable"] == false)
                 });
+                let matches_variable = metadata.iter().any(|m| {
+                    face_matches_base(m)
+                        && m["variable"] == true
+                        && weight.is_none_or(|w| {
+                            if let Some(range) = m["weight_range"].as_array()
+                                && let (Some(min), Some(max)) = (
+                                    range.first().and_then(Value::as_f64),
+                                    range.get(1).and_then(Value::as_f64),
+                                )
+                            {
+                                let wf = f64::from(w);
+                                wf >= min && wf <= max
+                            } else {
+                                m["weight"] == w
+                            }
+                        })
+                });
                 candidates.push(json!({"repository_path":path,"commit":commit,"faces":names,"metadata":metadata,"sha256":crate::fonts::sha256_hex(&data)}));
-                if matches {
-                    suitable.push((path.to_string(), url, data, final_url));
+                if matches_static {
+                    static_suitable.push((path.to_string(), url, data, final_url));
+                } else if matches_variable {
+                    variable_suitable.push((path.to_string(), url, data, final_url));
                 }
             }
+            let mut suitable = if !static_suitable.is_empty() {
+                static_suitable
+            } else {
+                variable_suitable
+            };
             if suitable.len() != 1 {
                 return Ok(
-                    json!({"status":"selection_required","execution":execution(),"files":[],"receipt":null,"candidates":candidates,"findings":[{"code":if suitable.is_empty(){"unsupported_selection"}else{"ambiguous_selection"}}],"next_step":"Select an exact suitable repository file and retry; exact weight/style requires static bytes."}),
+                    json!({"status":"selection_required","execution":execution(),"files":[],"receipt":null,"candidates":candidates,"findings":[{"code":if suitable.is_empty(){"unsupported_selection"}else{"ambiguous_selection"}}],"next_step":"Select an exact suitable repository file and retry; exact weight/style requires static bytes or a unique variable face covering the requested weight."}),
                 );
             }
             let (path, url, data, final_url) = suitable.remove(0);
@@ -429,16 +457,38 @@ fn prepare(ask: &Acquire, fetch: &Fetch) -> Result<Value, Failure> {
     )
 }
 fn metadata(bytes: &[u8]) -> Result<Vec<Value>, Failure> {
+    use skrifa::MetadataProvider;
     use skrifa::raw::TableProvider;
     let count = montagent_text::sfnt::faces(bytes).map_err(|e| failure("invalid_payload", e))?;
-    (0..count).map(|index|{
-        let selected=montagent_text::sfnt::face(bytes,index).map_err(|e|failure("invalid_payload",format!("{e:?}")))?;
-        let font=skrifa::FontRef::new(&selected).map_err(|e|failure("invalid_payload",e))?;
-        let os2=font.os2().ok();
-        let weight=os2.as_ref().map(|t|t.us_weight_class());
-        let italic=os2.as_ref().is_some_and(|t|t.fs_selection().contains(skrifa::raw::tables::os2::SelectionFlags::ITALIC));
-        Ok(json!({"index":index,"weight":weight,"style":if italic{"italic"}else{"normal"},"variable":font.fvar().is_ok()}))
-    }).collect()
+    (0..count)
+        .map(|index| {
+            let selected = montagent_text::sfnt::face(bytes, index)
+                .map_err(|e| failure("invalid_payload", format!("{e:?}")))?;
+            let font =
+                skrifa::FontRef::new(&selected).map_err(|e| failure("invalid_payload", e))?;
+            let os2 = font.os2().ok();
+            let weight = os2.as_ref().map(|t| t.us_weight_class());
+            let italic = os2.as_ref().is_some_and(|t| {
+                t.fs_selection()
+                    .contains(skrifa::raw::tables::os2::SelectionFlags::ITALIC)
+            });
+            let wght_axis = font
+                .axes()
+                .iter()
+                .find(|a| a.tag() == skrifa::Tag::new(b"wght"))
+                .map(|a| (a.min_value(), a.max_value()));
+            let mut entry = json!({
+                "index": index,
+                "weight": weight,
+                "style": if italic { "italic" } else { "normal" },
+                "variable": font.fvar().is_ok(),
+            });
+            if let Some((min, max)) = wght_axis {
+                entry["weight_range"] = json!([min, max]);
+            }
+            Ok(entry)
+        })
+        .collect()
 }
 fn publish(destination: &std::path::Path, files: &[(String, Vec<u8>)]) -> Result<(), Failure> {
     use std::io::Write;
@@ -763,5 +813,134 @@ mod tests {
             );
             assert!(!destination.exists());
         }
+    }
+    #[test]
+    fn variable_only_google_family_matches_weight_within_wght_axis_range() {
+        use skrifa::raw::FileRef;
+        let base = include_bytes!("../../../../fixtures/skills/fonts/Inter-Bold.ttf");
+        let Ok(FileRef::Font(font)) = FileRef::new(base) else {
+            panic!("expected single-face ttf");
+        };
+        let mut fvar = Vec::new();
+        fvar.extend_from_slice(&1u16.to_be_bytes());
+        fvar.extend_from_slice(&0u16.to_be_bytes());
+        fvar.extend_from_slice(&16u16.to_be_bytes());
+        fvar.extend_from_slice(&2u16.to_be_bytes());
+        fvar.extend_from_slice(&1u16.to_be_bytes());
+        fvar.extend_from_slice(&20u16.to_be_bytes());
+        fvar.extend_from_slice(&0u16.to_be_bytes());
+        fvar.extend_from_slice(&4u16.to_be_bytes());
+        fvar.extend_from_slice(b"wght");
+        fvar.extend_from_slice(&(100i32 << 16).to_be_bytes());
+        fvar.extend_from_slice(&(400i32 << 16).to_be_bytes());
+        fvar.extend_from_slice(&(900i32 << 16).to_be_bytes());
+        fvar.extend_from_slice(&0u16.to_be_bytes());
+        fvar.extend_from_slice(&256u16.to_be_bytes());
+
+        let mut tables: Vec<([u8; 4], Vec<u8>)> = font
+            .table_directory()
+            .table_records()
+            .iter()
+            .map(|rec| {
+                (
+                    rec.tag().to_be_bytes(),
+                    font.table_data(rec.tag()).unwrap().as_bytes().to_vec(),
+                )
+            })
+            .collect();
+        tables.push((*b"fvar", fvar));
+        tables.sort_by_key(|(tag, _)| *tag);
+        let count = tables.len();
+        let entry_selector = count.max(1).ilog2();
+        let search_range = (1u32 << entry_selector) * 16;
+        let range_shift = (count as u32 * 16).wrapping_sub(search_range);
+        let mut var_font = Vec::new();
+        var_font.extend_from_slice(&0x0001_0000u32.to_be_bytes());
+        var_font.extend_from_slice(&(count as u16).to_be_bytes());
+        var_font.extend_from_slice(&(search_range as u16).to_be_bytes());
+        var_font.extend_from_slice(&(entry_selector as u16).to_be_bytes());
+        var_font.extend_from_slice(&(range_shift as u16).to_be_bytes());
+        let dir_end = var_font.len() + count * 16;
+        var_font.resize(dir_end, 0);
+        for (i, (tag, data)) in tables.iter().enumerate() {
+            let offset = var_font.len() as u32;
+            let length = data.len() as u32;
+            var_font.extend_from_slice(data);
+            while !var_font.len().is_multiple_of(4) {
+                var_font.push(0);
+            }
+            let dir_offset = 12 + i * 16;
+            var_font[dir_offset..dir_offset + 4].copy_from_slice(tag);
+            var_font[dir_offset + 8..dir_offset + 12].copy_from_slice(&offset.to_be_bytes());
+            var_font[dir_offset + 12..dir_offset + 16].copy_from_slice(&length.to_be_bytes());
+        }
+
+        let commit = "0123456789012345678901234567890123456789";
+        let fetch = |url: &str| {
+            let bytes = if url.contains("/commits/") {
+                serde_json::to_vec(&json!({"sha":commit})).unwrap()
+            } else if url.contains("/git/trees/") {
+                serde_json::to_vec(&json!({"truncated":false,"tree":[{"path":"ofl/inter/Inter[opsz,wght].ttf"},{"path":"ofl/inter/OFL.txt"}]})).unwrap()
+            } else if url.ends_with("OFL.txt") {
+                b"SIL OPEN FONT LICENSE Version 1.1".to_vec()
+            } else {
+                var_font.clone()
+            };
+            Ok((bytes, url.into()))
+        };
+
+        let destination =
+            std::env::temp_dir().join(format!("montagent-google-variable-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&destination);
+        let out = acquire_using(
+            &Acquire {
+                source: Source::GoogleFonts {
+                    family: Some("Inter".into()),
+                    file: None,
+                    revision: None,
+                    weight: Some(400),
+                    style: Some("normal".into()),
+                },
+                destination: destination.clone(),
+                face_index: None,
+                expected_sha256: None,
+            },
+            &fetch,
+        );
+        assert_eq!(out["status"], "acquired", "{out}");
+        let receipt: Value =
+            serde_json::from_slice(&std::fs::read(destination.join("receipt.json")).unwrap())
+                .unwrap();
+        assert_eq!(
+            receipt["source"]["repository_path"],
+            "ofl/inter/Inter[opsz,wght].ttf"
+        );
+        assert_eq!(receipt["font"]["metadata"][0]["variable"], true);
+        assert_eq!(
+            receipt["font"]["metadata"][0]["weight_range"],
+            json!([100.0, 900.0])
+        );
+        std::fs::remove_dir_all(&destination).unwrap();
+
+        let out_of_range = acquire_using(
+            &Acquire {
+                source: Source::GoogleFonts {
+                    family: Some("Inter".into()),
+                    file: None,
+                    revision: None,
+                    weight: Some(950),
+                    style: Some("normal".into()),
+                },
+                destination: destination.clone(),
+                face_index: None,
+                expected_sha256: None,
+            },
+            &fetch,
+        );
+        assert_eq!(
+            out_of_range["status"], "selection_required",
+            "{out_of_range}"
+        );
+        assert_eq!(out_of_range["findings"][0]["code"], "unsupported_selection");
     }
 }

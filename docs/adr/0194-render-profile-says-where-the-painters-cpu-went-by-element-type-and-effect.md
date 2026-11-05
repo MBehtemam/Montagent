@@ -5,6 +5,8 @@ amends: 0011 (`render`'s request gains an optional `profile` and its answer an o
 
 # `render --profile` says where the painters' CPU went, by element, type and effect
 
+> **Amended by [ADR-0246](./0246-ratify-canonical-key-order-check-boundaries-and-profile-prefix-diagnostics.md)**: `render.profile` gains `prefix_ended_by`, naming which element ended the static prefix, why, at what layer, and on how many frames (#975).
+
 > **Amended by [ADR-0195](0195-time-invariant-bottom-layers-share-a-byte-identical-prefix-composite.md):**
 > `frames_reused` now joins element/type rows and the folded remainder; decision 6's deferral of
 > that counter ends with the static-prefix cache. Actual paints and effect applications

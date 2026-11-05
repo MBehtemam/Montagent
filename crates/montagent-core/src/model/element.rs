@@ -1,7 +1,7 @@
 //! `Element`'s three hand-written impls, and the one reason they are hand-written.
 //!
 //! An element's canonical key order is `id, type, group, start, end, layer, …` (ADR-0041,
-//! and #243 for `layer`'s position) — the discriminator sits *second*, between two prefix
+//! and ADR-0246 / #243 for `layer`'s position) — the discriminator sits *second*, between two prefix
 //! fields. No derive produces that: `#[serde(tag = "type")]` writes the tag first, and
 //! `#[serde(flatten)]` would put the prefix first but silently drops `deny_unknown_fields`,
 //! which ADR-0017 requires at every object level. So the prefix is assembled by hand, in

@@ -241,6 +241,22 @@ fn an_unpublished_uri_serves_nothing() {
     assert_eq!(resources::read("file:///etc/passwd"), None);
 }
 
+#[test]
+fn server_instructions_state_the_check_loop_within_size_budget() {
+    let instructions = resources::SERVER_INSTRUCTIONS;
+    for verb in ["validate", "frame", "preview", "render"] {
+        assert!(
+            instructions.contains(&format!("`{verb}`")),
+            "SERVER_INSTRUCTIONS does not name `{verb}` in the check loop"
+        );
+    }
+    assert!(
+        instructions.len() <= 600,
+        "SERVER_INSTRUCTIONS is {} bytes, exceeding the 600-byte size budget",
+        instructions.len()
+    );
+}
+
 /// An ADR's declared status, in either of the two spellings the series carries: YAML front
 /// matter (`status: accepted`) and a bold header line (`**Status:** accepted`). Both are
 /// real and committed, and a check that knew only the first passed 65 ADRs and failed on

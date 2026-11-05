@@ -800,3 +800,42 @@ fn nothing_is_painted_while_the_card_faces_away_or_is_edge_on() {
     );
     assert_ne!(png_at(&[flip], 400), empty, "front before 90°");
 }
+
+#[test]
+fn frame_names_an_element_inside_the_eye_bound_and_still_returns_the_image() {
+    use montagent_core::report::ExitCode;
+    use montagent_core::verbs::frame::{Ask, frame};
+
+    let element = card(json!({"swivel": 20, "perspective": 230}));
+    let answer = frame(
+        &project(&[element]),
+        &Ask {
+            at: Some(400),
+            full: true,
+            png: true,
+            ..Ask::default()
+        },
+    );
+    assert_eq!(answer.report().exit_code(), ExitCode::Ok);
+    assert!(answer.image().is_some(), "the image is still returned");
+
+    let json = answer.to_json();
+    assert_eq!(json["frame"]["painted"], json!([]));
+    assert_eq!(
+        json["frame"]["not_painted"],
+        json!([{"element": "card", "code": "E-PROJECTION-EYE"}])
+    );
+
+    let findings = &answer.report().findings;
+    assert_eq!(findings.len(), 1, "{findings:?}");
+    assert_eq!(findings[0].code, "E-PROJECTION-EYE");
+    assert_eq!(findings[0].class, Class::Review);
+    assert_eq!(findings[0].fields["instant"], json!(400));
+    assert_eq!(findings[0].fields["passing"], json!(236));
+
+    let text = montagent_core::text::render(&json, montagent_core::text::Options::default())
+        .expect("the frame report renders");
+    for says in ["E-PROJECTION-EYE", "at 400 ms", "235.85", "236"] {
+        assert!(text.contains(says), "{says}: {text}");
+    }
+}

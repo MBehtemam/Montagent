@@ -85,14 +85,15 @@
 //! unconditional caption. It does not say where the CLI puts the bytes, what JPEG quality
 //! is, or what a project that declares no `background` is painted on. Those are this
 //! ticket's, recorded here and raised as
-//! [#274](https://github.com/MBehtemam/Montagent/issues/274) rather than left to be
-//! discovered from the code: the CLI takes a required `--out` rather than inventing a
-//! filename in somebody's project directory; quality is
+//! [#274](https://github.com/MBehtemam/Montagent/issues/274) (ratified in ADR-0246) rather
+//! than left to be discovered from the code: the CLI takes a required `--out` rather than
+//! inventing a filename in somebody's project directory; quality is
 //! [`montagent_render::canvas::JPEG_QUALITY`]; and an absent `background` is opaque black
 //! (argued at [`montagent_render::canvas::Rgba::BLACK`]).
 //!
 //! #214 adds six more again, collected at
-//! [#280](https://github.com/MBehtemam/Montagent/issues/280) and argued at their sites: a
+//! [#280](https://github.com/MBehtemam/Montagent/issues/280) (ratified in ADR-0246) and
+//! argued at their sites: a
 //! blur or shadow `radius` is `2σ` rather than `σ`, a crossfade's ramp is linear,
 //! `opacity` composites outside the effects, a shadow's `opacity` multiplies its colour's
 //! alpha, a `highlight` is paint only, and the answer gains a `crossfades` block — since
@@ -340,7 +341,7 @@ pub struct Picture {
     /// `opacity 1` under a half-faded element goes looking for a defect in the wrong
     /// place. This is the sentence that closes that gap — new answer surface, raised for
     /// ratification at [#280](https://github.com/MBehtemam/Montagent/issues/280) on the
-    /// precedent [#274](https://github.com/MBehtemam/Montagent/issues/274) set.
+    /// precedent [#274](https://github.com/MBehtemam/Montagent/issues/274) set (ADR-0246).
     pub transitions: Vec<Transitioning>,
     /// Every media file opened, in the order it was opened.
     pub sources: Vec<String>,
@@ -1455,7 +1456,7 @@ impl<'a> Painter<'a> {
     /// hold: the longest run of elements that are invariant over their whole span and that no
     /// running transition touches this frame, passing over elements that draw nothing
     /// (ADR-0198, #974) and ending at the run's last drawn element. Empty with the cache off.
-    fn prefix_split<'v>(&self, view: &'v At) -> PrefixSplit<'v> {
+    fn prefix_split<'v>(&mut self, view: &'v At) -> PrefixSplit<'v> {
         let mut split = PrefixSplit::default();
         if !self.prefix_cache {
             return split;
@@ -1472,6 +1473,27 @@ impl<'a> Painter<'a> {
             if !(self.invariant[key]
                 && self.bridge(element) == crate::transition::Bridge::default())
             {
+                if self.profile.is_some() {
+                    let name = present
+                        .named
+                        .id
+                        .clone()
+                        .unwrap_or_else(|| "(element with no id)".to_string());
+                    let kind = element
+                        .get("type")
+                        .and_then(Value::as_str)
+                        .unwrap_or("?")
+                        .to_string();
+                    let reason = if !self.invariant[key] {
+                        prefix::non_invariant_reason(element)
+                            .unwrap_or_else(|| "time-varying".to_string())
+                    } else {
+                        "running transition".to_string()
+                    };
+                    if let Some(profile) = self.profile.as_mut() {
+                        profile.prefix_ended_by(&name, &kind, present.layer, &reason);
+                    }
+                }
                 break;
             }
             split.len = at + 1;
@@ -1892,7 +1914,8 @@ impl<'a> Painter<'a> {
     /// tracks"* is what a crossfade already was. Linear is also the only shape under which
     /// the two halves sum to a constant at every instant, which is what stops a crossfade
     /// dipping through the background halfway — and why ADR-0150 refuses `ease` on one.
-    /// Recorded here and raised at [#280](https://github.com/MBehtemam/Montagent/issues/280).
+    /// Recorded here, raised at [#280](https://github.com/MBehtemam/Montagent/issues/280),
+    /// and ratified in ADR-0246.
     fn resolve_transitions(&mut self) {
         for (element, outcome) in crate::transition::at(self.document, self.instant, self.frame) {
             match outcome {
@@ -2054,10 +2077,14 @@ impl<'a> Painter<'a> {
             },
         };
         let effects = self.effects_of(name, element);
+        let transform = self.transform(element);
+        if self.inside_eye_bound(name, extent, &transform, &effects) {
+            return;
+        }
         canvas.shape(
             shape,
             extent,
-            &self.transform(element),
+            &transform,
             &paint,
             dash_at(element, self.t.0, self.t.1).as_ref(),
             trim_at(element, self.t.0, self.t.1),
@@ -2120,10 +2147,14 @@ impl<'a> Painter<'a> {
             .and_then(Value::as_bool)
             .unwrap_or(false);
         let effects = self.effects_of(name, element);
+        let transform = self.transform(element);
+        if self.inside_eye_bound(name, extent, &transform, &effects) {
+            return;
+        }
         canvas.path(
             &outline_of(&vertices, closed),
             extent,
-            &self.transform(element),
+            &transform,
             &paint,
             stroke_style(element, self.t.0, self.t.1),
             self.clip(element),
@@ -2189,13 +2220,11 @@ impl<'a> Painter<'a> {
             self.sources.push(opened);
         }
         let effects = self.effects_of(name, element);
-        canvas.raster(
-            &raster,
-            extent,
-            &self.transform(element),
-            self.clip(element),
-            &effects,
-        );
+        let transform = self.transform(element);
+        if self.inside_eye_bound(name, extent, &transform, &effects) {
+            return;
+        }
+        canvas.raster(&raster, extent, &transform, self.clip(element), &effects);
         self.painted.push(name.to_string());
     }
 
@@ -2251,10 +2280,14 @@ impl<'a> Painter<'a> {
         {
             self.replay_record(cached.record.clone());
             let effects = self.effects_of(name, element);
+            let transform = self.transform(element);
+            if self.inside_eye_bound(name, extent, &transform, &effects) {
+                return;
+            }
             canvas.raster(
                 &cached.pixels,
                 extent,
-                &self.transform(element),
+                &transform,
                 self.clip(element),
                 &effects,
             );
@@ -2312,13 +2345,11 @@ impl<'a> Painter<'a> {
         }
 
         let effects = self.effects_of(name, element);
-        canvas.raster(
-            &raster,
-            extent,
-            &self.transform(element),
-            self.clip(element),
-            &effects,
-        );
+        let transform = self.transform(element);
+        if self.inside_eye_bound(name, extent, &transform, &effects) {
+            return;
+        }
+        canvas.raster(&raster, extent, &transform, self.clip(element), &effects);
         self.painted.push(name.to_string());
     }
 
@@ -2634,16 +2665,50 @@ impl<'a> Painter<'a> {
         let outlines = outlines_of(&placement);
 
         let effects = self.effects_of(name, element);
+        let transform = self.transform(element);
+        if self.inside_eye_bound(name, extent, &transform, &effects) {
+            return;
+        }
         canvas.text(
             &glyphs,
             &outlines,
             &decorations,
             extent,
-            &self.transform(element),
+            &transform,
             self.clip(element),
             &effects,
         );
         self.painted.push(name.to_string());
+    }
+
+    /// Whether a projected element's `perspective` at [`Painter::t`] is at or inside its eye
+    /// bound `r` (ADR-0167 §5, #793). When it is, the canvas draws nothing for it, and the
+    /// painter records `E-PROJECTION-EYE` so `frame` does not hand back a blank picture in
+    /// silence.
+    fn inside_eye_bound(
+        &mut self,
+        name: &str,
+        extent: Extent,
+        transform: &Transform,
+        effects: &[Effect],
+    ) -> bool {
+        let Some(projection) = transform.projection else {
+            return false;
+        };
+        let r = montagent_render::canvas::eye_bound(extent, transform.origin, effects);
+        if projection.perspective > r {
+            return false;
+        }
+        self.defer(
+            name,
+            crate::checks::projection::eye_finding(
+                self.instant,
+                "this frame",
+                projection.perspective,
+                r,
+            ),
+        );
+        true
     }
 
     /// The declared box, before `scale`, resolved at the instant (ADR-0146) — `None` where
@@ -2998,7 +3063,7 @@ fn paints_of(
 /// against — stop describing the frame for the length of every window. So the element is
 /// laid out from the runs' unconditional style and the window changes what is painted
 /// into the slots, never where the slots are. Raised at
-/// [#280](https://github.com/MBehtemam/Montagent/issues/280), asserted by
+/// [#280](https://github.com/MBehtemam/Montagent/issues/280) (ADR-0246), asserted by
 /// `tests/effects.rs::a_highlight_moves_no_glyph`.
 /// Each placed glyph's stagger pose at `instant` (ADR-0151 §2–§3, ADR-0153 §2), or `None`
 /// for every glyph where the element has no `units` block, the glyph belongs to no unit, or

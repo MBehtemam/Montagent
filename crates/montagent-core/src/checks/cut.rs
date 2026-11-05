@@ -35,7 +35,7 @@
 //! degenerate case; it is admitted here because it is the same defect — a Ken Burns move
 //! that ends at 1.0064 and restarts at 1.0 pops at the seam whether or not a second
 //! element is involved — and excluding it would be a rule the ADRs do not state. Raised
-//! as [#285](https://github.com/MBehtemam/Montagent/issues/285).
+//! as [#285](https://github.com/MBehtemam/Montagent/issues/285) and ratified in ADR-0246.
 //!
 //! ## What the comparison is
 //!
@@ -58,8 +58,8 @@
 //! already uses for a finding whose substance is a list. Per-property findings would report
 //! one cut three times, and `origin` — whose mismatch has no delta — would have no honest
 //! row in a per-property field set. That reading is this check's own and is
-//! [#285](https://github.com/MBehtemam/Montagent/issues/285) along with the wrap's
-//! degenerate case.
+//! [#285](https://github.com/MBehtemam/Montagent/issues/285) (ADR-0246) along with the
+//! wrap's degenerate case.
 //!
 //! **Document-only**: source identity is a comparison of *resolved paths*, which ADR-0033
 //! calls a fact derivable from the document, so this check opens no file and needs no

@@ -5,6 +5,8 @@ amends: 0007 (closes its open run style-delta item; the box stays required and g
 
 # Stroke is paint, the text box is required, and a point list has no extent
 
+> **Amended by [ADR-0246](./0246-ratify-canonical-key-order-check-boundaries-and-profile-prefix-diagnostics.md)**: ratifies `stroke, stroke_width, radius` canonical key order on `rect` and `radius` on `rect` alone (#274).
+
 > **Amended by ten later ADRs.** Read them before relying on anything below.
 >
 > - [ADR-0214](0214-multi-line-text-range-decorations-are-run-level-objects-rendered-via-per-line-skrrect-boxes.md) — text range

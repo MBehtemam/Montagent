@@ -582,6 +582,16 @@ fn a_layer_with_an_opacity_keyframe_is_never_wrongly_cached() {
         assert_eq!(row["frames_painted"], 18, "{row}");
         assert_eq!(row["frames_reused"], 0, "{row}");
     }
+    assert_eq!(
+        on.answer["render"]["profile"]["prefix_ended_by"],
+        json!([{
+            "id": "fading",
+            "type": "ellipse",
+            "layer": 1,
+            "reason": "keyframe on opacity",
+            "frames": 18,
+        }])
+    );
 }
 
 #[test]
@@ -630,6 +640,32 @@ fn plates_bridged_by_a_transition_are_not_cached_while_it_runs() {
     let one = on.row("one");
     let painted = one["frames_painted"].as_u64().unwrap();
     assert!(painted >= 6, "{one}");
+    assert_eq!(
+        on.answer["render"]["profile"]["prefix_ended_by"],
+        json!([
+            {
+                "id": "mover",
+                "type": "rect",
+                "layer": 3,
+                "reason": "keyframe on x",
+                "frames": 12,
+            },
+            {
+                "id": "one",
+                "type": "rect",
+                "layer": 0,
+                "reason": "running transition",
+                "frames": 5,
+            },
+            {
+                "id": "two",
+                "type": "rect",
+                "layer": 1,
+                "reason": "running transition",
+                "frames": 1,
+            }
+        ])
+    );
 }
 
 #[test]

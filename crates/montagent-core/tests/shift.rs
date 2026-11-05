@@ -676,3 +676,117 @@ fn ripple_delete_removes_wholly_contained_element_and_shifts_downstream() {
     assert_eq!(elements[1]["start"], 700);
     assert_eq!(elements[1]["end"], 1100);
 }
+
+// ---------------------------------------------------------------------------
+// `runs[].highlight` windows move with `shift` (#613).
+// ---------------------------------------------------------------------------
+
+#[test]
+fn positive_shift_moves_and_lengthens_run_highlight_windows() {
+    let dir = common::tempdir(line!());
+    let font_dir = common::fixture_dir().join("fonts");
+    std::fs::copy(
+        font_dir.join("OpenRunde-Bold.otf"),
+        dir.join("OpenRunde-Bold.otf"),
+    )
+    .expect("copy font");
+    // Two text elements:
+    // - t1 [0..1000) straddles `at = 500` with three runs:
+    //   run 0 highlight [100..400) (before `at`: untouched)
+    //   run 1 highlight [400..600) (straddles `at`: lengthens to [400..800))
+    //   run 2 highlight [600..900) (at or after `at`: shifts to [800..1100))
+    // - t2 [1000..2000) starts at `at` or after: shifts whole to [1200..2200) and
+    //   carries its highlight [1200..1600) to [1400..1800).
+    let path = write_project(
+        &dir,
+        "p.json",
+        &canonical(
+            r##"{"frame":{"width":1080,"height":1920},"fps":25,"fonts":{"brand":[{"file":"OpenRunde-Bold.otf"}]},"fontVendor":{"OpenRunde-Bold.otf":{"licence":"OFL-1.1","source":"https://github.com/lauridskern/open-runde","sha256":"995f115d11590c73ed95cd58bf12db0417f8757986d95c9be773faf1583310fd"}},"tracks":[{"name":"captions","layer":1,"elements":[{"id":"t1","type":"text","start":0,"end":1000,"width":984,"height":169,"font":"brand","size":48,"color":"#FFFFFF","runs":[{"text":"one ","highlight":{"start":100,"end":400,"color":"#FFFF00"}},{"text":"two ","highlight":{"start":400,"end":600,"color":"#FFFF00"}},{"text":"three","highlight":{"start":600,"end":900,"color":"#FFFF00"}}]},{"id":"t2","type":"text","start":1000,"end":2000,"width":984,"height":169,"font":"brand","size":48,"color":"#FFFFFF","runs":[{"text":"four","highlight":{"start":1200,"end":1600,"color":"#FFFF00"}}]}]}]}"##,
+        ),
+    );
+
+    let answer = shift(
+        &path,
+        &Ask {
+            at: 500,
+            delta: 200,
+            scope: None,
+            release: vec![(0, 1000)],
+            delete: false,
+        },
+    );
+
+    assert_eq!(
+        answer.report().exit_code(),
+        ExitCode::Ok,
+        "{:?}",
+        codes(answer.report())
+    );
+    let written: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+    let elements = written["tracks"][0]["elements"].as_array().unwrap();
+
+    assert_eq!(elements[0]["start"], 0);
+    assert_eq!(elements[0]["end"], 1200);
+    let runs1 = elements[0]["runs"].as_array().unwrap();
+    assert_eq!(runs1[0]["highlight"]["start"], 100);
+    assert_eq!(runs1[0]["highlight"]["end"], 400);
+    assert_eq!(runs1[1]["highlight"]["start"], 400);
+    assert_eq!(runs1[1]["highlight"]["end"], 800);
+    assert_eq!(runs1[2]["highlight"]["start"], 800);
+    assert_eq!(runs1[2]["highlight"]["end"], 1100);
+
+    assert_eq!(elements[1]["start"], 1200);
+    assert_eq!(elements[1]["end"], 2200);
+    let runs2 = elements[1]["runs"].as_array().unwrap();
+    assert_eq!(runs2[0]["highlight"]["start"], 1400);
+    assert_eq!(runs2[0]["highlight"]["end"], 1800);
+}
+
+#[test]
+fn negative_shift_shifts_shortens_and_drops_run_highlight_windows() {
+    let dir = common::tempdir(line!());
+    let font_dir = common::fixture_dir().join("fonts");
+    std::fs::copy(
+        font_dir.join("OpenRunde-Bold.otf"),
+        dir.join("OpenRunde-Bold.otf"),
+    )
+    .expect("copy font");
+    // t1 [0..1200) straddles cut [400..700) (delta = -300):
+    // - run 0 highlight [100..300): untouched [100..300)
+    // - run 1 highlight [300..500): right tail excised -> shortened to [300..400)
+    // - run 2 highlight [500..650): wholly inside excised span -> dropped (`None`)
+    // - run 3 highlight [650..800): left head excised -> shortened & shifted to [400..500)
+    // - run 4 highlight [800..1100): downstream of cut -> shifted left to [500..800)
+    let path = write_project(
+        &dir,
+        "p.json",
+        &canonical(
+            r##"{"frame":{"width":1080,"height":1920},"fps":25,"fonts":{"brand":[{"file":"OpenRunde-Bold.otf"}]},"fontVendor":{"OpenRunde-Bold.otf":{"licence":"OFL-1.1","source":"https://github.com/lauridskern/open-runde","sha256":"995f115d11590c73ed95cd58bf12db0417f8757986d95c9be773faf1583310fd"}},"tracks":[{"name":"captions","layer":1,"elements":[{"id":"t1","type":"text","start":0,"end":1200,"width":984,"height":169,"font":"brand","size":48,"color":"#FFFFFF","runs":[{"text":"a ","highlight":{"start":100,"end":300,"color":"#FFFF00"}},{"text":"b ","highlight":{"start":300,"end":500,"color":"#FFFF00"}},{"text":"c ","highlight":{"start":500,"end":650,"color":"#FFFF00"}},{"text":"d ","highlight":{"start":650,"end":800,"color":"#FFFF00"}},{"text":"e","highlight":{"start":800,"end":1100,"color":"#FFFF00"}}]}]}]}"##,
+        ),
+    );
+
+    let answer = shift(&path, &Ask::delete(400, -300));
+
+    assert_eq!(
+        answer.report().exit_code(),
+        ExitCode::Ok,
+        "{:?}",
+        codes(answer.report())
+    );
+    let written: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+    let element = &written["tracks"][0]["elements"][0];
+    assert_eq!(element["start"], 0);
+    assert_eq!(element["end"], 900);
+    let runs = element["runs"].as_array().unwrap();
+    assert_eq!(runs[0]["highlight"]["start"], 100);
+    assert_eq!(runs[0]["highlight"]["end"], 300);
+    assert_eq!(runs[1]["highlight"]["start"], 300);
+    assert_eq!(runs[1]["highlight"]["end"], 400);
+    assert!(runs[2].get("highlight").is_none());
+    assert_eq!(runs[3]["highlight"]["start"], 400);
+    assert_eq!(runs[3]["highlight"]["end"], 500);
+    assert_eq!(runs[4]["highlight"]["start"], 500);
+    assert_eq!(runs[4]["highlight"]["end"], 800);
+}

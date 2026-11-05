@@ -5,6 +5,8 @@ amends: 0005 (`shift`'s defining sentence is wrong for keyframes), 0006 (the ove
 
 # An element carries a flat transform, and keyframes are carried by their element
 
+> **Amended by [ADR-0246](./0246-ratify-canonical-key-order-check-boundaries-and-profile-prefix-diagnostics.md)**: ratifies `translate -> rotate -> scale` transform order (#274) and element-level `opacity` composited as one layer outside `effects` (#274, #280).
+
 > **Amended by [ADR-0200](./0200-negative-shift-excises-time-under-the-cut-origin-convention-with-two-tier-safety.md)**: Negative shift excises time under the cut-origin convention with two-tier safety.
 
 > **Amended by [ADR-0219](./0219-smooth-pass-through-easing-enters-as-an-auto-bezier-pass-and-recipe-and-the-runtime-evaluator-stays-local.md)**: confirms single-segment entering-ease locality and the closed ease vocabulary hold; neighbour-dependent "continuous" and "auto" easing keywords are refused in the runtime evaluator and schema.
