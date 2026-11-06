@@ -1,0 +1,14 @@
+{
+  "frame": {"width": 1080, "height": 1920},
+  "fps": 30,
+  "background": "#101418",
+  "duration": 4000,
+  "output": "out/marks.mp4",
+  "fonts": {"caption": [{"file": "fonts/Inter-Bold.ttf"}]},
+  "fontVendor": {"fonts/Inter-Bold.ttf": {"licence": "OFL-1.1", "source": "https://github.com/rsms/inter", "sha256": "288316099b1e0a47a4716d159098005eef7c0066921f34e3200393dbdb01947f"}},
+  "tracks": [
+    {"name": "base", "layer": 1, "elements": [
+      {"id": "bg_card", "type": "rect", "start": 0, "end": 4000, "x": 540, "y": 960, "origin": "center", "width": 1080, "height": 1920, "fill": "#101418"}
+    ]}
+  ]
+}

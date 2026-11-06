@@ -26,6 +26,7 @@ licence attestation.
 | `rig/rig.json`, `rig/parts/` | A three-level rig (torso → head → mouth and eyes; torso → arm) in the pack's `character/rig.json` shape: parts padded so each pivot is the canvas centre, parents, and a viseme → mouth table. |
 | `rig.montagent.json`, `rig.spec.json` | A project with only a voice on the bed, and a spec that hops the fixture rig in, raises its arm, tilts its head, syncs its mouth to `media/bed.visemes.json` and blinks it: the input to `montagent-character`'s `bake_rig.py`. |
 | `keyframes.montagent.json`, `keyframes.spec.json` | A project with `media/beat.wav` and a card shape, and a spec exercising `wiggle`, `bounce`, `loop`, `smooth`, `exp_scale`, `audio`, and `auto_bezier`: the input to `montagent-motion`'s `keyframes.py`. |
+| `marks.montagent.json`, `marks.spec.json` | A base project and a compact mark spec with shared fade defaults, explicit and slug-derived mark IDs, and an override: the input to `montagent-footage`'s `marks.py`. |
 
 Everything except the font is synthetic, and `make_fixtures.py` regenerates it with ffmpeg (`resvg` for `media/mark.png`, `thorvg-python` for `media/lottie.mov`).
 

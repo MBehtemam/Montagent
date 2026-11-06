@@ -118,6 +118,9 @@ fn the_format_docs_serve_the_rules_the_schema_cannot_express() {
         "relative to the project file's own directory",
         // ADR-0011's write-tool invariant, which is what this ticket makes observable.
         "never `ok`",
+        // #455: fmt and probe are CLI subcommands while font tools are on both MCP and CLI.
+        "`montagent fmt` and `montagent probe` are CLI subcommands",
+        "`fonts_list`, `fonts_vendor` and `fonts_acquire`",
     ] {
         assert!(
             docs.contains(rule),

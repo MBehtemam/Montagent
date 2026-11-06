@@ -59,6 +59,8 @@ served beside this one and each fitting one read. Read a page before you write w
 tools, deliberately: a tool that took an element id and a field name would cost you the
 `diff` that proves your edit changed that element **and nothing else**. Montagent's tools
 exist for the things a text editor cannot do — checking, measuring, querying, rendering.
+`montagent fmt` and `montagent probe` are CLI subcommands, while `fonts_list`, `fonts_vendor` and `fonts_acquire`
+are available on both MCP and the CLI.
 
 That model has one prerequisite, and it is the reason for the writing convention below:
 **your next exact-string replace must match exactly one element.**
@@ -313,7 +315,9 @@ Two consequences worth holding onto:
   path and an atomic rename, always at the declared frame size, and after it succeeds the
   `review` findings it did not refuse on print beneath the result together with the `NOT
   CHECKED` footer — exit 0 never means the video is right. `render --from --to` writes one
-  half-open range to `out/<name>.<from>-<to>.mp4` and can never land on the deliverable.
+  half-open range to `out/<name>.<from>-<to>.mp4` and can never land on the deliverable; pass
+  `--profile` (`profile: true` on MCP) on a representative slice (`montagent render --from <t> --to <t> --profile`)
+  as the pre-flight check to measure s/frame and attribute CPU time per element and stage before a long render.
 - **Every write tool returns the new state's findings, never `ok`** (ADR-0011). You do not run
   `validate` after a write — the write hands you `validate`'s answer.
 
