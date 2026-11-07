@@ -570,3 +570,101 @@ fn a_speed_finer_than_a_run_can_sample_exactly_is_refused_and_not_approximated()
         .is_some_and(|e| e.contains("could not be run"))
     );
 }
+
+#[test]
+fn a_30_fps_source_in_a_30_fps_project_steps_one_to_one_across_render_frame_and_measure() {
+    // #522 / ADR-0251: at 30 fps, timeline frame 1 is assigned integer millisecond 33 ms
+    // (`⌊1000 / 30⌋`), while a 30 fps QuickTime source has frame 1 at `1/30 s = 33.333... ms`.
+    // Mapping timeline frame `n` through its exact rational time `n * 1000 / fps` ms (and
+    // sub-millisecond source microseconds) means timeline frames `0..10` select source frames
+    // `0..10` in `frames_from` (`measure`), `render` (both `Feeds` and `PerFrame`), and
+    // `frame --at` at each frame's floored instant (`0, 33, 66, 100, ...`).
+    if !common::has_ffprobe() {
+        return;
+    }
+    let dir = common::tempdir(line!());
+    let Some(clip) = encode(&dir, "thirty.mov", "30") else {
+        eprintln!("skipped: this ffmpeg cannot encode the 30 fps fixture");
+        return;
+    };
+
+    // 1. `frames_from` (used by `measure`'s coverage series and `render`'s feeds at origin 0)
+    // steps 0, 1, 2, ..., 9 without holding 0 at frame 1 or skipping 2 at frame 3.
+    let expected: Vec<i64> = (0..10).collect();
+    assert_eq!(run_indices(&clip, 0, 30, (1, 1), 10), expected);
+
+    // 2. Build a 30 fps project playing `thirty.mov` from 0..334 ms (10 frames: 0..10) and
+    // verify `render` (`Feeds` and `PerFrame`), `frame --at`, and `measure` all paint the
+    // exact 1-to-1 sequence 0..10.
+    let source = clip.display().to_string().replace('\\', "/");
+    let body = common::canonical(&format!(
+        r##"{{"frame":{{"width":{SIZE},"height":{SIZE}}},"fps":30,"background":"#000000",
+            "duration":334,"output":"out/thirty.mp4","tracks":[
+            {{"name":"v","layer":0,"elements":[
+              {{"id":"clip","type":"video","start":0,"end":334,"source":"{source}",
+                "source_start":0,"source_end":334,"x":0,"y":0,"origin":"top-left",
+                "width":{SIZE},"height":{SIZE},"fit":"literal","volume":0,
+                "effects":[{{"name":"chroma","color":"#00FF00","tolerance":0.2,
+                             "softness":0.0,"spill":0.0}}]}}]}}]}}"##
+    ));
+    let project_path = common::write_project(&dir, "thirty.montagent.json", &body);
+
+    let feeds = montagent_core::verbs::render::paint_span(
+        &project_path,
+        0,
+        334,
+        montagent_core::verbs::render::Supplying::Feeds,
+    )
+    .expect("feeds paint");
+    let per_frame = montagent_core::verbs::render::paint_span(
+        &project_path,
+        0,
+        334,
+        montagent_core::verbs::render::Supplying::PerFrame,
+    )
+    .expect("per-frame paint");
+    assert_eq!(feeds.frames.len(), 10);
+    assert_eq!(feeds.frames, per_frame.frames);
+
+    for n in 0..10i64 {
+        let rgb = &feeds.frames[n as usize];
+        assert_eq!(
+            i64::from(rgb[0]) / 3,
+            n,
+            "render timeline frame {n} should paint source frame {n}"
+        );
+
+        let instant = (n * 1000) / 30;
+        let single = montagent_core::verbs::frame::frame(
+            &project_path,
+            &montagent_core::verbs::frame::Ask {
+                at: Some(instant),
+                full: true,
+                png: true,
+                ..Default::default()
+            },
+        );
+        let decoded = image::load_from_memory(&single.image().expect("frame image").bytes)
+            .expect("valid PNG")
+            .to_rgba8();
+        assert_eq!(
+            i64::from(decoded.as_raw()[0]) / 3,
+            n,
+            "frame --at {instant} (timeline frame {n}) should paint source frame {n}"
+        );
+    }
+
+    let measured = montagent_core::verbs::measure::measure(
+        &project_path,
+        &montagent_core::verbs::measure::Ask {
+            elements: vec!["clip".to_string()],
+            ..Default::default()
+        },
+    )
+    .to_json();
+    assert_eq!(
+        measured["measure"]["frames"].as_array().map(Vec::len),
+        Some(10),
+        "{measured}"
+    );
+}
