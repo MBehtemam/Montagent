@@ -149,6 +149,51 @@ fn a_drifted_element_start_re_derives_from_the_elements_own_start() {
 }
 
 #[test]
+fn last_drawn_frame_is_silent_when_t_matches_the_last_sampled_frame_before_end() {
+    // ADR-0248: at 25 fps, `end: 20000` has its last sampled frame at frame 499 (19960 ms).
+    // Both a first record with a negative `offset` (-300 -> 19660) and a terminal record
+    // with no `offset` (19960) are silent when in sync.
+    let records = r##"{"t":19660,"t_from":{"rule":"last-drawn-frame","offset":-300},"v":[1.0,1.0]},{"t":19960,"t_from":{"rule":"last-drawn-frame"},"v":[1.08,1.08],"ease":"linear"}"##;
+    let report = report_on(&element("photo-05", 0, records));
+    assert!(stale(&report).is_empty(), "{:?}", report.findings);
+}
+
+#[test]
+fn a_drifted_last_drawn_frame_re_derives_from_the_elements_end_and_project_fps() {
+    // ADR-0248: at 30 fps, an element ending at 1000 ms paints its last frame at frame 29
+    // (`floor(29 * 1000 / 30) = 966` ms). Writing `t: 1000` (or leaving an old 25 fps
+    // `t: 960` after changing `fps` to 30) fires `R-DERIVED-T` with `derived: 966`.
+    let dir = common::tempdir(line!());
+    let doc = canonical(
+        r##"{"frame":{"width":1080,"height":1920},"fps":30,"tracks":[{"name":"t","layer":10,"elements":[{"id":"fade","type":"rect","start":0,"end":1000,"x":0,"y":0,"origin":"top-left","width":100,"height":100,"fill":"#1E344C","opacity":[{"t":700,"t_from":{"rule":"last-drawn-frame","offset":-300},"v":1.0},{"t":1000,"t_from":{"rule":"last-drawn-frame"},"v":0.0,"ease":"ease-in"}]}]}]}"##,
+    );
+    let path = write_project(&dir, "p.montagent.json", &doc);
+    let document = parse::read(&path).expect("the project parses");
+    let mut report = Report::new("validate", Some(document.path().to_string()));
+    checks::derived::check(&document, &mut report);
+
+    let findings = stale(&report);
+    assert_eq!(findings.len(), 2, "{:?}", report.findings);
+
+    assert_eq!(findings[0].class, Class::Error);
+    assert_eq!(findings[0].fields["rule"], json!("last-drawn-frame"));
+    assert_eq!(findings[0].fields["declared_t"], json!(700));
+    assert_eq!(findings[0].fields["derived"], json!(666));
+    assert_eq!(findings[0].repair, Some(Repair::Advise(json!({"t": 666}))));
+
+    assert_eq!(findings[1].class, Class::Error);
+    assert_eq!(findings[1].fields["rule"], json!("last-drawn-frame"));
+    assert_eq!(findings[1].fields["declared_t"], json!(1000));
+    assert_eq!(findings[1].fields["derived"], json!(966));
+    assert_eq!(findings[1].repair, Some(Repair::Advise(json!({"t": 966}))));
+
+    let rendered = prose(&report);
+    assert!(rendered.contains("frame 29"), "{rendered}");
+    assert!(rendered.contains("derives 966"), "{rendered}");
+    assert!(rendered.contains("derives 666"), "{rendered}");
+}
+
+#[test]
 fn a_shift_that_moves_source_and_derived_together_stays_silent() {
     // ADR-0086, stated as a limit rather than buried: the declaration asserts the relation
     // holds, not that it should have changed. Both records and the element's `start` are the
@@ -234,7 +279,26 @@ fn an_unknown_rule_names_the_closed_set() {
     assert!(message.contains("`element-end`"), "{message}");
     assert!(message.contains("`element-start`"), "{message}");
     assert!(message.contains("`after-previous`"), "{message}");
+    assert!(message.contains("`last-drawn-frame`"), "{message}");
     assert!(message.contains("closed and published"), "{message}");
+}
+
+#[test]
+fn last_drawn_frame_validates_its_optional_offset_and_refuses_ms() {
+    let with_ms = r##"{"t":960,"t_from":{"rule":"last-drawn-frame","ms":40},"v":[1.0,1.0]}"##;
+    let message = refusal(with_ms);
+    assert!(message.contains("`last-drawn-frame`"), "{message}");
+    assert!(message.contains("`offset`"), "{message}");
+
+    let float_offset =
+        r##"{"t":960,"t_from":{"rule":"last-drawn-frame","offset":1.5},"v":[1.0,1.0]}"##;
+    let message = refusal(float_offset);
+    assert!(message.contains("integer of milliseconds"), "{message}");
+
+    let offset_on_after_previous = r##"{"t":0,"v":[1.0,1.0]},{"t":960,"t_from":{"rule":"after-previous","offset":40},"v":[1.08,1.08],"ease":"linear"}"##;
+    let message = refusal(offset_on_after_previous);
+    assert!(message.contains("`after-previous`"), "{message}");
+    assert!(message.contains("`ms`"), "{message}");
 }
 
 #[test]
@@ -329,8 +393,8 @@ fn the_record_shapes_publish_t_from_immediately_after_t() {
         }
     }
     assert_eq!(
-        seen, 42,
-        "twenty-one keyframe instantiations, first and non-first"
+        seen, 74,
+        "thirty-seven keyframe instantiations, first and non-first"
     );
 }
 
@@ -349,9 +413,16 @@ fn the_first_records_t_from_publishes_the_rule_set_minus_after_previous() {
     };
     assert_eq!(
         rules("Derivation"),
-        ["\"element-start\"", "\"after-previous\""]
+        [
+            "\"element-start\"",
+            "\"after-previous\"",
+            "\"last-drawn-frame\""
+        ]
     );
-    assert_eq!(rules("FirstDerivation"), ["\"element-start\""]);
+    assert_eq!(
+        rules("FirstDerivation"),
+        ["\"element-start\"", "\"last-drawn-frame\""]
+    );
 
     // Every instantiation, whatever value type it is named for (ADR-0137 §6).
     let records: Vec<&String> = defs
@@ -360,7 +431,7 @@ fn the_first_records_t_from_publishes_the_rule_set_minus_after_previous() {
         .keys()
         .filter(|name| name.starts_with("Keyframe") || name.starts_with("FirstKeyframe"))
         .collect();
-    assert_eq!(records.len(), 42, "{records:?}");
+    assert_eq!(records.len(), 74, "{records:?}");
     for name in records {
         let derivation = if name.starts_with("First") {
             "#/$defs/FirstDerivation"

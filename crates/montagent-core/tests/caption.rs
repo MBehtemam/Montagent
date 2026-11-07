@@ -1055,9 +1055,9 @@ fn an_opted_out_element_is_not_listed_as_a_member_of_a_group_that_does_form() {
 
 #[test]
 fn only_the_literal_false_opts_out() {
-    // A string `"false"` is the schema check's finding, and a typo must not also silence
-    // four checks. `null` reads as omitted, as on every optional field (ADR-0136). Either
-    // way the element stays in scope.
+    // A string `"false"` and `null` are both the schema check's findings (ADR-0136,
+    // ADR-0247), and a schema error must not also silence four checks. Either way the
+    // element stays in scope.
     for value in [r#","caption":"false""#, r#","caption":null"#] {
         let report = report_on(&track(
             "titles",

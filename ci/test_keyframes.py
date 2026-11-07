@@ -26,7 +26,16 @@ def load_module():
 
 def montagent_env() -> dict:
     env = os.environ.copy()
-    for candidate in (ROOT / "target/debug", ROOT / "target/release"):
+    target_dir = Path(env.get("CARGO_TARGET_DIR", ROOT / "target"))
+    shared = Path.home() / ".cargo/shared-target"
+    for candidate in (
+        target_dir / "debug",
+        target_dir / "release",
+        shared / "debug",
+        shared / "release",
+        ROOT / "target/debug",
+        ROOT / "target/release",
+    ):
         if (candidate / "montagent").exists():
             env["PATH"] = f"{candidate}{os.pathsep}{env.get('PATH', '')}"
             break
@@ -594,6 +603,47 @@ class TestKeyframesScript(unittest.TestCase):
             res2 = self.run_cli(proj_path, spec_path)
             self.assertEqual(res2.returncode, 0, msg=res2.stderr)
             self.assertEqual(json.loads(res2.stdout), updated)
+
+    def test_last_drawn_frame_rule_stamping_and_resync(self):
+        mod = load_module()
+        # Verify exact integer arithmetic across 30 fps, 25 fps, and NTSC [24000, 1001]
+        self.assertEqual(mod.last_drawn_frame_ms(1000, 30), 966)
+        self.assertEqual(mod.last_drawn_frame_ms(1000, 30, offset=-33), 933)
+        self.assertEqual(mod.last_drawn_frame_ms(1000, 25), 960)
+        self.assertEqual(mod.last_drawn_frame_ms(1000, [24000, 1001]), 959)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            shutil.copytree(FIXTURES / "media", tmp_path / "media")
+            proj = base_project()
+            card = get_element(proj, "card")
+            card["end"] = 1000
+            proj_path = tmp_path / "project.montagent.json"
+            spec_path = tmp_path / "keyframes.spec.json"
+            proj_path.write_text(json.dumps(proj, indent=2) + "\n")
+
+            spec = {
+                "operations": [
+                    {
+                        "op": "exp_scale",
+                        "id": "card",
+                        "property": "scale",
+                        "start": 0,
+                        "end": "last-drawn-frame",
+                        "from": [1.0, 1.0],
+                        "to": [1.5, 1.5],
+                        "tol": 0.01,
+                    }
+                ]
+            }
+            spec_path.write_text(json.dumps(spec, indent=2) + "\n")
+
+            res = self.run_cli(proj_path, spec_path)
+            self.assertEqual(res.returncode, 0, msg=res.stderr)
+            updated = json.loads(res.stdout)
+            kfs = get_element(updated, "card")["scale"]
+            self.assertEqual(kfs[-1]["t"], 966)
+            self.assertEqual(kfs[-1]["t_from"], {"rule": "last-drawn-frame"})
 
 
 if __name__ == "__main__":

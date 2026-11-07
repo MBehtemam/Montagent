@@ -642,7 +642,7 @@ unanswered: the tie check measures rectangles, and a rotated footprint is not on
     // ADR-0016 settles the unknown key's message and its repair and settles neither for a
     // value that does not fit its type, and the two are acted on differently — one asks
     // whether the *binary* is stale, the other asks the author for a value. The split, and
-    // the classes below, are surface the ADR series has not ratified — raised as #253.
+    // the classes below, are ratified in ADR-0250.
     //
     // **Neither carries a sibling census, and ADR-0043 says a refuse-class finding does.**
     // `E-ANCHOR-CHAIN` is already refuse-class without one, so the practice
@@ -652,7 +652,7 @@ unanswered: the tie check measures rectangles, and a rotated footprint is not on
     // print it as "elements carrying this key" — and ADR-0006's whole posture is that a
     // stated number is a measured one. A second, independent scan for the key would be
     // exact at the top level of an element and blind inside a `run`, which is the
-    // multiplicity ADR-0017 names as the one that matters. Recorded here and in #253 rather
+    // multiplicity ADR-0017 names as the one that matters. Ratified in ADR-0250 rather
     // than discharged with a number that is right about some documents.
     CheckSpec {
         code: "E-SCHEMA-UNKNOWN-KEY",
@@ -1740,11 +1740,10 @@ minimum caption duration",
         // the document declares, which is what `review` is: legal, renders, and you must
         // look at a frame.
         //
-        // `note` is declared beside it because ADR-0006's third derived fact — the twelve
-        // instants where a picture cut and a speech boundary land up to 18 ms apart — is
-        // one, and is the alignment detail the same ADR puts "behind `--verbose`". Nothing
-        // emits it yet; ADR-0035 gave the grid arithmetic to `measure` (#205), and where
-        // that fact belongs is #257.
+        // ADR-0249 retires ADR-0006's third derived fact — the twelve instants where a
+        // picture cut and a speech boundary land up to 18 ms apart, which ADR-0006 put
+        // "behind `--verbose`" as a `note` — in favour of `measure --at` (ADR-0035), and
+        // removes the unused `Note` class from `N-QUANTIZATION`.
         //
         // ADR-0105 (#412) adds a third `review` condition on the same reason: a *visual
         // state* the grid never paints — two boundaries on different elements landing on one
@@ -1758,7 +1757,7 @@ minimum caption duration",
         // elements `entering` and `leaving`, by element and track) beside the template's
         // three fields; `changed` is always 2, the state's own boundaries. ADR-0118 ratifies
         // the fields, and that the state finding fires even where (1) or (2) already did.
-        classes: &[Review, Note],
+        classes: &[Review],
         repair: None,
         threshold: Internal,
         adr: "ADR-0006",

@@ -285,3 +285,70 @@ fn a_speed_is_strictly_greater_than_zero() {
     }
     accepted(&audio(r##","speed":0.645"##));
 }
+
+#[test]
+fn optional_fields_across_the_document_refuse_explicit_null() {
+    // ADR-0247 (amending ADR-0030 and ADR-0136): every optional field is omitted when
+    // absent and never written as `null`, matching `schema/montagent.schema.json`.
+    for (doc, field) in [
+        (
+            r##"{"frame":{"width":1080,"height":1920},"fps":25,"background":null,"tracks":[]}"##
+                .to_string(),
+            "background",
+        ),
+        (
+            r##"{"frame":{"width":1080,"height":1920},"fps":25,"master":{"target_lufs":null},"tracks":[]}"##
+                .to_string(),
+            "target_lufs",
+        ),
+        (
+            r##"{"frame":{"width":1080,"height":1920},"fps":25,"tracks":[{"name":"main","layer":0,"role":null,"elements":[]}]}"##
+                .to_string(),
+            "role",
+        ),
+        (
+            project_with(
+                r##"{"id":"a","type":"rect","start":0,"end":1,"layer":null,"width":10,"height":10,"fill":"#000000"}"##,
+            ),
+            "layer",
+        ),
+        (
+            project_with(
+                r##"{"id":"a","type":"rect","start":0,"end":1,"width":10,"height":10,"radius":null,"fill":"#000000"}"##,
+            ),
+            "radius",
+        ),
+        (
+            project_with(
+                r##"{"id":"a","type":"rect","start":0,"end":1,"width":10,"height":10,"fill":"#000000","opacity":null}"##,
+            ),
+            "opacity",
+        ),
+        (
+            project_with(
+                r##"{"id":"a","type":"rect","start":0,"end":1,"width":10,"height":10,"fill":"#000000","opacity":[{"t":0,"t_from":null,"v":1.0}]}"##,
+            ),
+            "t_from",
+        ),
+        (
+            project_with(
+                r##"{"id":"a","type":"text","start":0,"end":1,"width":100,"height":50,"font":"brand","size":24,"runs":[{"text":"hi","color":null}]}"##,
+            ),
+            "color",
+        ),
+        (
+            project_with(
+                r##"{"id":"a","type":"rect","start":0,"end":1,"width":10,"height":10,"fill":"#000000","effects":[{"name":"mask","shape":"circle","invert":null}]}"##,
+            ),
+            "invert",
+        ),
+    ] {
+        let message = serde_json::from_str::<Project>(&doc)
+            .expect_err(&format!("`{field}: null` should be refused:\n{doc}"))
+            .to_string();
+        assert!(
+            message.contains(&format!("`{field}` is written as null; omit the key instead")),
+            "expected `{field}` null refusal, got: {message}"
+        );
+    }
+}

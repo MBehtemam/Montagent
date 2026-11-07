@@ -1098,7 +1098,7 @@ fn the_registry_declares_every_code_these_checks_can_fire() {
             &[Class::Error][..],
             Some(RepairClass::Refuse),
         ),
-        ("N-QUANTIZATION", &[Class::Review, Class::Note][..], None),
+        ("N-QUANTIZATION", &[Class::Review][..], None),
     ] {
         let spec = registry::spec(code).unwrap_or_else(|| panic!("{code} is not registered"));
         assert_eq!(spec.classes, classes, "{code}");

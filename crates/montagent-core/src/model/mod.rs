@@ -562,13 +562,28 @@ impl Anchor {
 /// (ADR-0004). Array order carries no meaning, for timing or for stacking — ADR-0060
 /// confirmed a layer tie is never broken by declaration order.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
+#[serde(deny_unknown_fields, remote = "Self")]
 pub struct Track {
     pub name: String,
     pub layer: i64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub role: Option<Role>,
     pub elements: Vec<Element>,
+}
+
+impl Serialize for Track {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        Track::serialize(self, serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for Track {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let value = serde_json::Value::deserialize(deserializer)?;
+        let track = Track::deserialize(&value).map_err(D::Error::custom)?;
+        refuse_null_fields(&value).map_err(D::Error::custom)?;
+        Ok(track)
+    }
 }
 
 /// Semantic classification for a timeline or element marker (ADR-0230).
@@ -675,7 +690,7 @@ impl<'de> Deserialize<'de> for Marker {
 /// It is placed next to `duration` because that is the field it talks about: `loop: true`
 /// asserts that `duration` connects back to `0`. Recorded rather than decided silently.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
+#[serde(deny_unknown_fields, remote = "Self")]
 pub struct Project {
     pub frame: Frame,
     pub fps: FrameRate,
@@ -711,6 +726,50 @@ pub struct Project {
     )]
     pub font_vendor: Option<BTreeMap<String, FontAttestation>>,
     pub tracks: Vec<Track>,
+}
+
+impl Serialize for Project {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        Project::serialize(self, serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for Project {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let value = serde_json::Value::deserialize(deserializer)?;
+        let project = Project::deserialize(&value).map_err(D::Error::custom)?;
+        refuse_null_fields(&value).map_err(D::Error::custom)?;
+        Ok(project)
+    }
+}
+
+/// ADR-0247 (amending ADR-0030 and ADR-0136): an optional field is omitted when absent,
+/// never written as `null`.
+///
+/// Called after a scope's structural `Deserialize` has succeeded, so an unknown key
+/// written with a `null` value still fails `deny_unknown_fields` first (`E-SCHEMA-UNKNOWN-KEY`)
+/// and a required field written as `null` still reports its own type error. Any `null`
+/// that survives structural deserialization sits under a known optional key, and names
+/// that key in the same words `Element`'s `group` already uses.
+pub(crate) fn refuse_null_fields(value: &serde_json::Value) -> Result<(), String> {
+    match value {
+        serde_json::Value::Object(map) => {
+            for (key, item) in map {
+                if item.is_null() {
+                    return Err(format!("`{key}` is written as null; omit the key instead"));
+                }
+                refuse_null_fields(item)?;
+            }
+            Ok(())
+        }
+        serde_json::Value::Array(items) => {
+            for item in items {
+                refuse_null_fields(item)?;
+            }
+            Ok(())
+        }
+        _ => Ok(()),
+    }
 }
 
 /// One thing placed on the timeline.

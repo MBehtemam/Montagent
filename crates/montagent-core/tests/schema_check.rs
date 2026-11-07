@@ -548,12 +548,14 @@ fn caption_is_a_boolean_on_a_text_element() {
 
 #[test]
 fn a_caption_that_is_not_a_boolean_is_a_schema_error_at_its_element() {
-    // Not `null`: every optional field in the format reads `null` as omitted today, and
-    // `caption` inherits that rather than being the one field that refuses it.
+    // ADR-0136 and ADR-0247: any non-boolean `caption` value — including `null`, since
+    // optional fields are omitted rather than written as `null` — is `E-SCHEMA` at its
+    // element.
     for mistyped in [
         r##","caption":"no""##,
         r##","caption":"false""##,
         r##","caption":0"##,
+        r##","caption":null"##,
     ] {
         let report = report_on_elements(&text_with(mistyped));
         let finding = only(&report, "E-SCHEMA");
@@ -564,6 +566,67 @@ fn a_caption_that_is_not_a_boolean_is_a_schema_error_at_its_element() {
             "{mistyped}"
         );
     }
+}
+
+#[test]
+fn optional_fields_written_as_null_report_e_schema_at_their_scope() {
+    // ADR-0247: explicit `null` on any optional field across the project header, tracks,
+    // elements, and nested objects is refused with `E-SCHEMA` instructing the author to
+    // omit the key instead.
+    let header = report_on(&canonical(
+        r##"{"frame":{"width":1080,"height":1920},"fps":25,"background":null,"tracks":[]}"##,
+    ));
+    let finding = only(&header, "E-SCHEMA");
+    assert_eq!(finding.fields["subject"], "the project");
+    assert_eq!(
+        finding.fields["reason"],
+        "`background` is written as null; omit the key instead"
+    );
+
+    let track = report_on(&canonical(
+        r##"{"frame":{"width":1080,"height":1920},"fps":25,"tracks":[{"name":"main","layer":0,"role":null,"elements":[]}]}"##,
+    ));
+    let finding = only(&track, "E-SCHEMA");
+    assert_eq!(finding.fields["subject"], "the track `main`");
+    assert_eq!(
+        finding.fields["reason"],
+        "`role` is written as null; omit the key instead"
+    );
+
+    for (element, expected_reason) in [
+        (
+            rect("card-05", r##","radius":null"##),
+            "`radius` is written as null; omit the key instead",
+        ),
+        (
+            rect("card-05", r##","layer":null"##),
+            "`layer` is written as null; omit the key instead",
+        ),
+        (
+            rect("card-05", r##","opacity":[{"t":0,"t_from":null,"v":1.0}]"##),
+            "keyframe record 1 (`t` 0): `t_from` is written as null; omit the key instead",
+        ),
+        (
+            rect(
+                "card-05",
+                r##","effects":[{"name":"mask","shape":"circle","invert":null}]"##,
+            ),
+            "`invert` is written as null; omit the key instead",
+        ),
+    ] {
+        let report = report_on_elements(&element);
+        let finding = only(&report, "E-SCHEMA");
+        assert_eq!(finding.location.element.as_deref(), Some("card-05"));
+        assert_eq!(finding.fields["reason"], expected_reason, "{element}");
+    }
+
+    // An unknown key written with a `null` value is still an unknown key (`E-SCHEMA-UNKNOWN-KEY`),
+    // never misclassified as an optional field written as `null`.
+    let unknown = report_on_elements(&rect("card-05", r##","gravty":null"##));
+    assert_eq!(
+        only(&unknown, "E-SCHEMA-UNKNOWN-KEY").fields["key"],
+        "gravty"
+    );
 }
 
 #[test]
