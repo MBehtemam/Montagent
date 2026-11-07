@@ -8,6 +8,8 @@
 >   closes the "published key order" entry left unsettled there
 > - [ADR-0042](0042-montagent-json-is-a-convention-fmt-gets-a-shape-check.md) — discharges
 >   its file-identification deferral
+> - [ADR-0250](./0250-ratify-schema-check-two-code-split-retirement-suppression-and-no-census.md) —
+>   ratifies `E-SCHEMA-UNKNOWN-KEY` vs `E-SCHEMA` and retirement suppression via `checks::retired`
 
 **Status:** accepted
 **Ticket:** [#14](https://github.com/MBehtemam/Montagent/issues/14)

@@ -7,6 +7,8 @@ amends: 0011 (`fmt` gains an explicit exception for defaultable-field presence),
 
 # A defaultable field's presence is content: `fmt` leaves it alone, both spellings stand
 
+> **Amended by [ADR-0247](./0247-optional-fields-refuse-explicit-null-across-the-project-format.md)**: optional fields across the project format have two legal spellings — omitted or written with a concrete value — and an explicit JSON `null` is refused everywhere with `E-SCHEMA`.
+
 > **Amended by [ADR-0080](0080-the-scaffold-writes-what-it-was-told-and-the-two-resources-are-named.md).**
 > The question left open under *"Not settled here"* below — whether `create_project`'s
 > scaffold should prefer one spelling — is **closed**: the scaffold writes `background`,

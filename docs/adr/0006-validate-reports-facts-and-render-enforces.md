@@ -26,6 +26,8 @@ status: accepted
 
 # `validate` reports facts, and `render` is what enforces them
 
+> **Amended by [ADR-0249](./0249-retire-sub-frame-alignment-note-and-remove-note-class-from-n-quantization.md)**: retires the unbuilt third sub-frame boundary alignment note in favor of `measure --at` (ADR-0035) and removes `Class::Note` from `N-QUANTIZATION`'s `CheckSpec.classes`, leaving `N-QUANTIZATION` `review`-only.
+
 > **Amended by [ADR-0112](0112-a-report-names-the-check-sets-that-ran-and-prints-no-zero-it-did-not-earn.md)**: the NOT CHECKED block below stays
 > unconditional but stops being one fixed text. A report that did not run both halves of
 > validate's checks (`check_sets` other than `["document", "disk"]`) gains a generated sentence

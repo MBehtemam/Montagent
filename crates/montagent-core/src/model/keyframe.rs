@@ -106,10 +106,14 @@ fn read_records<T: serde::de::DeserializeOwned>(
             // The record's own `t` before it is parsed, so the one field that locates it on
             // the clock survives the failure that is about some other field.
             let t = item.get("t").and_then(serde_json::Value::as_i64);
-            serde_json::from_value(item).map_err(|e| match t {
+            let format_err = |e: String| match t {
                 Some(t) => format!("keyframe record {} (`t` {t}): {e}", index + 1),
                 None => format!("keyframe record {}: {e}", index + 1),
-            })
+            };
+            let record =
+                serde_json::from_value(item.clone()).map_err(|e| format_err(e.to_string()))?;
+            super::refuse_null_fields(&item).map_err(format_err)?;
+            Ok(record)
         })
         .collect()
 }
@@ -247,19 +251,21 @@ pub struct Keyframe<T> {
 
 /// The name of ADR-0086's no-argument rule, as a document spells it.
 ///
-/// The two spellings are consts because four messages and the schema pass
-/// (`crate::schema`) all have to name them, and a rule set that is *"finite and
-/// published"* (ADR-0086's third condition of admission) is undone by a second answer to
-/// what it is called.
+/// The spellings are consts because messages and the schema pass (`crate::schema`) all have
+/// to name them, and a rule set that is *"finite and published"* (ADR-0086's third condition
+/// of admission) is undone by a second answer to what it is called.
 pub(crate) const ELEMENT_START: &str = "element-start";
 
 /// The name of ADR-0086's one-argument rule.
 pub(crate) const AFTER_PREVIOUS: &str = "after-previous";
 
-/// Both rule names, in schema order — what a message listing the legal set prints.
-pub(crate) const RULES: [&str; 2] = [ELEMENT_START, AFTER_PREVIOUS];
+/// The name of ADR-0248's last-drawn-frame rule (amending ADR-0086).
+pub(crate) const LAST_DRAWN_FRAME: &str = "last-drawn-frame";
 
-/// `` `element-start`, `after-previous` `` — the closed rule set, for a sentence.
+/// All rule names, in schema order — what a message listing the legal set prints.
+pub(crate) const RULES: [&str; 3] = [ELEMENT_START, AFTER_PREVIOUS, LAST_DRAWN_FRAME];
+
+/// `` `element-start`, `after-previous`, `last-drawn-frame` `` — the closed rule set, for a sentence.
 fn rules() -> String {
     RULES
         .iter()
@@ -269,22 +275,17 @@ fn rules() -> String {
 }
 
 /// A recorded-intent declaration on a keyframe record's own `t`: the rule the author
-/// derived that instant by (ADR-0086).
+/// derived that instant by (ADR-0086, ADR-0248).
 ///
 /// **No renderer reads it and `validate` is its only consumer.** The literal `t` beside it
 /// remains the sole author of what renders, so a declaration that has gone stale is a
 /// finding (`R-DERIVED-T`) and never a different frame.
 ///
-/// The rule set is closed and both members were measured 7-of-7 on the committed fixture
-/// before they shipped. Both are **directional** — the document names which value is the
-/// source and which the derived one — so every violation is `error` with an advise-class
-/// repair stating the re-derived integer. A rule takes at most one argument, whose type is
-/// fixed per rule by the schema; rules do not compose, and direction is carried in the rule
-/// *name* (`after-`) rather than in the sign of the argument, so no rule needs signed
-/// arithmetic.
-///
-/// The step this type refuses, named so it cannot be taken by drift: a second argument, a
-/// signed argument, or a rule whose argument is another rule. Any of those is a new ADR.
+/// The rule set is closed (`element-start`, `after-previous`, `last-drawn-frame`). All three
+/// are **directional** — the document names which value is the source and which the derived
+/// one — so every violation is `error` with an advise-class repair stating the re-derived
+/// integer. A rule takes at most one argument, whose type is fixed per rule by the schema;
+/// rules do not compose.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, JsonSchema)]
 #[serde(tag = "rule", rename_all = "kebab-case", deny_unknown_fields)]
 pub enum Derivation {
@@ -304,6 +305,16 @@ pub enum Derivation {
         /// again.
         ms: u64,
     },
+    /// This `t` was derived as the last sampled timeline frame instant strictly before the
+    /// element's `end` at the project's `fps` (`⌊frame × 1000 / fps⌋`), plus optional
+    /// `offset` in milliseconds (ADR-0248).
+    LastDrawnFrame {
+        /// Optional integer offset in milliseconds added to the last drawn frame instant
+        /// (default `0` when omitted, e.g. `-300` for an exit fade starting 300 ms before
+        /// the last drawn frame).
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        offset: Option<i64>,
+    },
 }
 
 impl Derivation {
@@ -317,6 +328,7 @@ impl Derivation {
         match self {
             Derivation::ElementStart => ELEMENT_START,
             Derivation::AfterPrevious { .. } => AFTER_PREVIOUS,
+            Derivation::LastDrawnFrame { .. } => LAST_DRAWN_FRAME,
         }
     }
 }
@@ -335,7 +347,7 @@ impl<'de> Deserialize<'de> for Derivation {
     /// to make the file validate"*. That is the right thing to say about a key this binary
     /// has never heard of, and the wrong thing to say about an `ms` on `element-start`,
     /// where deleting the key **is** the fix — so that one is an ordinary `E-SCHEMA` naming
-    /// the two legal forms.
+    /// the legal forms.
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         use serde::de::Error as _;
 
@@ -361,33 +373,62 @@ impl<'de> Deserialize<'de> for Derivation {
             }
         };
         let ms = body.remove("ms");
+        let offset_val = body.remove("offset");
 
         // Whatever is left is a key the format does not publish inside a `t_from`, and the
-        // two names it *does* publish are already out of the map — so the list this names is
+        // names it *does* publish are already out of the map — so the list this names is
         // the whole of the legal set rather than a per-rule subset.
         if let Some((key, _)) = body.into_iter().next() {
             return Err(D::Error::custom(format!(
-                "unknown field `{key}` in a `t_from`, expected one of `rule`, `ms`"
+                "unknown field `{key}` in a `t_from`, expected one of `rule`, `ms`, `offset`"
             )));
         }
 
-        match (rule.as_str(), ms) {
-            (ELEMENT_START, None) => Ok(Derivation::ElementStart),
-            (ELEMENT_START, Some(ms)) => Err(D::Error::custom(format!(
+        match (rule.as_str(), ms, offset_val) {
+            (ELEMENT_START, None, None) => Ok(Derivation::ElementStart),
+            (ELEMENT_START, Some(ms), _) => Err(D::Error::custom(format!(
                 "a `t_from` declares `{ELEMENT_START}` and an `ms` of {ms}: \
                  `{ELEMENT_START}` derives the instant from the element's own `start` and \
                  takes no argument — drop the `ms`, or state `{AFTER_PREVIOUS}`, which is \
                  the rule that takes one"
             ))),
-            (AFTER_PREVIOUS, None) => Err(D::Error::custom(format!(
+            (ELEMENT_START, None, Some(offset_val)) => Err(D::Error::custom(format!(
+                "a `t_from` declares `{ELEMENT_START}` and an `offset` of {offset_val}: \
+                 `{ELEMENT_START}` derives the instant from the element's own `start` and \
+                 takes no argument — drop the `offset`, or state `{LAST_DRAWN_FRAME}`, \
+                 which is the rule that takes one"
+            ))),
+            (AFTER_PREVIOUS, _, Some(offset_val)) => Err(D::Error::custom(format!(
+                "a `t_from` declares `{AFTER_PREVIOUS}` and an `offset` of {offset_val}: \
+                 `{AFTER_PREVIOUS}` takes `ms`, not `offset`"
+            ))),
+            (AFTER_PREVIOUS, None, None) => Err(D::Error::custom(format!(
                 "a `t_from` declares `{AFTER_PREVIOUS}` and no `ms`: the offset from the \
                  previous record is the rule's one argument and has no default — state it \
                  as a non-negative integer of milliseconds"
             ))),
-            (AFTER_PREVIOUS, Some(ms)) => Ok(Derivation::AfterPrevious { ms: offset(ms)? }),
-            (rule, _) => Err(D::Error::custom(format!(
+            (AFTER_PREVIOUS, Some(ms), None) => Ok(Derivation::AfterPrevious { ms: offset(ms)? }),
+            (LAST_DRAWN_FRAME, Some(ms), _) => Err(D::Error::custom(format!(
+                "a `t_from` declares `{LAST_DRAWN_FRAME}` and an `ms` of {ms}: \
+                 `{LAST_DRAWN_FRAME}` takes an optional `offset`, not `ms`"
+            ))),
+            (LAST_DRAWN_FRAME, None, None) => Ok(Derivation::LastDrawnFrame { offset: None }),
+            (LAST_DRAWN_FRAME, None, Some(serde_json::Value::Null)) => Err(D::Error::custom(
+                "`offset` is written as null; omit the key instead",
+            )),
+            (LAST_DRAWN_FRAME, None, Some(offset_val)) => {
+                let offset = offset_val.as_i64().ok_or_else(|| {
+                    D::Error::custom(format!(
+                        "a `t_from`'s `offset` is {offset_val}: it is an integer of milliseconds"
+                    ))
+                })?;
+                Ok(Derivation::LastDrawnFrame {
+                    offset: Some(offset),
+                })
+            }
+            (rule, _, _) => Err(D::Error::custom(format!(
                 "a `t_from`'s `rule` is `{rule}`: the rule set is closed and published, and \
-                 its two members are {} \u{2014} a new rule is an ADR carrying a census, \
+                 its members are {} \u{2014} a new rule is an ADR carrying a census, \
                  never a convenience",
                 rules()
             ))),
@@ -410,11 +451,12 @@ fn offset<E: serde::de::Error>(ms: serde_json::Value) -> Result<u64, E> {
     })
 }
 
-/// The two legal shapes, spelled out — the second half of every message above.
+/// The three legal shapes, spelled out — the second half of every message above.
 fn legal_forms() -> String {
     format!(
-        "an object naming one rule: `{{\"rule\": \"{ELEMENT_START}\"}}`, or \
-         `{{\"rule\": \"{AFTER_PREVIOUS}\", \"ms\": <a non-negative integer>}}`"
+        "an object naming one rule: `{{\"rule\": \"{ELEMENT_START}\"}}`, \
+         `{{\"rule\": \"{AFTER_PREVIOUS}\", \"ms\": <a non-negative integer>}}`, or \
+         `{{\"rule\": \"{LAST_DRAWN_FRAME}\"}}` (with optional `\"offset\": <integer ms>`)"
     )
 }
 

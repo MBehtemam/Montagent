@@ -173,15 +173,18 @@ A declaration of where a literal came from, written beside it, that **no rendere
 the literal stays the sole author of what renders, and `validate` is the declaration's only
 consumer. One pattern, several fields; exactly one field exists today, and a new one is an
 ADR carrying a census rather than a convenience
-([ADR-0086](docs/adr/0086-recorded-intent-is-one-pattern-and-the-time-axis-instantiates-it.md)).
+([ADR-0086](docs/adr/0086-recorded-intent-is-one-pattern-and-the-time-axis-instantiates-it.md),
+[ADR-0248](docs/adr/0248-t-from-gains-last-drawn-frame-rule.md)).
 Every instance is optional, and its **absence is no claim** — never a claim that the value
 is independent. The time axis's instance is `t_from`, on a keyframe record, annotating that
 record's own `t`: `{"rule": "element-start"}` says the instant was derived as the element's
-own `start`, and `{"rule": "after-previous", "ms": 15000}` says it was derived as the
-previous record's `t` plus that offset. Direction lives in the rule's name, never in the
-sign of its argument, so `ms` is non-negative; rules do not compose, and no rule takes more
-than one argument. When the arithmetic stops holding, `validate` reports `R-DERIVED-T` and
-states the integer the rule now derives.
+own `start`, `{"rule": "after-previous", "ms": 15000}` says it was derived as the
+previous record's `t` plus that offset, and `{"rule": "last-drawn-frame"}` (with optional
+`"offset": <integer>` in ms, default `0`) says it was derived as the last sampled frame
+instant strictly before the element's `end` at the project's `fps`, plus `offset`.
+Direction on `after-previous` lives in the rule's name, so `ms` is non-negative; rules do
+not compose, and no rule takes more than one argument. When the arithmetic stops holding,
+`validate` reports `R-DERIVED-T` and states the integer the rule now derives.
 _Avoid_: reference, link, binding, constraint, formula, expression; and do **not** call a
 `t_from` a *derived value* — the value is literal and the derivation is what is recorded
 
