@@ -1415,7 +1415,7 @@ pub(crate) fn encode_span(
     // Sealed, not published: the whole span is in the temp file and whether it becomes the
     // deliverable is ADR-0093 ruling 6's question, which only the caller's report can answer.
     let sealing = Instant::now();
-    let sealed = encoder.seal();
+    let sealed = encoder.seal_within(seal_timeout(span.to - span.from));
     stages.seal = sealing.elapsed();
     report_stages(&stages, span.frames, painting);
     let profile = stages
@@ -2955,9 +2955,31 @@ fn atempo_chain(speed: f64) -> Vec<String> {
     factors
 }
 
+const SEAL_TIMEOUT_VAR: &str = "MONTAGENT_SEAL_TIMEOUT_MS";
+
+fn seal_timeout(span_duration_ms: i64) -> Duration {
+    if let Some(ms) = std::env::var(SEAL_TIMEOUT_VAR)
+        .ok()
+        .and_then(|v| v.parse::<u64>().ok())
+    {
+        return Duration::from_millis(ms);
+    }
+    let twice_span = Duration::from_millis(span_duration_ms.max(0).saturating_mul(2) as u64);
+    Duration::from_secs(60).max(twice_span)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn seal_timeout_is_at_least_sixty_seconds_or_twice_the_span_duration() {
+        assert_eq!(seal_timeout(0), Duration::from_secs(60));
+        assert_eq!(seal_timeout(29_999), Duration::from_secs(60));
+        assert_eq!(seal_timeout(30_000), Duration::from_secs(60));
+        assert_eq!(seal_timeout(30_001), Duration::from_millis(60_002));
+        assert_eq!(seal_timeout(90_000), Duration::from_secs(180));
+    }
 
     #[test]
     fn a_surface_is_a_proxy_only_where_preview_s_cap_engaged() {

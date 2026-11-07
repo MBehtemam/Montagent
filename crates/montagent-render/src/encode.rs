@@ -784,16 +784,39 @@ impl Encoder {
         self.seal()?.publish()
     }
 
-    /// Close the input and wait for the encoder, stopping **short of publishing**.
+    /// Close the input and wait for the encoder within the default 60 s seal bound, stopping
+    /// **short of publishing**.
     ///
     /// ADR-0093 ruling 6: `render` does not promote the deliverable when any `error`-class
     /// finding fired, and the invariant it buys is that *a file at the output path is a
     /// render with zero errors.* That decision is the caller's — it is the one holding the
     /// report — so the encode's ending is two steps, and the temp file is still
     /// [`Deliverable`]'s to remove if the caller walks away from it.
-    pub fn seal(mut self) -> Result<Sealed, String> {
+    pub fn seal(self) -> Result<Sealed, String> {
+        self.seal_within(std::time::Duration::from_secs(60))
+    }
+
+    /// Close the input and wait at most `timeout` for `ffmpeg` to flush and close the output
+    /// container (#534).
+    ///
+    /// If `ffmpeg` is still running when `timeout` expires, it is killed and reaped, its
+    /// stderr is drained, and the partial temporary file is removed on `Drop`.
+    pub fn seal_within(mut self, timeout: std::time::Duration) -> Result<Sealed, String> {
         drop(self.stdin.take());
-        let status = self.child.wait();
+        let deadline = std::time::Instant::now() + timeout;
+        let status = loop {
+            match self.child.try_wait() {
+                Ok(Some(status)) => break Ok(Some(status)),
+                Ok(None) => {
+                    let now = std::time::Instant::now();
+                    if now >= deadline {
+                        break Ok(None);
+                    }
+                    std::thread::sleep((deadline - now).min(std::time::Duration::from_millis(5)));
+                }
+                Err(e) => break Err(e),
+            }
+        };
         let said = self.said();
         if let Some(script) = self.script.take() {
             let _ = std::fs::remove_file(script);
@@ -802,10 +825,21 @@ impl Encoder {
             let _ = std::fs::remove_file(metadata);
         }
         match status {
-            Ok(status) if status.success() => {}
-            Ok(status) => {
+            Ok(Some(status)) if status.success() => {}
+            Ok(Some(status)) => {
                 return Err(format!(
                     "ffmpeg exited with {status}{}",
+                    if said.is_empty() {
+                        String::new()
+                    } else {
+                        format!(": {said}")
+                    }
+                ));
+            }
+            Ok(None) => {
+                return Err(format!(
+                    "ffmpeg did not finish within the {:?} seal timeout after closing stdin{}",
+                    timeout,
                     if said.is_empty() {
                         String::new()
                     } else {
@@ -1563,6 +1597,48 @@ mod tests {
             );
             assert_eq!(field("color_range"), Some("tv"), "{filename}: {stdout}");
         }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn an_encoder_that_hangs_after_stdin_close_times_out_kills_the_child_and_leaves_no_temp_file() {
+        let dir = scratch("seal-timeout");
+        let shim = dir.join("ffmpeg");
+        let pid_file = dir.join("child.pid");
+        std::fs::write(
+            &shim,
+            format!(
+                "#!/bin/sh\necho $$ > '{}'\ncat > /dev/null\nexec sleep 5\n",
+                pid_file.display()
+            ),
+        )
+        .expect("write shim");
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&shim, std::fs::Permissions::from_mode(0o755))
+            .expect("make shim executable");
+
+        let target = dir.join("out").join("video.mp4");
+        let mut encoder =
+            Encoder::start(&shim, &target, &Spec::new(16, 16, 25.into(), Rgba::BLACK))
+                .expect("spawned");
+        encoder
+            .push(&[0x80u8; 16 * 16 * 3])
+            .expect("pushed a frame");
+
+        let err = encoder
+            .seal_within(std::time::Duration::from_millis(100))
+            .err()
+            .expect("hanging encoder should time out during seal");
+        assert!(
+            err.contains("seal timeout") && err.contains("closing stdin"),
+            "unexpected error: {err}"
+        );
+        assert!(!target.exists(), "target must not exist");
+        assert_eq!(
+            entries(&dir.join("out")),
+            Vec::<String>::new(),
+            "partial temp file must be removed"
+        );
     }
 
     #[test]
