@@ -4093,6 +4093,130 @@ cross-dissolve between adjacent source frames).",
         census: None,
         sets: &[Document],
     },
+    // ---- Noise reduction (`reduce_noise`, ADR-0181, #1153). --------------------------------
+    CheckSpec {
+        code: "E-NOISE-RANGE",
+        classes: &[Error],
+        repair: Some(Advise),
+        threshold: Internal,
+        adr: "ADR-0181",
+        template: "`{element}`.audio_effects[{index}] (`reduce_noise`).reduction_db: \
+{reduction_db} is outside {min}..{max}. The nearest value in range is {nearest}.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        code: "R-NOISE-AFTER-COMPRESSOR",
+        classes: &[Review],
+        repair: None,
+        threshold: Internal,
+        adr: "ADR-0181",
+        template: "`{element}`.audio_effects[{index}]: `reduce_noise` after the `compressor` at \
+index {compressor} runs on a noise floor the compressor has already lifted and made time-varying, \
+shifting `anlmdn`'s threshold. Put `reduce_noise` before `compressor`, unless this is meant.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    // ---- Pan and channel routing (`pan`, `channels`, ADR-0184, #1154). ---------------------
+    CheckSpec {
+        code: "E-PAN-RANGE",
+        classes: &[Error],
+        repair: Some(Advise),
+        threshold: Internal,
+        adr: "ADR-0184",
+        template: "`{element}`.pan: {pan} is outside {min}..{max}. The nearest value in range is \
+{nearest}.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        code: "R-PAN-INERT",
+        classes: &[Review],
+        repair: None,
+        threshold: Internal,
+        adr: "ADR-0184",
+        template: "`{element}`.pan: 0 is the default centre balance and emits no filter. Delete \
+`pan` unless pinning to centre is meant.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        code: "R-CHANNELS-INERT",
+        classes: &[Review],
+        repair: None,
+        threshold: Internal,
+        adr: "ADR-0184",
+        template: "`{element}`.channels: \"stereo\" is the default routing and emits no filter. \
+Delete `channels` unless pinning to stereo is meant.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        code: "R-CHANNELS-ON-MONO-SOURCE",
+        classes: &[Review],
+        repair: None,
+        threshold: Internal,
+        adr: "ADR-0184",
+        template: "`{element}`.channels: \"{channels}\" on 1-channel source {source} is a no-op \
+because the source upmixes to identical L and R on the stereo bus before `[channels]` runs.",
+        status: Live,
+        census: None,
+        sets: &[Disk],
+    },
+    // ---- Echo (`echo`, ADR-0185, #1155). ---------------------------------------------------
+    CheckSpec {
+        code: "E-ECHO-RANGE",
+        classes: &[Error],
+        repair: Some(Advise),
+        threshold: Internal,
+        adr: "ADR-0185",
+        template: "`{element}`.audio_effects[{index}] (`echo`).{key}: {value} is outside \
+{min}..{max}. The nearest value in range is {nearest}.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        code: "R-ECHO-HOT",
+        classes: &[Review],
+        repair: None,
+        threshold: Internal,
+        adr: "ADR-0185",
+        template: "`{element}`: enabled `echo` members have a combined worst-case peak gain of \
+{gain}x (above 3.0x, +9.54 dB). Lower `mix` or `feedback`, or follow with a `limiter`.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        code: "N-ECHO-NO-OP",
+        classes: &[Note],
+        repair: None,
+        threshold: Internal,
+        adr: "ADR-0185",
+        template: "`{element}`.audio_effects[{index}] (`echo`).mix: {mix} is below 0.001 (-60 dB), \
+so no tap survives the cutoff and the renderer emits no filter.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        code: "N-ECHO-TAPS-CAPPED",
+        classes: &[Note],
+        repair: None,
+        threshold: Internal,
+        adr: "ADR-0185",
+        template: "`{element}`.audio_effects[{index}] (`echo`): the 8th tap has gain \
+{eighth_tap_gain} (above 0.01, -40 dB), so audible later taps are dropped at the 8-tap cap.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
 ];
 
 impl CheckSpec {

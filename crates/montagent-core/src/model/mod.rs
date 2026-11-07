@@ -56,7 +56,7 @@ pub use output::{
     AudioExportConfig, Output, OutputConfig, StemExportConfig, VideoExportConfig, infer_container,
 };
 pub use paint::{Gradient, Paint, ResolvedGradient, Stops};
-pub use playback::{AudioOverrun, FrameBlend, SourceTime, Speed, Volume};
+pub use playback::{AudioOverrun, Channels, FrameBlend, Pan, SourceTime, Speed, Volume};
 pub use rates::FrameRate;
 pub use role::Role;
 pub use stroke::{DashPattern, MiterLimit, StrokeCap, StrokeJoin, TrimFraction};
@@ -1071,6 +1071,12 @@ pub struct Video {
     /// at one instant via a keyframe (ADR-0055).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub volume: Option<Animatable<Volume>>,
+    /// Stereo balance in `-1.0..=1.0`, static, default `0.0` (ADR-0184).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pan: Option<Pan>,
+    /// Channel routing before `audio_effects`, static, default `"stereo"` (ADR-0184).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub channels: Option<Channels>,
     /// Element-local timeline markers, relative to `start` (ADR-0230).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub markers: Option<Vec<Marker>>,
@@ -1896,6 +1902,12 @@ pub struct Audio {
     pub overrun: Option<AudioOverrun>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub volume: Option<Animatable<Volume>>,
+    /// Stereo balance in `-1.0..=1.0`, static, default `0.0` (ADR-0184).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pan: Option<Pan>,
+    /// Channel routing before `audio_effects`, static, default `"stereo"` (ADR-0184).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub channels: Option<Channels>,
     /// Element-local timeline markers, relative to `start` (ADR-0230).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub markers: Option<Vec<Marker>>,

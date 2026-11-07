@@ -140,6 +140,30 @@ pub enum AudioEffect {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         enabled: Option<bool>,
     },
+    /// Non-local means noise reduction over `anlmdn` (ADR-0181). Singular.
+    ///
+    /// `reduction_db` is required and has no default; 5..20 is checked by `validate`
+    /// (`E-NOISE-RANGE`), calibrated on white noise at −50 dBFS.
+    ReduceNoise {
+        /// Target reduction in dB on the −50 dBFS white-noise reference. 5..20.
+        reduction_db: f64,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        enabled: Option<bool>,
+    },
+    /// Discrete delay taps over one `aecho`, tail cut at `end` (ADR-0185).
+    ///
+    /// Every key is required and none defaults. `delay_ms` 1..2000, `feedback` 0..0.95 and
+    /// `mix` 0..1 are checked by `validate` (`E-ECHO-RANGE`).
+    Echo {
+        /// Delay between taps in ms. 1..2000.
+        delay_ms: f64,
+        /// Tap decay multiplier from one tap to the next. 0..0.95.
+        feedback: f64,
+        /// First-tap gain relative to the unity dry signal. 0..1.
+        mix: f64,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        enabled: Option<bool>,
+    },
 }
 
 fn default_eq_q() -> f64 {

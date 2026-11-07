@@ -2477,6 +2477,9 @@ fn chain(
         }
     }
 
+    // ADR-0184 §2, §4: `[pan]` runs after `volume` and before transition gain (`fade_stage`).
+    filter.push_str(&pan_stage(element, name)?);
+
     // A transition's sound (ADR-0176): after `volume` so the two multiply, and before the
     // window's `atrim` so a range that starts mid-fade renders the samples the full render
     // has there. The stream is at the element's own as-played time here, so the fade's
@@ -2618,19 +2621,74 @@ fn placed(
         ",atrim=end={},asetpts=PTS-STARTPTS",
         seconds(end - start)
     ));
+    // ADR-0184 §2, §3: `[channels]` runs after `aloop` (and its placed-window trim) and before
+    // `audio_effects`, so `normalize_loudness` measures the post-routing signal too.
+    filter.push_str(&channels_stage(element, name)?);
     Ok((path, filter))
+}
+
+/// Channel routing stage (`[channels]`, ADR-0184 §3), leading comma included, or empty when
+/// `channels` is omitted or `"stereo"`. Always uses `=` (never `<`).
+fn channels_stage(element: &Value, name: &str) -> Result<String, Declined> {
+    match element.get("channels").and_then(Value::as_str) {
+        None | Some("stereo") => Ok(String::new()),
+        Some("swap") => Ok(",pan=stereo|c0=c1|c1=c0".to_string()),
+        Some("mono") => Ok(",pan=stereo|c0=0.5*c0+0.5*c1|c1=0.5*c0+0.5*c1".to_string()),
+        Some("left") => Ok(",pan=stereo|c0=c0|c1=c0".to_string()),
+        Some("right") => Ok(",pan=stereo|c0=c1|c1=c1".to_string()),
+        Some(_) => Err(Declined::internal(
+            name,
+            "an unknown `channels` value the check engine passed (ADR-0184)",
+        )),
+    }
+}
+
+/// Linear stereo balance stage (`[pan]`, ADR-0184 §4), leading comma included, or empty when
+/// `pan` is omitted or `0.0`. Near channel stays at unity (`c0=c0` or `c1=c1`); far channel
+/// is `1 - |pan|` up to 6 decimals with trailing zeros trimmed. Always uses `=` (never `<`).
+fn pan_stage(element: &Value, name: &str) -> Result<String, Declined> {
+    let Some(pan_val) = element.get("pan") else {
+        return Ok(String::new());
+    };
+    let Some(pan) = pan_val.as_f64().filter(|v| v.is_finite()) else {
+        return Err(Declined::internal(
+            name,
+            "a non-numeric `pan` the check engine passed (ADR-0184)",
+        ));
+    };
+    if pan == 0.0 {
+        return Ok(String::new());
+    }
+    let far = ratio((1.0 - pan.abs()).max(0.0));
+    if pan < 0.0 {
+        let c1 = if far == "1" {
+            "c1=c1".to_string()
+        } else {
+            format!("c1={far}*c1")
+        };
+        Ok(format!(",pan=stereo|c0=c0|{c1}"))
+    } else {
+        let c0 = if far == "1" {
+            "c0=c0".to_string()
+        } else {
+            format!("c0={far}*c0")
+        };
+        Ok(format!(",pan=stereo|{c0}|c1=c1"))
+    }
 }
 
 /// How one `audio_effects` member is spelled in a filter graph: the comma-joined stages it
 /// lowers to, or `None` for a `name` the renderer has no lowering for.
 ///
 /// Each capability ADR adds its arm here (EQ is ADR-0179 §2, in [`lower_eq`]; the compressor
-/// and limiter are ADR-0180 §2).
+/// and limiter are ADR-0180 §2; `reduce_noise` is ADR-0181 §2; `echo` is ADR-0185 §4).
 fn lower_audio_member(name: &str, member: &Value) -> Option<String> {
     match name {
         "compressor" => lower_compressor(member),
         "limiter" => lower_limiter(member),
         "gate" => lower_gate(member),
+        "reduce_noise" => lower_reduce_noise(member),
+        "echo" => lower_echo(member),
         _ => lower_eq(name, member),
     }
 }
@@ -2751,6 +2809,71 @@ fn lower_limiter(member: &Value) -> Option<String> {
     ))
 }
 
+/// Format a positive finite number to 6 significant digits with trailing zeros trimmed
+/// (matching Python's `f"{x:.6g}"` across the ranges ADR-0181 and ADR-0185 use).
+fn sig6(x: f64) -> String {
+    if x == 0.0 || !x.is_finite() {
+        return "0".to_string();
+    }
+    let exp = x.abs().log10().floor() as i32;
+    let decimals = (5 - exp).max(0) as usize;
+    let factor = 10f64.powi(5 - exp);
+    let rounded = (x * factor).round() / factor;
+    let text = format!("{rounded:.decimals$}");
+    match text.contains('.') {
+        true => text.trim_end_matches('0').trim_end_matches('.').to_string(),
+        false => text,
+    }
+}
+
+/// ADR-0181 §2, §4: `anlmdn` with `s = 10^(-2 + (reduction_db - 5) / 32)` (6 significant
+/// digits), fixed `p=0.002:r=0.006:o=o`, and `apad=pad_len=384,atrim=start_sample=384` to
+/// cancel the 384-sample internal latency and preserve sample count.
+fn lower_reduce_noise(member: &Value) -> Option<String> {
+    let reduction_db = member
+        .get("reduction_db")
+        .and_then(Value::as_f64)
+        .filter(|v| v.is_finite())?;
+    let s = 10f64.powf(-2.0 + (reduction_db - 5.0) / 32.0);
+    Some(format!(
+        "anlmdn=s={}:p=0.002:r=0.006:o=o,apad=pad_len=384,atrim=start_sample=384",
+        sig6(s)
+    ))
+}
+
+/// ADR-0185 §3, §4: one `aecho` stage over surviving taps `k = 1..=8` (`d_k = k * delay_ms`,
+/// `g_k = mix * feedback^(k-1)`, stopping at the first `g_k < 0.001`). Returns `Some("")`
+/// when no tap survives so the renderer emits no filter at all (`mix: 0` bypass identity).
+fn lower_echo(member: &Value) -> Option<String> {
+    let key = |name: &str| {
+        member
+            .get(name)
+            .and_then(Value::as_f64)
+            .filter(|v| v.is_finite())
+    };
+    let delay_ms = key("delay_ms")?;
+    let feedback = key("feedback")?;
+    let mix = key("mix")?;
+    let mut delays = Vec::new();
+    let mut decays = Vec::new();
+    for k in 1..=8_i32 {
+        let g = mix * feedback.powi(k - 1);
+        if g < 0.001 {
+            break;
+        }
+        delays.push(sig6((k as f64) * delay_ms));
+        decays.push(sig6(g));
+    }
+    if delays.is_empty() {
+        return Some(String::new());
+    }
+    Some(format!(
+        "aecho=in_gain=1:out_gain=1:delays={}:decays={}",
+        delays.join("|"),
+        decays.join("|")
+    ))
+}
+
 /// The `audio_effects` stage of one element's chain (ADR-0169), leading comma included, or
 /// the empty string where no member is enabled, which is what keeps a document with no
 /// members on today's graph byte for byte.
@@ -2811,7 +2934,7 @@ fn audio_effects_stage_with(
         } else {
             lower(member_name, member)
         };
-        let Some(lowered) = lowered else {
+        let Some(mut lowered) = lowered else {
             return Err(Declined::internal(
                 name,
                 &format!(
@@ -2820,6 +2943,18 @@ fn audio_effects_stage_with(
                 ),
             ));
         };
+        if lowered.is_empty() {
+            continue;
+        }
+        if member_name == "echo"
+            && let (Some(start), Some(end)) = (
+                element.get("start").and_then(Value::as_i64),
+                element.get("end").and_then(Value::as_i64),
+            )
+            && end > start
+        {
+            lowered.push_str(&format!(",atrim=end={}", seconds(end - start)));
+        }
         if stage.is_empty() {
             stage.push_str(",aformat=sample_fmts=fltp");
         }

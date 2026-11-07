@@ -3783,6 +3783,14 @@
               "description": "A video element is one element with intrinsic audio, so its embedded audio reuses\nthis same field and there is no `mute` — `volume: 0` already says silent, including\nat one instant via a keyframe (ADR-0055).",
               "$ref": "#/$defs/AnimatableVolume"
             },
+            "pan": {
+              "description": "Stereo balance in `-1.0..=1.0`, static, default `0.0` (ADR-0184).",
+              "$ref": "#/$defs/Pan"
+            },
+            "channels": {
+              "description": "Channel routing before `audio_effects`, static, default `\"stereo\"` (ADR-0184).",
+              "$ref": "#/$defs/Channels"
+            },
             "markers": {
               "type": "array",
               "items": {
@@ -4532,6 +4540,14 @@
             },
             "volume": {
               "$ref": "#/$defs/AnimatableVolume"
+            },
+            "pan": {
+              "description": "Stereo balance in `-1.0..=1.0`, static, default `0.0` (ADR-0184).",
+              "$ref": "#/$defs/Pan"
+            },
+            "channels": {
+              "description": "Channel routing before `audio_effects`, static, default `\"stereo\"` (ADR-0184).",
+              "$ref": "#/$defs/Channels"
             },
             "markers": {
               "type": "array",
@@ -5738,6 +5754,22 @@
       ],
       "description": "One `{\"t\",\"t_from\",\"v\",\"ease\"}` record — `t_from` optional (ADR-0086)."
     },
+    "Pan": {
+      "type": "number",
+      "format": "double",
+      "description": "Stereo balance on `audio` and `video` (ADR-0184).\n\nStatic across an element (`-1.0..=1.0`, default `0.0`); a keyframe array is rejected at the\nschema boundary with a message explaining that `pan` is static and not keyframable."
+    },
+    "Channels": {
+      "type": "string",
+      "enum": [
+        "stereo",
+        "swap",
+        "mono",
+        "left",
+        "right"
+      ],
+      "description": "Channel routing on `audio` and `video` (ADR-0184).\n\nStatic across an element, default `\"stereo\"`:\n- `\"stereo\"` — L → L, R → R (default; no filter emitted)\n- `\"swap\"` — R → L, L → R\n- `\"mono\"` — `0.5 * (L + R)` to both channels\n- `\"left\"` — L → L, L → R (fill both channels from left)\n- `\"right\"` — R → L, R → R (fill both channels from right)"
+    },
     "AudioEffect": {
       "oneOf": [
         {
@@ -6024,6 +6056,64 @@
             "frequency"
           ],
           "description": "A parametric equalizer band (ADR-0207): lowshelf, highshelf, peaking, or bandpass."
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "reduction_db": {
+              "type": "number",
+              "format": "double",
+              "description": "Target reduction in dB on the −50 dBFS white-noise reference. 5..20."
+            },
+            "enabled": {
+              "type": "boolean"
+            },
+            "name": {
+              "type": "string",
+              "const": "reduce_noise"
+            }
+          },
+          "required": [
+            "name",
+            "reduction_db"
+          ],
+          "description": "Non-local means noise reduction over `anlmdn` (ADR-0181). Singular.\n\n`reduction_db` is required and has no default; 5..20 is checked by `validate`\n(`E-NOISE-RANGE`), calibrated on white noise at −50 dBFS."
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "delay_ms": {
+              "type": "number",
+              "format": "double",
+              "description": "Delay between taps in ms. 1..2000."
+            },
+            "feedback": {
+              "type": "number",
+              "format": "double",
+              "description": "Tap decay multiplier from one tap to the next. 0..0.95."
+            },
+            "mix": {
+              "type": "number",
+              "format": "double",
+              "description": "First-tap gain relative to the unity dry signal. 0..1."
+            },
+            "enabled": {
+              "type": "boolean"
+            },
+            "name": {
+              "type": "string",
+              "const": "echo"
+            }
+          },
+          "required": [
+            "name",
+            "delay_ms",
+            "feedback",
+            "mix"
+          ],
+          "description": "Discrete delay taps over one `aecho`, tail cut at `end` (ADR-0185).\n\nEvery key is required and none defaults. `delay_ms` 1..2000, `feedback` 0..0.95 and\n`mix` 0..1 are checked by `validate` (`E-ECHO-RANGE`)."
         }
       ],
       "description": "One member of the closed audio-effect vocabulary, discriminated by `name`.\n\nTwo members of the same name are ordinary unless the member's own ADR declares it singular\n(ADR-0169)."
