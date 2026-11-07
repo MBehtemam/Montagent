@@ -19,6 +19,9 @@ amends: 0093 (corrects ruling 6 condition 1: the failed-seek predicate is **not*
 > source's end is still `frame_at`'s.
 >
 > Also amended by [ADR-0232](0232-frame-blend-mix-enters-video-and-optical-flow-echo-and-posterize-time-are-refused.md).
+>
+> **Amended by [ADR-0251](0251-source-video-frame-selection-uses-exact-rational-frame-time.md).**
+> When painting timeline frame `n`, source video frame selection maps `n`'s exact rational timeline time `n × 1000 / fps` ms to a microsecond source offset (`decode::offset_us` and `decode::frame_at_us`) rather than flooring `n × 1000 / fps` to an integer millisecond first.
 
 [#387](https://github.com/MBehtemam/Montagent/issues/387) (MONTAGENT-2), the second of the
 nine findings from the first real end-to-end build through this tool. The reported symptom

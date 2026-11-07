@@ -227,27 +227,61 @@ pub fn frame_at(
     width: u32,
     height: u32,
 ) -> Result<DecodedFrame, String> {
+    frame_at_us(
+        ffmpeg,
+        source,
+        decoder,
+        at_ms.max(0).saturating_mul(1000),
+        width,
+        height,
+    )
+}
+
+/// [`frame_at`] at microsecond resolution (`1 / 1_000_000` s, ADR-0251).
+///
+/// When timeline frame `n` is mapped through its exact rational time `n × 1000 / fps` ms, its
+/// source position is not a whole millisecond at rates such as 30 or 60 fps (`1000 / 30 =
+/// 33.333…` ms). Seeking at microsecond precision with the same 1 µs slack (`at_us + 1` µs)
+/// selects the source frame showing at that exact rational frame time.
+pub fn frame_at_us(
+    ffmpeg: &Path,
+    source: &str,
+    decoder: Decoder,
+    at_us: i64,
+    width: u32,
+    height: u32,
+) -> Result<DecodedFrame, String> {
     if width == 0 || height == 0 {
         return Err(format!(
             "{source}: a frame was asked for at {width}x{height}, which is no frame at all"
         ));
     }
-    let at_ms = at_ms.max(0);
-    let from_ms = (at_ms - SEEK_WINDOW_MS).max(0);
+    let at_us = at_us.max(0);
+    let at_ms_floor = at_us / 1000;
+    let at_ms_ceil = (at_us + 999) / 1000;
+    let from_ms = (at_ms_floor - SEEK_WINDOW_MS).max(0);
     // The read has to reach the instant itself, and the window is shorter than
     // `SEEK_WINDOW_MS` for any instant inside the first window's worth of the source.
-    let read_ms = at_ms - from_ms + 1;
+    let read_ms = at_ms_ceil - from_ms + 1;
 
-    // Milliseconds to `ffmpeg`'s decimal seconds, in the string rather than through a
-    // float: ADR-0005 stores every time as an integer millisecond because float seconds
-    // failed in practice, and re-introducing one at the boundary would put the error back
-    // in the one place the whole surface treats as authoritative.
-    let seconds = format!("{}.{:03}", at_ms / 1000, at_ms % 1000);
+    // Milliseconds/microseconds to `ffmpeg`'s decimal seconds, in the string rather than
+    // through a float: ADR-0005 and ADR-0251 keep the boundary in integer arithmetic rather
+    // than routing through a float.
+    let seconds = if at_us % 1000 == 0 {
+        format!("{}.{:03}", at_ms_floor / 1000, at_ms_floor % 1000)
+    } else {
+        format!("{}.{:06}", at_us / 1_000_000, at_us % 1_000_000)
+    };
     let from = format!("{}.{:03}", from_ms / 1000, from_ms % 1000);
     let read = format!("{}.{:03}", read_ms / 1000, read_ms % 1000);
     // The instant plus one microsecond, in the same integer arithmetic — the six decimal
     // places *are* the slack, so there is no float here either.
-    let threshold = format!("{}.{:03}001", at_ms / 1000, at_ms % 1000);
+    let threshold_us = at_us + 1;
+    let threshold = format!(
+        "{}.{:06}",
+        threshold_us / 1_000_000,
+        threshold_us % 1_000_000
+    );
 
     let expected = (width as usize) * (height as usize) * 4;
     let scale = decoder.scale_filter(width, height);
@@ -467,6 +501,27 @@ pub fn offset_at(origin: Origin, pace: Pace, n: i64) -> i64 {
     origin.source_ms + advance as i64
 }
 
+/// `1000 × source_ms + round_half_up(1000 × (n × 1000 / fps − timeline_ms) × speed)`:
+/// the source offset in microseconds (`1 / 1_000_000` s) a run anchored at `origin` is
+/// showing at timeline frame `n`, mapping `n` through its exact rational timeline time
+/// `n × 1000 / fps` ms rather than its floored integer millisecond (ADR-0251).
+///
+/// The filter [`frames_at`] builds is this function's exact inverse, frame for frame.
+pub fn offset_us(origin: Origin, pace: Pace, n: i64) -> i64 {
+    let (num, den) = pace.speed;
+    let fps = i128::from(pace.fps);
+    let elapsed_num = 1000 * (1000 * i128::from(n) - i128::from(origin.timeline_ms) * fps) * num;
+    let divisor = 2 * fps * den;
+    let doubled = 2 * elapsed_num + fps * den;
+    let quotient = doubled / divisor;
+    let advance_us = if doubled % divisor != 0 && doubled < 0 {
+        quotient - 1
+    } else {
+        quotient
+    };
+    origin.source_ms.saturating_mul(1000) + advance_us as i64
+}
+
 /// A **run** of frames out of one `ffmpeg`, starting at `from_ms` into the source: frame `n`
 /// of the run is the frame the renderer paints at timeline frame `n` of an element that
 /// starts there and plays at `pace`.
@@ -606,7 +661,7 @@ pub fn frames_at(
     };
     let first = first.max(0);
 
-    let from_ms = offset_at(origin, pace, first).max(0);
+    let from_ms = (offset_us(origin, pace, first).max(0) / 1000).max(0);
     let window_ms = (from_ms - SEEK_WINDOW_MS).max(0);
     // [`frame_at`]'s conversion, for [`frame_at`]'s reason: integer milliseconds to
     // `ffmpeg`'s decimal seconds through the string, never through a float.
@@ -617,15 +672,16 @@ pub fn frames_at(
         source_ms,
     } = origin;
     let scale = decoder.scale_filter(width, height);
+    let fps_i128 = i128::from(fps);
+    let tick_base = 1_000_000 * fps_i128;
+    let bias = fps_i128 * (2 * (1000 * i128::from(source_ms) + 1) + 1);
+    let shift = 1000 * i128::from(timeline_ms) * fps_i128 - 1_000_000 * i128::from(first);
     let filter = format!(
         "settb=1/1000000,\
-         setpts='(ceil((2*(ceil((PTS-1)/1000)-{source_ms})-1)*{den}/(2*{num}))+{timeline_ms})*1000',\
          settb=1/{tick_base},\
-         setpts='PTS-{first_tick}',\
+         setpts='ceil((2*PTS-{bias})*{den}/(2*{num})){shift:+}',\
          fps={fps}:round=up:start_time=0,\
          {scale}",
-        tick_base = 1000 * i128::from(fps),
-        first_tick = 1000 * i128::from(first),
     );
     let threads = FEED_THREADS.to_string();
     let mut child = Command::new(ffmpeg)

@@ -1325,6 +1325,12 @@ impl<'a> Painter<'a> {
             .elements_in_tracks()
             .map(|(track, element)| (Named::of(element, track), element))
             .collect();
+        let fps = document
+            .value()
+            .get("fps")
+            .and_then(Value::as_i64)
+            .filter(|fps| *fps > 0)
+            .unwrap_or(1);
         Painter {
             document,
             invariant: elements
@@ -1354,13 +1360,8 @@ impl<'a> Painter<'a> {
             stills: std::collections::HashMap::new(),
             videos: std::collections::HashMap::new(),
             supplier,
-            fps: document
-                .value()
-                .get("fps")
-                .and_then(Value::as_i64)
-                .filter(|fps| *fps > 0)
-                .unwrap_or(1),
-            frame_number: None,
+            fps,
+            frame_number: frame_of_instant(instant, fps),
             profile: None,
             prefix_cache: false,
             prefix: Default::default(),
@@ -1377,7 +1378,7 @@ impl<'a> Painter<'a> {
     /// painter has opened, and a still decoded on frame 0 and painted on frame 400 was
     /// opened once. A `render` reads them after its last frame as the whole run's list.
     pub(crate) fn begin(&mut self, instant: i64) {
-        self.frame_number = None;
+        self.frame_number = frame_of_instant(instant, self.fps);
         self.instant = instant;
         self.t = (i128::from(instant), 1);
         self.painted.clear();
@@ -2844,6 +2845,17 @@ struct Playhead {
     key: usize,
     offset: Option<i64>,
     origin: Option<(i64, i64)>,
+}
+
+/// If `instant` is the painted millisecond `⌊n × 1000 / fps⌋` of timeline frame `n`,
+/// returns `Some(n)` so `frame --at` and `sheet` map `n` through its exact rational frame
+/// time `n × 1000 / fps` ms identically to `render` (ADR-0251).
+fn frame_of_instant(instant: i64, fps: i64) -> Option<i64> {
+    (instant >= 0 && fps > 0)
+        .then(|| crate::exact::frame_at_or_after(instant, fps))
+        .flatten()
+        .filter(|sampled| crate::exact::instant_of(sampled.frame, fps) == instant)
+        .map(|sampled| sampled.frame)
 }
 
 /// An element's `speed` as the exact ratio a supplier's arithmetic takes — `1` where it

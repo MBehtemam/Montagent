@@ -263,23 +263,45 @@ impl Request<'_> {
         self.source.to_string_lossy().into_owned()
     }
 
-    /// [`decode::frame_at`] at `offset_ms`, counted.
-    pub(crate) fn frame_at_offset(&self, offset_ms: i64) -> Result<DecodedFrame, Failure> {
+    /// The source offset in microseconds (`1 / 1_000_000` s) for this request (ADR-0251):
+    /// [`decode::offset_us`] when painting a timeline frame on a pass with an [`Origin`],
+    /// or `self.offset * 1000` for an off-grid instant or a held/remapped offset.
+    pub(crate) fn offset_us(&self) -> i64 {
+        match (self.origin, self.frame) {
+            (Some((timeline_ms, source_ms)), Some(n)) => decode::offset_us(
+                Origin {
+                    timeline_ms,
+                    source_ms,
+                },
+                self.pace,
+                n,
+            ),
+            _ => self.offset.saturating_mul(1000),
+        }
+    }
+
+    /// [`decode::frame_at_us`] at `offset_us`, counted.
+    pub(crate) fn frame_at_us(&self, offset_us: i64) -> Result<DecodedFrame, Failure> {
         count(|counts| counts.frame_at += 1);
-        decode::frame_at(
+        decode::frame_at_us(
             self.ffmpeg,
             &self.source_name(),
             self.video.decoder,
-            offset_ms,
+            offset_us,
             self.width,
             self.height,
         )
         .map_err(Failure::Seek)
     }
 
-    /// [`decode::frame_at`] at this request's offset, counted.
+    /// [`decode::frame_at`] at `offset_ms`, counted.
+    pub(crate) fn frame_at_offset(&self, offset_ms: i64) -> Result<DecodedFrame, Failure> {
+        self.frame_at_us(offset_ms.saturating_mul(1000))
+    }
+
+    /// [`decode::frame_at_us`] at this request's source microsecond offset, counted.
     pub(crate) fn frame_at(&self) -> Result<DecodedFrame, Failure> {
-        self.frame_at_offset(self.offset)
+        self.frame_at_us(self.offset_us())
     }
 }
 
@@ -470,6 +492,8 @@ impl Feeds {
         }
         let slot = self.slots.get_mut(&request.key).expect("just admitted");
 
+        let offset_us = request.offset_us();
+
         if let Some((from, frame)) = &slot.terminal
             && request.offset >= *from
         {
@@ -477,15 +501,22 @@ impl Feeds {
         }
 
         // 1. The feed's predicted next frame.
+        let predicted = |feed: &Feed| {
+            if request.remap.is_some() {
+                decode::offset_at(feed.origin, feed.pace, n) == request.offset
+            } else {
+                decode::offset_us(feed.origin, feed.pace, n) == offset_us
+            }
+        };
         if let Some(feed) = &slot.feed
             && feed.next == n
-            && decode::offset_at(feed.origin, feed.pace, n) == request.offset
+            && predicted(feed)
         {
-            return read(slot, request);
+            return read(slot, request, offset_us);
         }
         // 2. A hold.
-        if let Some((offset, frame)) = &slot.last
-            && *offset == request.offset
+        if let Some((last_us, frame)) = &slot.last
+            && *last_us == offset_us
         {
             return Ok(frame.clone());
         }
@@ -507,7 +538,7 @@ impl Feeds {
             if remap.next != Some(decode::offset_at(here, rising, n + 1)) {
                 slot.feed = None;
                 let frame = request.frame_at()?;
-                slot.last = Some((request.offset, frame.clone()));
+                slot.last = Some((offset_us, frame.clone()));
                 return Ok(frame);
             }
         }
@@ -527,7 +558,7 @@ impl Feeds {
         // The pass's own origin reproduces the painter's offset by construction; where it
         // somehow does not, the feed is measured from here instead, which is still exact for
         // this frame and only costs a reopen later.
-        if decode::offset_at(origin, pace, n) != request.offset {
+        if request.remap.is_none() && decode::offset_us(origin, pace, n) != offset_us {
             origin = Origin {
                 timeline_ms: instant,
                 source_ms: request.offset,
@@ -565,7 +596,7 @@ impl Feeds {
             from_ms: request.offset,
             delivered: 0,
         });
-        read(slot, request)
+        read(slot, request, offset_us)
     }
 }
 
@@ -577,7 +608,7 @@ impl Feeds {
 /// the edge — and every later offset gets it. A feed that ends cleanly anywhere earlier is
 /// refused: a feed that stops early because of a bug must fail loudly, never freeze on a
 /// frame.
-fn read(slot: &mut Slot, request: &Request<'_>) -> Result<DecodedFrame, Failure> {
+fn read(slot: &mut Slot, request: &Request<'_>, offset_us: i64) -> Result<DecodedFrame, Failure> {
     let feed = slot.feed.as_mut().expect("the caller checked the feed");
     let failed = |feed: &Feed, said: String| Failure::Feed {
         source: request.source_name(),
@@ -598,7 +629,7 @@ fn read(slot: &mut Slot, request: &Request<'_>) -> Result<DecodedFrame, Failure>
                     ),
                 ));
             }
-            slot.last = Some((request.offset, frame.clone()));
+            slot.last = Some((offset_us, frame.clone()));
             Ok(frame)
         }
         Ok(None) => {
@@ -628,7 +659,7 @@ fn read(slot: &mut Slot, request: &Request<'_>) -> Result<DecodedFrame, Failure>
             slot.feed = None;
             let frame = request.frame_at()?;
             slot.terminal = Some((request.offset, frame.clone()));
-            slot.last = Some((request.offset, frame.clone()));
+            slot.last = Some((offset_us, frame.clone()));
             Ok(frame)
         }
         Err(said) => Err(failed(feed, said)),

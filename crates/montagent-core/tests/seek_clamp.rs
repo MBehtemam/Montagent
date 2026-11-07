@@ -417,13 +417,26 @@ fn run_indices(path: &Path, from_ms: i64, fps: i64, speed: (i128, i128), count: 
 }
 
 /// What the render paints at timeline frame `n` of an element starting `from_ms` into this
-/// source at `speed` — `render`'s own arithmetic, then `frame_at`.
-fn painted(path: &Path, from_ms: i64, fps: i64, speed: &str, n: i64) -> i64 {
-    let speed = montagent_core::exact::Decimal::parse(speed).expect("a decimal speed");
-    let elapsed = n * 1000 / fps;
-    let offset =
-        from_ms + montagent_core::exact::source_advance(elapsed, speed).expect("a source offset");
-    frame_index_at(path, offset).expect("a frame")
+/// source at `speed` — `render`'s own arithmetic, then `frame_at_us` (ADR-0251).
+fn painted(path: &Path, from_ms: i64, fps: i64, speed: (i128, i128), n: i64) -> i64 {
+    let offset_us = decode::offset_us(
+        decode::Origin {
+            timeline_ms: 0,
+            source_ms: from_ms,
+        },
+        decode::Pace { fps, speed },
+        n,
+    );
+    decode::frame_at_us(
+        &ffmpeg(),
+        &path.to_string_lossy(),
+        Decoder::Auto,
+        offset_us,
+        SIZE,
+        SIZE,
+    )
+    .map(|frame| index_of(&frame))
+    .expect("a frame")
 }
 
 #[test]
@@ -458,7 +471,7 @@ fn a_run_paints_what_the_render_paints_on_and_off_the_grid_at_any_rate_and_speed
         ] {
             let got = run_indices(path, from_ms, fps, ratio, SAMPLES as usize);
             let want: Vec<i64> = (0..SAMPLES)
-                .map(|n| painted(path, from_ms, fps, literal, n))
+                .map(|n| painted(path, from_ms, fps, ratio, n))
                 .collect();
             assert_eq!(
                 got,
@@ -593,16 +606,16 @@ fn a_30_fps_source_in_a_30_fps_project_steps_one_to_one_across_render_frame_and_
     let expected: Vec<i64> = (0..10).collect();
     assert_eq!(run_indices(&clip, 0, 30, (1, 1), 10), expected);
 
-    // 2. Build a 30 fps project playing `thirty.mov` from 0..334 ms (10 frames: 0..10) and
+    // 2. Build a 30 fps project playing `thirty.mov` from 0..333 ms (10 frames: 0..10) and
     // verify `render` (`Feeds` and `PerFrame`), `frame --at`, and `measure` all paint the
     // exact 1-to-1 sequence 0..10.
     let source = clip.display().to_string().replace('\\', "/");
     let body = common::canonical(&format!(
         r##"{{"frame":{{"width":{SIZE},"height":{SIZE}}},"fps":30,"background":"#000000",
-            "duration":334,"output":"out/thirty.mp4","tracks":[
+            "duration":333,"output":"out/thirty.mp4","tracks":[
             {{"name":"v","layer":0,"elements":[
-              {{"id":"clip","type":"video","start":0,"end":334,"source":"{source}",
-                "source_start":0,"source_end":334,"x":0,"y":0,"origin":"top-left",
+              {{"id":"clip","type":"video","start":0,"end":333,"source":"{source}",
+                "source_start":0,"source_end":333,"x":0,"y":0,"origin":"top-left",
                 "width":{SIZE},"height":{SIZE},"fit":"literal","volume":0,
                 "effects":[{{"name":"chroma","color":"#00FF00","tolerance":0.2,
                              "softness":0.0,"spill":0.0}}]}}]}}]}}"##
@@ -612,14 +625,14 @@ fn a_30_fps_source_in_a_30_fps_project_steps_one_to_one_across_render_frame_and_
     let feeds = montagent_core::verbs::render::paint_span(
         &project_path,
         0,
-        334,
+        333,
         montagent_core::verbs::render::Supplying::Feeds,
     )
     .expect("feeds paint");
     let per_frame = montagent_core::verbs::render::paint_span(
         &project_path,
         0,
-        334,
+        333,
         montagent_core::verbs::render::Supplying::PerFrame,
     )
     .expect("per-frame paint");
@@ -654,10 +667,13 @@ fn a_30_fps_source_in_a_30_fps_project_steps_one_to_one_across_render_frame_and_
         );
     }
 
+    let element = serde_json::from_str::<serde_json::Value>(&body).expect("project JSON")["tracks"]
+        [0]["elements"][0]
+        .clone();
     let measured = montagent_core::verbs::measure::measure(
         &project_path,
         &montagent_core::verbs::measure::Ask {
-            elements: vec!["clip".to_string()],
+            element: Some(element),
             ..Default::default()
         },
     )
