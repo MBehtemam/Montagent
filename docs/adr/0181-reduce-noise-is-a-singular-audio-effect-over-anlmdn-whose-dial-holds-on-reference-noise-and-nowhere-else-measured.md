@@ -1,5 +1,5 @@
 ---
-status: proposed (becomes accepted once the three-leg table in §7 is committed and the owner's blind listen in §7 is recorded; until then the tolerances there are provisional, and the dial's transfer to real hiss is open, §4)
+status: accepted
 ---
 
 # Noise reduction is a singular `reduce_noise` audio effect over `anlmdn`, and its dial holds on reference noise and is measured nowhere else

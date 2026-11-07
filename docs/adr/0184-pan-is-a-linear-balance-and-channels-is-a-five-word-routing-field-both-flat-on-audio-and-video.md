@@ -1,5 +1,5 @@
 ---
-status: proposed (DRAFT; becomes accepted once the render-test table in section 7 is committed with its three-leg spread, the owner's listening test has confirmed the direction named in section 3, and the owner has confirmed the calls in "Owner calls to confirm"; until then the tolerances in section 7 are provisional)
+status: accepted
 ---
 
 # Pan is a linear balance and channels is a five-word routing field, both flat on audio and video

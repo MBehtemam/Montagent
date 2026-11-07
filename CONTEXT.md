@@ -948,15 +948,18 @@ operations) are never members: they are flat fields at fixed points. A member ma
 unless its own ADR declares it singular, and `"enabled": false` bypasses it without losing its
 values. A member's levels are in decibels and their keys say so (`_db`, `_lufs`, `_dbtp`); its
 other parameters are bare: Hz, ms (fractional allowed), a ratio, or a 0..1 fraction. The first
-wave is `normalize_loudness` (singular, one authored `target_lufs`), the EQ members `highpass`,
-`lowpass`, `shelf` and `bell`, and `compressor` and `limiter`; every parameter is a literal and
-none defaults. All seven are built; their ADRs stay `proposed` until each one's three-leg
-measured table is committed (ADR-0173).
+wave is `normalize_loudness` (singular, one authored `target_lufs`), `reduce_noise` (singular,
+`reduction_db` 5..20 over `anlmdn`), the EQ members `highpass`, `lowpass`, `shelf` and `bell`,
+`compressor` and `limiter`, and `echo` (`delay_ms`, `feedback`, `mix`, tail cut at `end`); every
+parameter is a literal and none defaults.
 ([ADR-0169](docs/adr/0169-audio-effects-are-an-ordered-list-before-volume-and-gain-and-routing-stay-flat.md),
 [ADR-0170](docs/adr/0170-audio-levels-are-written-in-db-and-their-keys-say-so-volume-stays-the-one-linear-level.md),
 [ADR-0178](docs/adr/0178-normalize-loudness-is-a-singular-audio-effect-with-one-authored-target-lufs-and-one-fixed-gain.md),
 [ADR-0179](docs/adr/0179-eq-is-four-stackable-audio-effects-built-from-butterworth-biquad-sections.md),
-[ADR-0180](docs/adr/0180-the-compressor-and-the-limiter-are-two-audio-effects-with-no-defaults-and-an-rms-threshold.md))
+[ADR-0180](docs/adr/0180-the-compressor-and-the-limiter-are-two-audio-effects-with-no-defaults-and-an-rms-threshold.md),
+[ADR-0181](docs/adr/0181-reduce-noise-is-a-singular-audio-effect-over-anlmdn-whose-dial-holds-on-reference-noise-and-nowhere-else-measured.md),
+[ADR-0184](docs/adr/0184-pan-is-a-linear-balance-and-channels-is-a-five-word-routing-field-both-flat-on-audio-and-video.md),
+[ADR-0185](docs/adr/0185-echo-is-one-stackable-audio-effect-with-delay-feedback-and-mix-and-its-tail-is-cut-at-end.md))
 _Avoid_: filter (collides with Colour filter and ffmpeg's graph nodes), fx, sound, insert
 
 **Master stage**:

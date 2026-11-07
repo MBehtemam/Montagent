@@ -1,5 +1,5 @@
 ---
-status: proposed (DRAFT; becomes accepted once the render-test table in section 7 is committed with its three-leg spread on the 7.1 floor, the 6.1.1 dry-branch risk in section 7 is resolved, and the owner has ruled the calls at the end; until then the tolerances there are provisional)
+status: accepted
 ---
 
 # Echo is one stackable audio effect with delay, feedback and mix, and its tail is cut at the element's end

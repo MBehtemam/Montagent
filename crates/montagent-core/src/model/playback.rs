@@ -220,3 +220,88 @@ pub enum FrameBlend {
     /// Linear cross-dissolve between the two adjacent source video frames (`ADR-0232`).
     Mix,
 }
+
+/// Stereo balance on `audio` and `video` (ADR-0184).
+///
+/// Static across an element (`-1.0..=1.0`, default `0.0`); a keyframe array is rejected at the
+/// schema boundary with a message explaining that `pan` is static and not keyframable.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, JsonSchema)]
+#[serde(transparent)]
+#[schemars(transparent)]
+pub struct Pan(pub f64);
+
+impl<'de> Deserialize<'de> for Pan {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let value = serde_json::Value::deserialize(deserializer)?;
+        if value.is_array() {
+            return Err(D::Error::custom(
+                "`pan` is static and not keyframable — write a single number in -1..=1 \
+                 (or split the element at the cut if two placements are needed; ADR-0184)",
+            ));
+        }
+        let Some(number) = value.as_f64().filter(|n| n.is_finite()) else {
+            return Err(D::Error::custom(format!(
+                "`pan` is {value}: expected a static finite number in -1..=1 (ADR-0184)"
+            )));
+        };
+        Ok(Pan(number))
+    }
+}
+
+/// Channel routing on `audio` and `video` (ADR-0184).
+///
+/// Static across an element, default `"stereo"`:
+/// - `"stereo"` — L → L, R → R (default; no filter emitted)
+/// - `"swap"` — R → L, L → R
+/// - `"mono"` — `0.5 * (L + R)` to both channels
+/// - `"left"` — L → L, L → R (fill both channels from left)
+/// - `"right"` — R → L, R → R (fill both channels from right)
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, JsonSchema)]
+#[serde(rename_all = "lowercase")]
+pub enum Channels {
+    Stereo,
+    Swap,
+    Mono,
+    Left,
+    Right,
+}
+
+impl Channels {
+    /// The word the document spells this routing mode with.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Channels::Stereo => "stereo",
+            Channels::Swap => "swap",
+            Channels::Mono => "mono",
+            Channels::Left => "left",
+            Channels::Right => "right",
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for Channels {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let value = serde_json::Value::deserialize(deserializer)?;
+        if value.is_array() {
+            return Err(D::Error::custom(
+                "`channels` is static and not keyframable — expected one of `\"stereo\"`, \
+                 `\"swap\"`, `\"mono\"`, `\"left\"`, `\"right\"` (ADR-0184)",
+            ));
+        }
+        match value.as_str() {
+            Some("stereo") => Ok(Channels::Stereo),
+            Some("swap") => Ok(Channels::Swap),
+            Some("mono") => Ok(Channels::Mono),
+            Some("left") => Ok(Channels::Left),
+            Some("right") => Ok(Channels::Right),
+            Some(other) => Err(D::Error::custom(format!(
+                "unknown `channels` value \"{other}\"; expected one of `\"stereo\"`, \
+                 `\"swap\"`, `\"mono\"`, `\"left\"`, `\"right\"` (ADR-0184)"
+            ))),
+            None => Err(D::Error::custom(format!(
+                "`channels` is {value}; expected one of `\"stereo\"`, `\"swap\"`, `\"mono\"`, \
+                 `\"left\"`, `\"right\"` (ADR-0184)"
+            ))),
+        }
+    }
+}
