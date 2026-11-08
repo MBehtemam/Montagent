@@ -25,8 +25,8 @@ Behavior:
     findings.
   - Refuses with a non-zero exit code when `overrides` names an `id` not present in `marks`,
     unless `--prune-overrides` is passed (which removes orphaned override entries).
-  - Writes `<project>.marks-manifest.json` storing per-element SHA-256 digests and source
-    provenance. On subsequent runs, if any existing `mark_<id>` element in
+  - Writes `<spec>.manifest.json` beside the compact spec file storing per-element SHA-256
+    digests and source provenance. On subsequent runs, if any existing `mark_<id>` element in
     `<project.montagent.json>` was directly edited since the last generation, stops with a
     non-zero exit code and prints the per-element diff unless `--adopt-edits` (which folds
     direct JSON edits back into `overrides` in `<spec.json>`) or `--force` (which overwrites
@@ -121,6 +121,8 @@ CANONICAL_ELEMENT_ORDER = [
     "overrun",
     "frame_blend",
     "volume",
+    "pan",
+    "channels",
     "markers",
     "effects",
     "audio_effects",
@@ -136,7 +138,9 @@ def ceil_div(num: int, den: int) -> int:
 def fps_ratio(fps_field: Any) -> Tuple[int, int]:
     if isinstance(fps_field, dict):
         return int(fps_field["num"]), int(fps_field["den"])
-    if isinstance(fps_field, int):
+    if isinstance(fps_field, (list, tuple)) and len(fps_field) == 2:
+        return int(fps_field[0]), int(fps_field[1])
+    if isinstance(fps_field, int) and not isinstance(fps_field, bool):
         return fps_field, 1
     fr = Fraction(str(fps_field))
     return fr.numerator, fr.denominator
@@ -281,8 +285,8 @@ def resolve_paths(pos0: str, pos1: str) -> Tuple[Path, Path]:
     return p1, p0
 
 
-def manifest_path_for(project_path: Path) -> Path:
-    return Path(f"{project_path}.marks-manifest.json")
+def manifest_path_for(spec_path: Path) -> Path:
+    return Path(f"{spec_path}.manifest.json")
 
 
 def find_montagent() -> Optional[str]:
@@ -603,8 +607,8 @@ def main(argv: Optional[List[str]] = None) -> int:
         spec_text = json.dumps(spec, indent=2, ensure_ascii=False) + "\n"
         spec_path.write_text(spec_text, encoding="utf-8")
 
-    # 2. Check existing `.montagent.json` against `<project>.marks-manifest.json`
-    mpath = manifest_path_for(project_path)
+    # 2. Check existing `.montagent.json` against `<spec>.manifest.json`
+    mpath = manifest_path_for(spec_path)
     if mpath.is_file() and not inspect_mode:
         manifest = json.loads(mpath.read_text(encoding="utf-8"))
         manifest_elements: Dict[str, Any] = manifest.get("elements") or {}

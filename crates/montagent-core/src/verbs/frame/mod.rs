@@ -1258,7 +1258,7 @@ pub(crate) struct Painter<'a> {
     supplier: Box<dyn FrameSupplier>,
     /// The project's `fps`, for the supplier's arithmetic. `1` where the document states
     /// none, which only `frame` can be painting, and [`PerFrame`] never reads it.
-    fps: i64,
+    fps: crate::model::FrameRate,
     /// The timeline frame being painted, where this painter paints frames rather than
     /// instants — set by [`Painter::begin_frame`].
     frame_number: Option<i64>,
@@ -1328,9 +1328,10 @@ impl<'a> Painter<'a> {
         let fps = document
             .value()
             .get("fps")
-            .and_then(Value::as_i64)
-            .filter(|fps| *fps > 0)
-            .unwrap_or(1);
+            .cloned()
+            .and_then(|v| serde_json::from_value::<crate::model::FrameRate>(v).ok())
+            .filter(crate::model::FrameRate::is_positive)
+            .unwrap_or_else(|| crate::model::FrameRate::integer(1));
         Painter {
             document,
             invariant: elements
@@ -2451,8 +2452,13 @@ impl<'a> Painter<'a> {
             ffmpeg: &ffmpeg,
             source: path,
             video,
+            fps: self.fps,
             pace: Pace {
-                fps: self.fps,
+                fps: if self.fps.is_integer() {
+                    self.fps.num()
+                } else {
+                    0
+                },
                 speed: speed_of(element),
             },
             // ADR-0157: the curve at the next timeline frame, read through the one
@@ -2847,11 +2853,11 @@ struct Playhead {
     origin: Option<(i64, i64)>,
 }
 
-/// If `instant` is the painted millisecond `⌊n × 1000 / fps⌋` of timeline frame `n`,
-/// returns `Some(n)` so `frame --at` and `sheet` map `n` through its exact rational frame
-/// time `n × 1000 / fps` ms identically to `render` (ADR-0251).
-fn frame_of_instant(instant: i64, fps: i64) -> Option<i64> {
-    (instant >= 0 && fps > 0)
+/// If `instant` is the painted millisecond `⌊n × 1000 × fps.den() / fps.num()⌋` of timeline
+/// frame `n`, returns `Some(n)` so `frame --at` and `sheet` map `n` through its exact rational
+/// frame time `n × 1000 × fps.den() / fps.num()` ms identically to `render` (ADR-0251).
+fn frame_of_instant(instant: i64, fps: crate::model::FrameRate) -> Option<i64> {
+    (instant >= 0 && fps.is_positive())
         .then(|| crate::exact::frame_at_or_after(instant, fps))
         .flatten()
         .filter(|sampled| crate::exact::instant_of(sampled.frame, fps) == instant)

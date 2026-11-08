@@ -1,32 +1,76 @@
-//! Measured integration test for `echo` (ADR-0185, #1155).
-//!
-//! Asserts discrete tap timing (`k * delay_ms`), geometric tap decay (`mix * feedback^(k-1)`),
-//! the 8-tap / −60 dB cutoff, tail truncation at `end`, `enabled: false` and `mix: 0` bypass
-//! identity, within-build determinism, and `validate`/`query`/`compare` contracts.
-
-use std::path::{Path, PathBuf};
-use std::process::Command;
-
-use montagent_core::media::tools::resolve;
-use montagent_core::report::ExitCode;
-use montagent_core::validate;
-use montagent_core::verbs::compare::compare;
-use montagent_core::verbs::query::{Ask as QueryAsk, query};
-use montagent_core::verbs::render::{Ask as RenderAsk, render};
-use serde_json::{Value, json};
+//! End-to-end validation, `query --at`, and `render` (`mix_audio` PCM `f64le`) tests for `echo`
+//! (`ADR-0185`, `#1155`).
 
 mod common;
-use common::{canonical, tempdir, write_project};
 
-const RATE: usize = 48_000;
+use std::path::{Path, PathBuf};
+use std::process::{Command, Stdio};
 
-fn ffmpeg() -> Option<PathBuf> {
-    resolve().ok().map(|t| t.ffmpeg)
+use montagent_core::verbs::render::mix_audio;
+use serde_json::{Value, json};
+
+fn ffmpeg() -> PathBuf {
+    montagent_core::media::tools::resolve()
+        .expect("an ffmpeg")
+        .ffmpeg
 }
 
-fn write_burst_wav(ff: &Path, path: &Path) {
-    // 50 ms 1 kHz burst at -6.02 dBFS peak (0.5) inside a 3.0 s file.
-    let ok = Command::new(ff)
+fn mix_f64_stereo(
+    dir: &Path,
+    name: &str,
+    duration_ms: i64,
+    body: &str,
+) -> (String, Vec<(f64, f64)>) {
+    let project = common::write_project(dir, name, &common::canonical(body));
+    let (inputs, graph) = mix_audio(&project, 0, duration_ms)
+        .expect("mix_audio succeeds")
+        .expect("audible mix");
+    let mut command = Command::new(ffmpeg());
+    command.args([
+        "-hide_banner",
+        "-nostdin",
+        "-loglevel",
+        "error",
+        "-f",
+        "lavfi",
+        "-i",
+        "anullsrc=r=48000:cl=mono:d=0.1",
+    ]);
+    for input in &inputs {
+        command.arg("-i").arg(input);
+    }
+    let out = command
+        .arg("-filter_complex")
+        .arg(&graph)
+        .args([
+            "-map", "[mix]", "-ar", "48000", "-ac", "2", "-f", "f64le", "-",
+        ])
+        .stderr(Stdio::piped())
+        .output()
+        .expect("ffmpeg runs");
+    assert!(
+        out.status.success(),
+        "{graph}\n{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let samples = out
+        .stdout
+        .chunks_exact(16)
+        .map(|chunk| {
+            let l = f64::from_le_bytes(chunk[0..8].try_into().unwrap());
+            let r = f64::from_le_bytes(chunk[8..16].try_into().unwrap());
+            (l, r)
+        })
+        .collect();
+    (graph, samples)
+}
+
+fn make_impulse_wav(dir: &Path, name: &str, duration_s: u32, impulse_sample: u64) -> PathBuf {
+    let out = dir.join(name);
+    let expr = format!(
+        "aevalsrc='if(eq(n\\,{impulse_sample})\\,0.25\\,0)|if(eq(n\\,{impulse_sample})\\,0.25\\,0)':s=48000:d={duration_s}"
+    );
+    let status = Command::new(ffmpeg())
         .args([
             "-v",
             "error",
@@ -34,321 +78,339 @@ fn write_burst_wav(ff: &Path, path: &Path) {
             "-f",
             "lavfi",
             "-i",
-            "aevalsrc=0.5*sin(2*PI*1000*t)*lt(t\\,0.05):s=48000:d=3",
+            &expr,
             "-ar",
             "48000",
             "-ac",
             "2",
             "-c:a",
-            "pcm_f32le",
+            "pcm_f64le",
+            &out.to_string_lossy(),
         ])
-        .arg(path)
         .status()
-        .is_ok_and(|s| s.success());
-    assert!(ok, "burst wav must write");
+        .expect("spawn ffmpeg for impulse wav");
+    assert!(status.success(), "ffmpeg impulse wav failed");
+    out
 }
 
-fn decode_mono_f32(ff: &Path, path: &Path) -> Vec<f32> {
-    let out = Command::new(ff)
-        .args(["-v", "error", "-i"])
-        .arg(path)
-        .args(["-ac", "1", "-ar", "48000", "-f", "f32le", "-"])
-        .output()
-        .expect("ffmpeg decode");
-    assert!(out.status.success(), "decode failed");
-    out.stdout
-        .chunks_exact(4)
-        .map(|b| f32::from_le_bytes([b[0], b[1], b[2], b[3]]))
-        .collect()
+fn make_late_burst_wav(dir: &Path, name: &str) -> PathBuf {
+    let out = dir.join(name);
+    // 6.0 s source with a 440 Hz burst in [3.9 s, 4.0 s) (samples 187,200..192,000).
+    let status = Command::new(ffmpeg())
+        .args([
+            "-v",
+            "error",
+            "-y",
+            "-f",
+            "lavfi",
+            "-i",
+            "aevalsrc='if(between(n\\,187200\\,191999)\\,0.4*sin(2*PI*440*t)\\,0)|if(between(n\\,187200\\,191999)\\,0.4*sin(2*PI*440*t)\\,0)':s=48000:d=6",
+            "-ar",
+            "48000",
+            "-ac",
+            "2",
+            "-c:a",
+            "pcm_f64le",
+            &out.to_string_lossy(),
+        ])
+        .status()
+        .expect("spawn ffmpeg for late burst wav");
+    assert!(status.success(), "ffmpeg late burst wav failed");
+    out
 }
 
-fn window_rms(samples: &[f32], start_s: f64, end_s: f64) -> f64 {
-    let i0 = ((start_s * RATE as f64).round() as usize).min(samples.len());
-    let i1 = ((end_s * RATE as f64).round() as usize).min(samples.len());
-    let slice = &samples[i0..i1];
-    let sum_sq: f64 = slice.iter().map(|&s| (s as f64) * (s as f64)).sum();
-    (sum_sq / slice.len() as f64).sqrt()
-}
-
-fn render_clip(dir: &Path, name: &str, clip_end_ms: i64, total_ms: i64, effects: Value) -> PathBuf {
-    let mut elem = json!({
-        "id": "a1",
-        "type": "audio",
-        "start": 0,
-        "end": clip_end_ms,
-        "source": "burst.wav",
-        "source_start": 0,
-        "source_end": clip_end_ms,
-    });
-    if !effects.is_null() {
-        elem["audio_effects"] = effects;
+#[test]
+fn adr_0185_seven_tuples_tap_positions_amplitudes_onset_latency_duration_and_prefix_equality() {
+    if !common::has_ffprobe() {
+        return;
     }
-    let mut elements = vec![elem];
-    if total_ms > clip_end_ms {
-        elements.push(json!({
-            "id": "pad_rect",
-            "type": "rect",
-            "start": clip_end_ms,
-            "end": total_ms,
-            "x": 0,
-            "y": 0,
-            "width": 10,
-            "height": 10,
-            "fill": "#000000"
-        }));
-    }
-    let out_rel = format!("{name}.mp4");
-    let body = canonical(
-        &json!({
-            "frame": {"width": 200, "height": 200},
-            "fps": 25,
-            "duration": total_ms,
-            "output": out_rel,
-            "tracks": [{"name": "t", "layer": 0, "elements": elements}],
-        })
-        .to_string(),
+    let dir = common::tempdir(line!());
+    // 4.0 s (192,000 samples) with unit-like impulse (0.25) at sample 24,000 (0.5 s).
+    let imp_wav = make_impulse_wav(&dir, "impulse_4s.wav", 4, 24_000);
+    let imp_src = imp_wav.file_name().unwrap().to_str().unwrap();
+
+    let (bypass_graph, bypass) = mix_f64_stereo(
+        &dir,
+        "imp_bypass.montagent.json",
+        4000,
+        &format!(
+            r#"{{"frame":{{"width":320,"height":180}},"fps":25,"duration":4000,"output":"o.mp4","tracks":[
+                {{"name":"a","layer":1,"elements":[
+                    {{"id":"bed","type":"audio","start":0,"end":4000,"source":"{imp_src}","source_start":0,"source_end":4000}}
+                ]}}
+            ]}}"#
+        ),
     );
-    let file = write_project(dir, &format!("{name}.montagent.json"), &body);
-    let answer = render(&file, &RenderAsk::default(), &mut |_| {});
+    assert_eq!(bypass.len(), 192_000);
+    let dry_amp = bypass[24_000].0;
+    assert!((dry_amp - 0.25).abs() < 1e-12);
+
+    // Bypass identity: `enabled: false` and `mix: 0` are bit-for-bit identical to member-absent PCM.
+    let (disabled_graph, disabled) = mix_f64_stereo(
+        &dir,
+        "imp_disabled.montagent.json",
+        4000,
+        &format!(
+            r#"{{"frame":{{"width":320,"height":180}},"fps":25,"duration":4000,"output":"o.mp4","tracks":[
+                {{"name":"a","layer":1,"elements":[
+                    {{"id":"bed","type":"audio","start":0,"end":4000,"source":"{imp_src}","source_start":0,"source_end":4000,
+                      "audio_effects":[{{"name":"echo","delay_ms":300,"feedback":0.5,"mix":0.5,"enabled":false}}]}}
+                ]}}
+            ]}}"#
+        ),
+    );
+    let (mix_zero_graph, mix_zero) = mix_f64_stereo(
+        &dir,
+        "imp_mix0.montagent.json",
+        4000,
+        &format!(
+            r#"{{"frame":{{"width":320,"height":180}},"fps":25,"duration":4000,"output":"o.mp4","tracks":[
+                {{"name":"a","layer":1,"elements":[
+                    {{"id":"bed","type":"audio","start":0,"end":4000,"source":"{imp_src}","source_start":0,"source_end":4000,
+                      "audio_effects":[{{"name":"echo","delay_ms":300,"feedback":0.5,"mix":0}}]}}
+                ]}}
+            ]}}"#
+        ),
+    );
+    assert_eq!(disabled_graph, bypass_graph);
+    assert_eq!(mix_zero_graph, bypass_graph);
     assert_eq!(
-        answer.report().exit_code(),
-        ExitCode::Ok,
-        "render failed: {:?}",
-        answer.to_json()
+        disabled, bypass,
+        "enabled=false must be bit-identical to bypass"
     );
-    dir.join(format!("{name}.mp4"))
-}
+    assert_eq!(mix_zero, bypass, "mix=0 must be bit-identical to bypass");
 
-#[test]
-fn echo_taps_decay_tail_cut_and_bypass_hold_in_pcm() {
-    let Some(ff) = ffmpeg() else { return };
-    let dir = tempdir(line!());
-    write_burst_wav(&ff, &dir.join("burst.wav"));
+    // ADR-0185 §7's 7 tuples:
+    let tuples: [(f64, f64, f64); 7] = [
+        (300.0, 0.5, 0.5),
+        (300.0, 0.5, 1.0),
+        (100.0, 0.9, 0.5),
+        (1.0, 0.95, 1.0),
+        (2000.0, 0.95, 1.0),
+        (300.4, 0.5, 0.5),
+        (250.0, 0.0, 1.0),
+    ];
 
-    // 1. Single tap (feedback: 0, delay_ms: 250, mix: 0.5):
-    let single_mp4 = render_clip(
-        &dir,
-        "single",
-        2000,
-        2000,
-        json!([{"name": "echo", "delay_ms": 250.0, "feedback": 0.0, "mix": 0.5}]),
-    );
-    let single_pcm = decode_mono_f32(&ff, &single_mp4);
-    let dry_rms = window_rms(&single_pcm, 0.005, 0.045);
-    let tap1_rms = window_rms(&single_pcm, 0.255, 0.295);
-    let tap2_rms = window_rms(&single_pcm, 0.505, 0.545);
-    assert!(dry_rms > 0.2, "dry rms {dry_rms}");
-    assert!(
-        (tap1_rms / dry_rms - 0.5).abs() < 0.05,
-        "tap 1 ratio {}",
-        tap1_rms / dry_rms
-    );
-    assert!(
-        tap2_rms < 1e-3,
-        "feedback 0 must produce no 2nd tap, got {tap2_rms}"
-    );
-
-    // 2. Multi-tap geometric decay (delay_ms: 200, feedback: 0.5, mix: 0.5) & 8-tap cap:
-    let multi_mp4 = render_clip(
-        &dir,
-        "multi",
-        2500,
-        2500,
-        json!([{"name": "echo", "delay_ms": 200.0, "feedback": 0.5, "mix": 0.5}]),
-    );
-    let multi_pcm = decode_mono_f32(&ff, &multi_mp4);
-    let d0 = window_rms(&multi_pcm, 0.005, 0.045);
-    for k in 1..=5_usize {
-        let t_start = (k as f64) * 0.2 + 0.005;
-        let t_end = (k as f64) * 0.2 + 0.045;
-        let rk = window_rms(&multi_pcm, t_start, t_end);
-        let expected_ratio = 0.5 * 0.5_f64.powi((k - 1) as i32);
-        let ratio_db_err = (20.0 * (rk / d0 / expected_ratio).log10()).abs();
-        assert!(
-            ratio_db_err <= 0.8,
-            "tap {k} ratio error {ratio_db_err:.2} dB (got {}, expected {})",
-            rk / d0,
-            expected_ratio
+    for (idx, (delay_ms, feedback, mix)) in tuples.into_iter().enumerate() {
+        let (graph, rendered) = mix_f64_stereo(
+            &dir,
+            &format!("echo_tuple_{idx}.montagent.json"),
+            4000,
+            &format!(
+                r#"{{"frame":{{"width":320,"height":180}},"fps":25,"duration":4000,"output":"o.mp4","tracks":[
+                    {{"name":"a","layer":1,"elements":[
+                        {{"id":"bed","type":"audio","start":0,"end":4000,"source":"{imp_src}","source_start":0,"source_end":4000,
+                          "audio_effects":[{{"name":"echo","delay_ms":{delay_ms},"feedback":{feedback},"mix":{mix}}}]}}
+                    ]}}
+                ]}}"#
+            ),
         );
+        // Never more than 8 taps in the `aecho` delays list.
+        if let Some(aecho_part) = graph.split("aecho=").nth(1) {
+            let delays_part = aecho_part.split(':').nth(2).unwrap_or("");
+            assert!(
+                delays_part.split('|').count() <= 8,
+                "aecho delays list must have at most 8 taps: {delays_part}"
+            );
+        }
+
+        // 1. Exact placed duration: 192,000 samples (including at delay_ms = 2000).
+        assert_eq!(
+            rendered.len(),
+            192_000,
+            "tuple ({delay_ms}, {feedback}, {mix}): length must be 192,000 samples"
+        );
+
+        // 2. Zero onset latency: all samples before 24,000 are exact 0.0, and sample 24,000 is the dry impulse.
+        assert!(
+            rendered[..24_000]
+                .iter()
+                .all(|(l, r)| *l == 0.0 && *r == 0.0),
+            "tuple ({delay_ms}, {feedback}, {mix}): samples before 24,000 must be 0.0"
+        );
+        assert!(
+            (rendered[24_000].0 - dry_amp).abs() <= 1e-12
+                && (rendered[24_000].1 - dry_amp).abs() <= 1e-12,
+            "tuple ({delay_ms}, {feedback}, {mix}): dry impulse at sample 24,000 must equal {dry_amp}"
+        );
+
+        // 3. Expected taps k = 1..=8 with g_k = round(mix * feedback^(k-1), 6) >= 0.001:
+        //    sample position = 24_000 + floor(k * delay_ms * 48) (within 192,000).
+        let mut expected_positions = std::collections::BTreeMap::new();
+        expected_positions.insert(24_000usize, dry_amp);
+        let max_k = if feedback == 0.0 { 1 } else { 8 };
+        for k in 1..=max_k {
+            let g_raw = mix * feedback.powi(k - 1);
+            if g_raw < 0.001 {
+                break;
+            }
+            let g_round = (g_raw * 1_000_000.0).round() / 1_000_000.0;
+            let offset_samples = ((k as f64) * delay_ms * 48.0).floor() as usize;
+            let pos = 24_000 + offset_samples;
+            if pos < 192_000 {
+                *expected_positions.entry(pos).or_insert(0.0) += dry_amp * g_round;
+            }
+        }
+        assert!(expected_positions.len() <= 9);
+
+        for (sample_idx, (l, r)) in rendered.iter().enumerate() {
+            if let Some(&exp_val) = expected_positions.get(&sample_idx) {
+                let err_l = (l - exp_val).abs();
+                let err_r = (r - exp_val).abs();
+                assert!(
+                    err_l <= 2e-6 && err_r <= 2e-6,
+                    "tuple ({delay_ms}, {feedback}, {mix}) tap at sample {sample_idx}: got ({l}, {r}), expected {exp_val} (err {err_l:.2e})"
+                );
+            } else {
+                assert!(
+                    *l == 0.0 && *r == 0.0,
+                    "tuple ({delay_ms}, {feedback}, {mix}) non-tap sample {sample_idx} must be 0.0, got ({l}, {r})"
+                );
+            }
+        }
     }
-    // 9th tap window at 1.8 s must be silent because taps are capped at 8:
-    let tap9_rms = window_rms(&multi_pcm, 1.805, 1.845);
-    assert!(
-        tap9_rms < 1e-3,
-        "9th tap window must be silent, got {tap9_rms}"
-    );
 
-    // 3. Tail cut at element end: clip ends at 0.30 s inside a 1.0 s timeline with delay_ms: 500.
-    let tail_cut_mp4 = render_clip(
-        &dir,
-        "tail_cut",
-        300,
-        1000,
-        json!([{"name": "echo", "delay_ms": 500.0, "feedback": 0.5, "mix": 0.8}]),
-    );
-    let tail_cut_pcm = decode_mono_f32(&ff, &tail_cut_mp4);
-    let after_end_rms = window_rms(&tail_cut_pcm, 0.35, 0.95);
-    assert!(
-        after_end_rms < 1e-4,
-        "echo tail after element end (300 ms) must be cut, got {after_end_rms}"
-    );
+    // Cut behavior & bit-for-bit prefix equality (ADR-0185 §3 & §7):
+    // A 4,000 ms element (192,000 samples) with a burst in [3,900..4,000 ms) rendered with
+    // `echo` (`delay_ms: 500, feedback: 0.6, mix: 0.5`) must be bit-for-bit identical to the
+    // first 192,000 samples of a 5,500 ms render of the same source and effect.
+    let burst_wav = make_late_burst_wav(&dir, "late_burst.wav");
+    let burst_src = burst_wav.file_name().unwrap().to_str().unwrap();
 
-    // 4. Bypass identity (enabled: false and mix: 0) & determinism:
-    let dry_mp4 = render_clip(&dir, "dry", 1000, 1000, Value::Null);
-    let disabled_mp4 = render_clip(
+    let (_, cut_4000) = mix_f64_stereo(
         &dir,
-        "disabled",
-        1000,
-        1000,
-        json!([{"name": "echo", "delay_ms": 250.0, "feedback": 0.5, "mix": 0.5, "enabled": false}]),
+        "cut_4000.montagent.json",
+        4000,
+        &format!(
+            r#"{{"frame":{{"width":320,"height":180}},"fps":25,"duration":4000,"output":"o.mp4","tracks":[
+                {{"name":"a","layer":1,"elements":[
+                    {{"id":"bed","type":"audio","start":0,"end":4000,"source":"{burst_src}","source_start":0,"source_end":4000,
+                      "audio_effects":[{{"name":"echo","delay_ms":500,"feedback":0.6,"mix":0.5}}]}}
+                ]}}
+            ]}}"#
+        ),
     );
-    let mix_zero_mp4 = render_clip(
+    let (_, full_5500) = mix_f64_stereo(
         &dir,
-        "mix_zero",
-        1000,
-        1000,
-        json!([{"name": "echo", "delay_ms": 250.0, "feedback": 0.5, "mix": 0.0}]),
+        "full_5500.montagent.json",
+        5500,
+        &format!(
+            r#"{{"frame":{{"width":320,"height":180}},"fps":25,"duration":5500,"output":"o.mp4","tracks":[
+                {{"name":"a","layer":1,"elements":[
+                    {{"id":"bed","type":"audio","start":0,"end":5500,"source":"{burst_src}","source_start":0,"source_end":5500,
+                      "audio_effects":[{{"name":"echo","delay_ms":500,"feedback":0.6,"mix":0.5}}]}}
+                ]}}
+            ]}}"#
+        ),
     );
-    let dry_samples = decode_mono_f32(&ff, &dry_mp4);
-    assert_eq!(dry_samples, decode_mono_f32(&ff, &disabled_mp4));
-    assert_eq!(dry_samples, decode_mono_f32(&ff, &mix_zero_mp4));
+    assert_eq!(cut_4000.len(), 192_000);
+    assert_eq!(full_5500.len(), 264_000);
+    assert_eq!(
+        &cut_4000[..],
+        &full_5500[..192_000],
+        "4,000 ms cut render must be bit-for-bit equal to the first 192,000 samples of the 5,500 ms render"
+    );
 }
 
 #[test]
-fn validate_query_and_compare_cover_echo_contracts() {
-    let dir = tempdir(line!());
-    let doc = json!({
-        "frame": {"width": 200, "height": 200},
-        "fps": 25,
-        "duration": 3000,
-        "output": "out.mp4",
-        "tracks": [{
-            "name": "t",
-            "layer": 0,
-            "elements": [
-                {
-                    "id": "ranges",
+fn echo_validation_and_query_checks() {
+    let dir = common::tempdir(line!());
+    let mut counter = 0usize;
+    let mut check_doc = |audio_effects: Value| -> montagent_core::report::Report {
+        counter += 1;
+        let doc = json!({
+            "frame": {"width": 1080, "height": 1920},
+            "fps": 25,
+            "tracks": [{
+                "name": "a",
+                "layer": 0,
+                "elements": [{
+                    "id": "bed",
                     "type": "audio",
                     "start": 0,
                     "end": 1000,
                     "source": "a.wav",
                     "source_start": 0,
                     "source_end": 1000,
-                    "audio_effects": [
-                        {"name": "echo", "delay_ms": 0.5, "feedback": 0.99, "mix": 1.5}
-                    ]
-                },
-                {
-                    "id": "hot_and_capped",
-                    "type": "audio",
-                    "start": 1000,
-                    "end": 2000,
-                    "source": "a.wav",
-                    "source_start": 0,
-                    "source_end": 1000,
-                    "audio_effects": [
-                        {"name": "echo", "delay_ms": 250.0, "feedback": 0.85, "mix": 0.6}
-                    ]
-                },
-                {
-                    "id": "noop",
-                    "type": "audio",
-                    "start": 2000,
-                    "end": 3000,
-                    "source": "a.wav",
-                    "source_start": 0,
-                    "source_end": 1000,
-                    "audio_effects": [
-                        {"name": "echo", "delay_ms": 250.0, "feedback": 0.3, "mix": 0.0}
-                    ]
-                }
-            ]
-        }]
-    });
-    let file = write_project(&dir, "p.montagent.json", &canonical(&doc.to_string()));
-    let report = validate(&file);
-    let codes: Vec<&str> = report.findings.iter().map(|f| f.code.as_str()).collect();
-    assert!(codes.contains(&"E-ECHO-RANGE"), "got {codes:?}");
-    assert!(codes.contains(&"R-ECHO-HOT"), "got {codes:?}");
-    assert!(codes.contains(&"N-ECHO-TAPS-CAPPED"), "got {codes:?}");
-    assert!(codes.contains(&"N-ECHO-NO-OP"), "got {codes:?}");
+                    "audio_effects": audio_effects,
+                }]
+            }]
+        });
+        let path = common::write_project(
+            &dir,
+            &format!("echo_check_{counter}.montagent.json"),
+            &serde_json::to_string_pretty(&doc).unwrap(),
+        );
+        montagent_core::verbs::validate::validate(&path)
+    };
 
-    let range_repairs: Vec<Value> = report
+    // 1. E-ECHO-RANGE on delay_ms (< 1, > 2000), feedback (< 0, > 0.95), mix (< 0, > 1).
+    let bad_range = check_doc(json!([
+        {"name": "echo", "delay_ms": 0.5, "feedback": 0.99, "mix": 1.5}
+    ]));
+    let range_findings: Vec<_> = bad_range
         .findings
         .iter()
         .filter(|f| f.code == "E-ECHO-RANGE")
-        .filter_map(|f| match &f.repair {
-            Some(montagent_core::finding::Repair::Advise(v)) => Some(v.clone()),
-            _ => None,
-        })
         .collect();
-    assert_eq!(
-        range_repairs,
-        vec![
-            json!({"key": "delay_ms", "value": 1.0}),
-            json!({"key": "feedback", "value": 0.95}),
-            json!({"key": "mix", "value": 1.0}),
-        ]
+    assert_eq!(range_findings.len(), 3, "{:?}", bad_range.findings);
+
+    // 2. R-ECHO-HOT when combined worst-case peak gain > 3.0x; not when <= 3.0x.
+    let hot = check_doc(json!([
+        {"name": "echo", "delay_ms": 250, "feedback": 0.8, "mix": 0.8}
+    ]));
+    assert!(
+        hot.findings.iter().any(|f| f.code == "R-ECHO-HOT"),
+        "{:?}",
+        hot.findings
+    );
+    let safe = check_doc(json!([
+        {"name": "echo", "delay_ms": 250, "feedback": 0.5, "mix": 0.5}
+    ]));
+    assert!(
+        !safe.findings.iter().any(|f| f.code == "R-ECHO-HOT"),
+        "{:?}",
+        safe.findings
     );
 
-    // query --at and compare:
-    let p1_doc = json!({
-        "frame": {"width": 200, "height": 200},
-        "fps": 25,
-        "duration": 1000,
-        "output": "out.mp4",
-        "tracks": [{
-            "name": "t",
-            "layer": 0,
-            "elements": [{
-                "id": "bed",
-                "type": "audio",
-                "start": 0,
-                "end": 1000,
-                "source": "a.wav",
-                "source_start": 0,
-                "source_end": 1000,
-                "audio_effects": [{"name": "echo", "delay_ms": 250.0, "feedback": 0.35, "mix": 0.25}]
-            }]
-        }]
-    });
-    let p2_doc = json!({
-        "frame": {"width": 200, "height": 200},
-        "fps": 25,
-        "duration": 1000,
-        "output": "out.mp4",
-        "tracks": [{
-            "name": "t",
-            "layer": 0,
-            "elements": [{
-                "id": "bed",
-                "type": "audio",
-                "start": 0,
-                "end": 1000,
-                "source": "a.wav",
-                "source_start": 0,
-                "source_end": 1000,
-                "audio_effects": [{"name": "echo", "delay_ms": 300.0, "feedback": 0.35, "mix": 0.25}]
-            }]
-        }]
-    });
-    let p1 = write_project(&dir, "p1.montagent.json", &canonical(&p1_doc.to_string()));
-    let p2 = write_project(&dir, "p2.montagent.json", &canonical(&p2_doc.to_string()));
+    // 3. N-ECHO-NO-OP when mix < 0.001.
+    let noop = check_doc(json!([
+        {"name": "echo", "delay_ms": 300, "feedback": 0.5, "mix": 0.0005}
+    ]));
+    assert!(
+        noop.findings.iter().any(|f| f.code == "N-ECHO-NO-OP"),
+        "{:?}",
+        noop.findings
+    );
 
-    let q = query(
-        &p1,
-        &QueryAsk {
-            at: Some(500),
-            ..QueryAsk::default()
-        },
-    )
-    .to_json();
-    let eff = &q["query"]["stack"][0]["audio_effects"][0];
-    assert_eq!(eff["name"], json!("echo"));
-    assert_eq!(eff["delay_ms"], json!(250.0));
-    assert_eq!(eff["feedback"], json!(0.35));
-    assert_eq!(eff["mix"], json!(0.25));
+    // 4. N-ECHO-TAPS-CAPPED when mix * feedback^7 > 0.01.
+    let capped = check_doc(json!([
+        {"name": "echo", "delay_ms": 100, "feedback": 0.9, "mix": 0.5}
+    ]));
+    assert!(
+        capped
+            .findings
+            .iter()
+            .any(|f| f.code == "N-ECHO-TAPS-CAPPED"),
+        "{:?}",
+        capped.findings
+    );
 
-    let diff = compare(&p1, &p2);
-    assert!(diff.findings.is_empty());
+    // 5. Out-of-order echo keys trigger L-LAYOUT and canonicalise to name, delay_ms, feedback, mix.
+    let canonical_echo = common::canonical(
+        r#"{"frame":{"width":1080,"height":1920},"fps":25,"tracks":[{"name":"a","layer":0,"elements":[{"id":"bed","type":"audio","start":0,"end":1000,"source":"a.wav","source_start":0,"source_end":1000,"audio_effects":[{"name":"echo","delay_ms":300,"feedback":0.5,"mix":0.5}]}]}]}"#,
+    );
+    let reordered_echo = canonical_echo.replace(
+        r#""delay_ms":300,"feedback":0.5"#,
+        r#""feedback":0.5,"delay_ms":300"#,
+    );
+    assert_ne!(reordered_echo, canonical_echo);
+    let bad_order_path =
+        common::write_project(&dir, "echo_bad_order.montagent.json", &reordered_echo);
+    let bad_order = montagent_core::verbs::validate::validate(&bad_order_path);
+    assert!(
+        bad_order.findings.iter().any(|f| f.code == "L-LAYOUT"),
+        "{:?}",
+        bad_order.findings
+    );
 }

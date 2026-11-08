@@ -245,18 +245,10 @@ pub(crate) fn coverage(document: &Loose, element: &Value) -> Result<Coverage, Co
     }
 
     let run = run_of(element, declared, fps)?;
-    let mut frames = decode::frames_from(
-        &ffmpeg,
-        &path.to_string_lossy(),
-        decoder,
-        run.from_ms,
-        decode::Pace {
-            fps,
-            speed: run.speed,
-        },
-        width as u32,
-        height as u32,
-    )?;
+    let pace = decode::Pace {
+        fps,
+        speed: run.speed,
+    };
 
     // The element's declared box, which is what a source is resampled to (ADR-0013) and so
     // what every pixel below is a fraction of.
@@ -270,22 +262,57 @@ pub(crate) fn coverage(document: &Loose, element: &Value) -> Result<Coverage, Co
     let mut canvas =
         Canvas::new(width, height).ok_or("no surface could be made at the element's own box")?;
     let mut samples = Vec::with_capacity(run.count);
-    for frame in 0..run.count {
-        let Some(decoded) = frames.next_frame()? else {
-            // The source ran out before the document said it would. That disagreement is
-            // `validate`'s finding (`E-SOURCE-OVERRUN`) and not this reading's to re-derive,
-            // so the series is the length it got and says so by being that length.
-            break;
-        };
-        let at = run.at(frame, fps);
-        samples.push(sample(
-            &mut canvas,
-            frame,
-            at,
-            &decoded,
-            &effects_at(element, &effects, at, fps),
-            box_,
-        )?);
+    if decode::exact_pace(pace) {
+        let mut frames = decode::frames_at(
+            &ffmpeg,
+            &path.to_string_lossy(),
+            decoder,
+            run.origin,
+            run.first,
+            pace,
+            width as u32,
+            height as u32,
+        )?;
+        for frame in 0..run.count {
+            let Some(decoded) = frames.next_frame()? else {
+                // The source ran out before the document said it would. That disagreement is
+                // `validate`'s finding (`E-SOURCE-OVERRUN`) and not this reading's to re-derive,
+                // so the series is the length it got and says so by being that length.
+                break;
+            };
+            let at = run.at(frame, fps);
+            samples.push(sample(
+                &mut canvas,
+                frame,
+                at,
+                &decoded,
+                &effects_at(element, &effects, at, fps),
+                box_,
+            )?);
+        }
+    } else {
+        for frame in 0..run.count {
+            let offset_us = decode::offset_us(run.origin, pace, run.first + frame as i64);
+            let Ok(decoded) = decode::frame_at_us(
+                &ffmpeg,
+                &path.to_string_lossy(),
+                decoder,
+                offset_us,
+                width as u32,
+                height as u32,
+            ) else {
+                break;
+            };
+            let at = run.at(frame, fps);
+            samples.push(sample(
+                &mut canvas,
+                frame,
+                at,
+                &decoded,
+                &effects_at(element, &effects, at, fps),
+                box_,
+            )?);
+        }
     }
 
     Ok(Coverage {
@@ -337,14 +364,14 @@ fn remapped(
     let mut held: Option<(i64, decode::DecodedFrame)> = None;
     let mut samples = Vec::new();
     for (frame, at) in crate::remap::painted_instants(start, end, fps).enumerate() {
-        let ms = crate::remap::source_ms(element, at)?;
+        let us = crate::remap::source_ms(element, at)?.saturating_mul(1000);
         let decoded = match held.take() {
-            Some((held_ms, decoded)) if held_ms == ms => decoded,
-            _ => decode::frame_at(
+            Some((held_us, decoded)) if held_us == us => decoded,
+            _ => decode::frame_at_us(
                 ffmpeg,
                 &path.to_string_lossy(),
                 decoder,
-                ms,
+                us,
                 width as u32,
                 height as u32,
             )?,
@@ -357,7 +384,7 @@ fn remapped(
             &effects_at(element, effects, at, fps),
             box_,
         )?);
-        held = Some((ms, decoded));
+        held = Some((us, decoded));
     }
     Ok(samples)
 }
@@ -428,8 +455,13 @@ fn sample(
 
 /// What one run of frames asks `ffmpeg` for.
 struct Run {
-    /// Where the run starts, in **source** milliseconds.
-    from_ms: i64,
+    /// Where the pass over the source begins (`timeline_ms`, `source_ms`).
+    origin: decode::Origin,
+    /// The first sampled timeline frame at or after `start`.
+    first: i64,
+    /// Where the run starts, in **source** microseconds (`decode::offset_us` at `first`).
+    #[allow(dead_code)]
+    from_us: i64,
     /// Source frames per second of source time — `fps ÷ speed` — as the answer states it.
     source_fps: f64,
     /// `speed` as the exact rational `(numerator, denominator)` the run is sampled at.
@@ -465,12 +497,18 @@ fn run_of(element: &Value, declared: &str, fps: i64) -> Result<Run, String> {
         .and_then(Value::as_i64)
         .filter(|end| *end > start)
         .ok_or("the element's `end` does not follow its `start`, so it shows no frames")?;
+    let first = exact::frame_at_or_after(start, fps).map_or(0, |s| s.frame);
 
     // A still has one picture, whatever range it occupies: its series is one sample, and a
     // hundred identical ones would state the same fact a hundred times.
     if declared != "video" {
         return Ok(Run {
-            from_ms: 0,
+            origin: decode::Origin {
+                timeline_ms: start,
+                source_ms: 0,
+            },
+            first,
+            from_us: 0,
             source_fps: fps as f64,
             speed: (1, 1),
             count: 1,
@@ -516,16 +554,30 @@ fn run_of(element: &Value, declared: &str, fps: i64) -> Result<Run, String> {
         .map_err(|_| "the element shows more frames than can be counted".to_string())?;
 
     // **The run is sampled on the exact ratio**, the same one `source_advance` above and the
-    // renderer's own offset-into-source are computed on (ADR-0127); `frames_from` takes it as
+    // renderer's own offset-into-source are computed on (ADR-0127); `frames_at` takes it as
     // integers so no float stands between the two. `source_fps` is the one float, and it is
     // the answer's statement of the clock rather than an input to anything.
     let speed_ratio = speed
         .as_ratio()
         .ok_or("`speed` could not be read as an exact ratio")?;
     let source_fps = fps as f64 / speed.as_f64();
+    let origin = decode::Origin {
+        timeline_ms: start,
+        source_ms: source_start,
+    };
+    let from_us = decode::offset_us(
+        origin,
+        decode::Pace {
+            fps,
+            speed: speed_ratio,
+        },
+        first,
+    );
 
     Ok(Run {
-        from_ms: source_start,
+        origin,
+        first,
+        from_us,
         source_fps,
         speed: speed_ratio,
         count,
@@ -548,17 +600,27 @@ fn effects_of(element: &Value) -> Result<Vec<model::Effect>, String> {
 
 /// The element's `effects` as the rasterizer paints them at `instant`, every keyed parameter
 /// resolved there (ADR-0146) — so a keyed `tolerance` is measured at the value each frame
-/// keys with.
+/// keys with. When `instant` is the painted millisecond of timeline frame `n`, evaluates at
+/// exact rational frame time `(n × 1000 × fps.den(), fps.num())` (ADR-0251).
 fn effects_at(
     element: &Value,
     declared: &[model::Effect],
     instant: i64,
-    fps: i64,
+    fps: impl Into<model::FrameRate>,
 ) -> Vec<montagent_render::canvas::Effect> {
+    let fps = fps.into();
     let frame = crate::grain::local_frame(element, instant, fps);
+    let t = (instant >= 0 && fps.is_positive())
+        .then(|| crate::exact::frame_at_or_after(instant, fps))
+        .flatten()
+        .filter(|sampled| crate::exact::instant_of(sampled.frame, fps) == instant)
+        .map_or((i128::from(instant), 1), |sampled| {
+            (
+                i128::from(sampled.frame) * 1000 * i128::from(fps.den()),
+                i128::from(fps.num()),
+            )
+        });
     (0..declared.len())
-        .filter_map(|index| {
-            crate::verbs::frame::effect_of(element, index, (i128::from(instant), 1), frame, None)
-        })
+        .filter_map(|index| crate::verbs::frame::effect_of(element, index, t, frame, None))
         .collect()
 }

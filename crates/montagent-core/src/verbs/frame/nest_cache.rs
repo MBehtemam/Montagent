@@ -137,10 +137,11 @@ struct DiskRecord {
 pub(crate) fn subgraph_key(
     element: &Value,
     extent: Extent,
-    fps: i64,
+    fps: impl Into<crate::model::FrameRate>,
     document: &Value,
     project_dir: &Path,
 ) -> Option<(String, bool)> {
+    let fps = fps.into();
     let nest_start = element.get("start").and_then(Value::as_i64)?;
     let children = element.get("elements")?;
     let normalized = normalize_children(children, nest_start);

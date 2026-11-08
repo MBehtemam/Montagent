@@ -110,10 +110,10 @@ This is the capability map. Read it before you design, so the brief does not lea
 
 **Audio**
 
-- Audio on tracks, with per-clip volume: `audio`, `volume`.
+- Audio on tracks, with per-clip volume, constant-power stereo pan and stereo channel routing: `audio`, `volume`, `pan`, `channels`.
 - A crossfade between two audio clips, or between two clips' sound alone: `kind: "audio_crossfade"`, `audio` (`constant_power` unless both sides are the same source, then `constant_gain`). Fading a clip against silence stays a `volume` ramp.
 - EQ on an audio or video clip, stackable and in list order: a high-pass or low-pass at 12, 24 or 48 dB/oct, a low or high shelf, a bell, or a parametric biquad band (`audio_effects`: `highpass`, `lowpass`, `shelf`, `bell`, `equalizer`, `frequency_hz`, `slope_db_per_oct`, `side`, `gain_db`, `q`, `enabled`).
-- Even out or hold a clip's level before `volume`: `audio_effects` with `compressor` (`threshold_db`, `ratio`, `attack_ms`, `release_ms`, `makeup_db`), `gate` (`threshold_db`, `attack_ms`, `release_ms`), and `limiter` (`ceiling_db`, `release_ms`); every key is required.
+- Even out or hold a clip's level, reduce steady broadband noise, or add delay taps before `volume`: `audio_effects` with `compressor` (`threshold_db`, `ratio`, `attack_ms`, `release_ms`, `makeup_db`), `gate` (`threshold_db`, `attack_ms`, `release_ms`), `limiter` (`ceiling_db`, `release_ms`), `reduce_noise` (`reduction_db`, 5..20, one per clip), and `echo` (`delay_ms`, `feedback`, `mix`, stackable); every key is required.
 - Bring a clip to a written loudness with one measured gain, before `volume`: `audio_effects` with `normalize_loudness` (`target_lufs`, -40..-6, required, one per clip).
 - Find a music track's tempo, first downbeat and frame-snapped beat grid, and lay the track in on the beat (`montagent-craft`).
 

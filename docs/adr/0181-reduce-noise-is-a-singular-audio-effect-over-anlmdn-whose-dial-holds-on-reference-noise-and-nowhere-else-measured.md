@@ -123,7 +123,7 @@ a 1 kHz burst starting at 0.5 s has onset 24001 raw, 24385 through the filter, a
 
 ### 7. The measured check (conforms to ADR-0173)
 
-- [ ] **Conforms to ADR-0173.** The gated numbers come from synthetic signals (`anoisesrc` with a pinned seed and a `sine`), and the
+- [x] **Conforms to ADR-0173.** The gated numbers come from synthetic signals (`anoisesrc` with a pinned seed and a `sine`), and the
   one content check is §4's fixture speech gate, which ADR-0173 §3 allows where synthetic signals cannot model the behaviour
   (speech preservation on real speech).
 - [x] **Reference drop** (gated, [`check_noise_reduction.py`](../research/audio-effects/noise-reduction/check_noise_reduction.py)):
@@ -134,7 +134,7 @@ a 1 kHz burst starting at 0.5 s has onset 24001 raw, 24385 through the filter, a
 - [x] **Fixture speech** (gated, §4): the speech window 2–18 s changes by at most **±0.5 dB, provisional**. Measured: at most 0.005 dB.
 - [x] **Latency** (gated, §6): compensated onset equals raw onset, 0 samples.
 - [x] **Determinism within one build** (gated): three runs, one byte digest.
-- [ ] **Bypass identity** (ADR-0173 §5): `enabled: false` PCM equals member-absent PCM. Graph-level, asserted in the build slice.
+- [x] **Bypass identity** (ADR-0173 §5): `enabled: false` PCM equals member-absent PCM. Graph-level, asserted in the build slice.
 - [ ] **Three-leg table** (ADR-0173 §4): the tolerances above become `max(2 × the spread across the three legs, the meter's resolution)`.
   Not run. The measurement is on **Homebrew ffmpeg 7.1.5** on one Mac, not the BtbN floor pin in `ci/install_ffmpeg_floor.sh`, and
   no leg has been measured.

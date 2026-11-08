@@ -20,11 +20,22 @@ use crate::model::MotionBlur;
 /// `t_k = instant(n) + shutter/360 × (1000/fps) × ((k + ½)/N − ½)`, `k = 0 … N−1`,
 ///
 /// with `instant(n) = ⌊n × 1000 / fps⌋`.
-pub fn sample_instants(n: i64, fps: i64, shutter: i64, samples: i64) -> Vec<(i128, i128)> {
+pub fn sample_instants(
+    n: i64,
+    fps: impl Into<crate::model::FrameRate>,
+    shutter: i64,
+    samples: i64,
+) -> Vec<(i128, i128)> {
+    let fps = fps.into();
+    let safe_fps = if fps.is_positive() {
+        fps
+    } else {
+        crate::model::FrameRate::integer(1)
+    };
     around(
-        i128::from(crate::exact::instant_of(n, fps.max(1))),
+        i128::from(crate::exact::instant_of(n, safe_fps)),
         1,
-        fps,
+        safe_fps,
         shutter,
         samples,
     )
@@ -32,9 +43,15 @@ pub fn sample_instants(n: i64, fps: i64, shutter: i64, samples: i64) -> Vec<(i12
 
 /// The frame whose instant is the last at or before `instant` ms: the frame `instant` lies
 /// in, as `render` paints the timeline.
-pub(crate) fn frame_containing(instant: i64, fps: i64) -> i64 {
-    let fps = fps.max(1);
-    let mut n = (i128::from(instant) * i128::from(fps)).div_euclid(1000) as i64;
+pub(crate) fn frame_containing(instant: i64, fps: impl Into<crate::model::FrameRate>) -> i64 {
+    let fps = fps.into();
+    let fps = if fps.is_positive() {
+        fps
+    } else {
+        crate::model::FrameRate::integer(1)
+    };
+    let mut n = (i128::from(instant) * i128::from(fps.num()))
+        .div_euclid(1000 * i128::from(fps.den())) as i64;
     while crate::exact::instant_of(n + 1, fps) <= instant {
         n += 1;
     }
@@ -48,21 +65,22 @@ pub(crate) fn frame_containing(instant: i64, fps: i64) -> i64 {
 fn around(
     centre_n: i128,
     centre_d: i128,
-    fps: i64,
+    fps: crate::model::FrameRate,
     shutter: i64,
     samples: i64,
 ) -> Vec<(i128, i128)> {
-    let (fps, shutter, samples) = (
-        i128::from(fps.max(1)),
-        i128::from(shutter),
-        i128::from(samples.max(1)),
-    );
-    // shutter·1000·(2k + 1 − N) / (720·fps·N), added to the centre.
-    let denominator = 720 * fps * samples * centre_d;
+    let (fps_num, fps_den) = if fps.is_positive() {
+        (i128::from(fps.num()), i128::from(fps.den()))
+    } else {
+        (1, 1)
+    };
+    let (shutter, samples) = (i128::from(shutter), i128::from(samples.max(1)));
+    // shutter·1000·fps_den·(2k + 1 − N) / (720·fps_num·N), added to the centre.
+    let denominator = 720 * fps_num * samples * centre_d;
     (0..samples)
         .map(|k| {
-            let numerator =
-                centre_n * 720 * fps * samples + shutter * 1000 * (2 * k + 1 - samples) * centre_d;
+            let numerator = centre_n * 720 * fps_num * samples
+                + shutter * 1000 * fps_den * (2 * k + 1 - samples) * centre_d;
             reduced(numerator, denominator)
         })
         .collect()
@@ -90,8 +108,18 @@ pub(crate) fn of(element: &Value) -> Option<MotionBlur> {
 
 /// The sample instants of the shutter centred on `instant` ms: a frame instant, or the
 /// instant `frame --at` was asked for.
-pub(crate) fn samples_at(instant: i64, fps: i64, blur: MotionBlur) -> Vec<(i128, i128)> {
-    around(i128::from(instant), 1, fps, blur.shutter, blur.samples)
+pub(crate) fn samples_at(
+    instant: i64,
+    fps: impl Into<crate::model::FrameRate>,
+    blur: MotionBlur,
+) -> Vec<(i128, i128)> {
+    around(
+        i128::from(instant),
+        1,
+        fps.into(),
+        blur.shutter,
+        blur.samples,
+    )
 }
 
 /// Whether no value the element's own keyframes resolve differs between any two instants

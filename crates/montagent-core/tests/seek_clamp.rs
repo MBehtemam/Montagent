@@ -683,4 +683,85 @@ fn a_30_fps_source_in_a_30_fps_project_steps_one_to_one_across_render_frame_and_
         Some(10),
         "{measured}"
     );
+
+    // 3. Off-grid `start` (`start: 10, end: 110, source_start: 0, source_end: 100` at 30 fps):
+    // the first sampled timeline frame is frame 1 (`33 ms`, exact time `33.333 ms`, which is
+    // `23.333 ms` into the source — still inside source frame 0 `[0, 33.333 ms)`), and the
+    // second sampled timeline frame is frame 2 (`66 ms`, exact time `66.667 ms`, which is
+    // `56.667 ms` into the source — inside source frame 1 `[33.333, 66.667 ms)`).
+    let off_grid_body = common::canonical(&format!(
+        r##"{{"frame":{{"width":{SIZE},"height":{SIZE}}},"fps":30,"background":"#000000",
+            "duration":110,"output":"out/off_grid.mp4","tracks":[
+            {{"name":"v","layer":0,"elements":[
+              {{"id":"clip","type":"video","start":10,"end":110,"source":"{source}",
+                "source_start":0,"source_end":100,"x":0,"y":0,"origin":"top-left",
+                "width":{SIZE},"height":{SIZE},"fit":"literal","volume":0,
+                "effects":[{{"name":"chroma","color":"#000000","tolerance":0.002,
+                             "softness":0.0,"spill":0.0}}]}}]}}]}}"##
+    ));
+    let off_grid_path = common::write_project(&dir, "off_grid.montagent.json", &off_grid_body);
+    let off_grid_element = serde_json::from_str::<serde_json::Value>(&off_grid_body)
+        .expect("project JSON")["tracks"][0]["elements"][0]
+        .clone();
+    let off_grid_measured = montagent_core::verbs::measure::measure(
+        &off_grid_path,
+        &montagent_core::verbs::measure::Ask {
+            element: Some(off_grid_element),
+            ..Default::default()
+        },
+    )
+    .to_json();
+    let off_grid_frames = off_grid_measured["measure"]["frames"]
+        .as_array()
+        .expect("frames array");
+    assert_eq!(off_grid_frames.len(), 3, "{off_grid_measured}");
+    // Source frame 1 has R = 3 (`#030000`, chroma distance ~0.0044 from `#000000` > 0.002),
+    // while source frame 0 has R = 0 (`#000000`, chroma distance 0 <= 0.002).
+    assert!(
+        off_grid_frames[0]["transparent"].as_f64().unwrap() > 0.9,
+        "first sampled frame at 33.333 ms (23.333 ms in source) is source frame 0: {off_grid_frames:?}"
+    );
+    assert!(
+        off_grid_frames[1]["opaque"].as_f64().unwrap() > 0.9,
+        "second sampled frame at 66.667 ms (56.667 ms in source) is source frame 1: {off_grid_frames:?}"
+    );
+    assert!(
+        off_grid_frames[2]["opaque"].as_f64().unwrap() > 0.9,
+        "third sampled frame at 100.0 ms (90.0 ms in source) is source frame 2: {off_grid_frames:?}"
+    );
+
+    // 4. Rational `fps: [24000, 1001]` in `frame --at`: at 24000/1001 fps, timeline frame 1
+    // has painted instant `floor(1001 / 24) = 41 ms`, while its exact time is
+    // `1001000 / 24000 = 41.708333 ms` (`41_709 us`). On a `24000/1001` source whose frame 1
+    // starts at `41.708333 ms`, `frame --at 41` must recognise `41` as timeline frame 1 at
+    // `[24000, 1001]` and seek to `41_709 us` (source frame 1), not `41_000 us` (source frame 0).
+    if let Some(ntsc_clip) = encode(&dir, "ntsc.mov", "24000/1001") {
+        let ntsc_source = ntsc_clip.display().to_string().replace('\\', "/");
+        let ntsc_body = common::canonical(&format!(
+            r##"{{"frame":{{"width":{SIZE},"height":{SIZE}}},"fps":[24000,1001],"background":"#000000",
+                "duration":200,"output":"out/ntsc.mp4","tracks":[
+                {{"name":"v","layer":0,"elements":[
+                  {{"id":"clip","type":"video","start":0,"end":200,"source":"{ntsc_source}",
+                    "source_start":0,"source_end":200,"x":0,"y":0,"origin":"top-left",
+                    "width":{SIZE},"height":{SIZE},"fit":"literal","volume":0}}]}}]}}"##
+        ));
+        let ntsc_path = common::write_project(&dir, "ntsc.montagent.json", &ntsc_body);
+        let single = montagent_core::verbs::frame::frame(
+            &ntsc_path,
+            &montagent_core::verbs::frame::Ask {
+                at: Some(41),
+                full: true,
+                png: true,
+                ..Default::default()
+            },
+        );
+        let decoded = image::load_from_memory(&single.image().expect("frame image").bytes)
+            .expect("valid PNG")
+            .to_rgba8();
+        assert_eq!(
+            i64::from(decoded.as_raw()[0]) / 3,
+            1,
+            "frame --at 41 on [24000, 1001] timeline must paint source frame 1"
+        );
+    }
 }

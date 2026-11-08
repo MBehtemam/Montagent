@@ -8,9 +8,10 @@ Covers:
    `R-KEYFRAME-UNREACHED` findings from `montagent validate`.
 2. Stable `mark_<id>` identifiers and overrides across mark additions, removals, and reordering.
 3. Orphaned override refusal (non-zero exit naming the orphaned ID) and `--prune-overrides`.
-4. Guarded regeneration via `<project>.marks-manifest.json`: refusing on direct `.montagent.json`
+4. Guarded regeneration via `<spec>.manifest.json`: refusing on direct `.montagent.json`
    edits with a diff, folding edits back into `overrides` with `--adopt-edits`, and overwriting
-   with `--force`, while preserving non-generated tracks/elements.
+   with `--force`, while preserving non-generated tracks/elements and keeping the project directory
+   free of project-level sidecars.
 5. `--inspect` provenance table output (element ID, track, `[start, end)`, source mark entry,
    and override keys).
 """
@@ -283,8 +284,9 @@ class MarksTest(unittest.TestCase):
         first = self.run_marks()
         self.assertEqual(first.returncode, 0, first.stderr)
 
-        manifest_path = Path(f"{self.project}.marks-manifest.json")
+        manifest_path = Path(f"{self.spec}.manifest.json")
         self.assertTrue(manifest_path.is_file())
+        self.assertFalse(Path(f"{self.project}.marks-manifest.json").exists())
 
         # Directly edit `mark_callout` in `.montagent.json`
         doc = json.loads(self.project.read_text())
@@ -355,6 +357,38 @@ class MarksTest(unittest.TestCase):
         self.assertIn("[100, 900)", res.stdout)
         self.assertIn("[500, 1400)", res.stdout)
         self.assertIn("fill", res.stdout)
+
+    def test_rational_fps_array_and_canonical_element_order(self):
+        doc = json.loads(self.project.read_text())
+        doc["fps"] = [24000, 1001]
+        self.project.write_text(json.dumps(doc))
+
+        spec_data = {
+            "defaults": {
+                "type": "rect",
+                "width": 100,
+                "height": 100,
+                "fill": "#FF5A36",
+                "fade_in_ms": 120,
+                "fade_out_ms": 150,
+            },
+            "marks": [
+                {"id": "ntsc_cue", "start": 0, "end": 1000, "x": 200, "y": 300},
+            ],
+            "overrides": {},
+        }
+        self.spec.write_text(json.dumps(spec_data, indent=2))
+        res = self.run_marks()
+        self.assertEqual(res.returncode, 0, res.stderr)
+        out_doc = json.loads(self.project.read_text())
+        cue = next(
+            e
+            for t in out_doc["tracks"]
+            for e in t["elements"]
+            if e["id"] == "mark_ntsc_cue"
+        )
+        # At 24000/1001 fps, frame 23 is at floor(23 * 1001000 / 24000) = 959 ms (< 1000 ms)
+        self.assertEqual(cue["opacity"][-1]["t"], 959)
 
 
 if __name__ == "__main__":

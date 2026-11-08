@@ -377,6 +377,6 @@ fn run_disk_checks(
     // ADR-0178: a normalised element whose source carries no sound, off the same probes.
     crate::checks::normalize::on_disk(document, session, report)?;
     // ADR-0184: `channels` ("swap"|"mono"|"left"|"right") on a 1-channel source, off the same probes.
-    crate::checks::audio_effects::check_disk(document, session, report);
+    crate::checks::audio_effects::check_disk(document, session, report)?;
     Ok(())
 }

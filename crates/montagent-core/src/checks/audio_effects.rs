@@ -142,7 +142,11 @@ pub fn check(document: &Loose, report: &mut Report) {
 
 /// Disk-backed check for `channels` on a probed 1-channel source (`R-CHANNELS-ON-MONO-SOURCE`,
 /// ADR-0184 §5).
-pub fn check_disk(document: &Loose, session: &mut Session, report: &mut Report) {
+pub fn check_disk(
+    document: &Loose,
+    session: &mut Session,
+    report: &mut Report,
+) -> Result<(), Box<crate::media::tools::Missing>> {
     let base = crate::checks::project_dir(document);
     for (track, element) in document.elements_in_tracks() {
         if !has_sound(element) {
@@ -158,10 +162,7 @@ pub fn check_disk(document: &Loose, session: &mut Session, report: &mut Report) 
         let Some(source) = element.get("source").and_then(Value::as_str) else {
             continue;
         };
-        let Ok(outcome) = session.probe(&Source::resolve(source, &base)) else {
-            return;
-        };
-        let Outcome::Probed(probe) = outcome else {
+        let Outcome::Probed(probe) = session.probe(&Source::resolve(source, &base))? else {
             continue;
         };
         if probe.audio.as_ref().and_then(|a| a.channels) == Some(1) {
@@ -178,6 +179,7 @@ pub fn check_disk(document: &Loose, session: &mut Session, report: &mut Report) 
             });
         }
     }
+    Ok(())
 }
 
 fn trim_num(value: f64) -> String {

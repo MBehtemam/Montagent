@@ -193,8 +193,8 @@ across the picture are deferred under #842; an author who needs a moving pan tod
 
 ### 7. The measured check (conforms to ADR-0173)
 
-- [ ] **Conforms to ADR-0173.**
-- [ ] **Method.** A repo integration test, the port of `measure_pan_channels.py`, through the real mix graph with
+- [x] **Conforms to ADR-0173.**
+- [x] **Method.** A repo integration test, the port of `measure_pan_channels.py`, through the real mix graph with
   the encoder swapped for PCM. Fixture: lavfi tones and `anoisesrc` with a pinned `seed`, all built from literal
   parameters. Metric: per-channel RMS in dB (over the last 3/4 of 1 s, f64) and sample equality. Expected
   values come from the matrix definitions in sections 2 and 3, never a stored render. Tolerances: **0.01 dB for
@@ -218,9 +218,9 @@ across the picture are deferred under #842; an author who needs a moving pan tod
 | T12 | slot: a left-only source with `channels: "left"` then `normalize_loudness` lands within 0.1 LU of its target (shows the op is seen first). Needs `normalize_loudness` built (ADR-0178) | two-sided | 0.1 LU |
 
   T1-T8 are the research's P1-P3, C1-C3 and L0; T9-T10 its B1-B2; T12 its S1 (proposed there, not yet run).
-- [ ] **Command ignored.** `asendcmd` to `pan` moves nothing (L unchanged after 0.5 s), so section 5 can be
+- [x] **Command ignored.** `asendcmd` to `pan` moves nothing (L unchanged after 0.5 s), so section 5 can be
   reopened if `pan` ever honours it. Recorded in the evidence run; the test keeps the control.
-- [ ] **Same-build determinism** (identical bytes across runs and `-cpuflags 0`).
+- [x] **Same-build determinism** (identical bytes across runs and `-cpuflags 0`).
 - [ ] **Build-to-build drift.** Measured on two builds here (SHA-256 of six renders equal). The macOS
   Homebrew and Windows Chocolatey legs were **not available** to the evidence run; the per-leg table must be
   committed with them before the status flips.
@@ -229,7 +229,7 @@ across the picture are deferred under #842; an author who needs a moving pan tod
   claim numbers do not fully settle; it is not made yet. **A second listening test is the direction of `left`
   and `right`** (section 3): the numbers fix which channel is kept, the ear confirms the name. Neither is
   claimed here (one measurement run, no listening).
-- [ ] **Evidence scripts.** [`measure_pan_channels.py`](../research/audio-effects/pan-channels/measure_pan_channels.py)
+- [x] **Evidence scripts.** [`measure_pan_channels.py`](../research/audio-effects/pan-channels/measure_pan_channels.py)
   (needs numpy; exits non-zero naming any claim that stops holding),
   [`measure_slot_loudness.py`](../research/audio-effects/pan-channels/measure_slot_loudness.py) (stdlib) and
   [`measurements.json`](../research/audio-effects/pan-channels/measurements.json) (the floor build's output).

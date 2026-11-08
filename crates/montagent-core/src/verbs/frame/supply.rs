@@ -244,6 +244,8 @@ pub(crate) struct Request<'r> {
     pub ffmpeg: &'r Path,
     pub source: &'r Path,
     pub video: Video,
+    /// The project's `fps` as a rational [`crate::model::FrameRate`].
+    pub fps: crate::model::FrameRate,
     /// The project's `fps` and the element's `speed`. `1` on a remapped element.
     pub pace: Pace,
     /// Set on an element carrying `source_time` (ADR-0157), whose offset is decided frame by
@@ -268,14 +270,36 @@ impl Request<'_> {
     /// or `self.offset * 1000` for an off-grid instant or a held/remapped offset.
     pub(crate) fn offset_us(&self) -> i64 {
         match (self.origin, self.frame) {
-            (Some((timeline_ms, source_ms)), Some(n)) => decode::offset_us(
-                Origin {
-                    timeline_ms,
-                    source_ms,
-                },
-                self.pace,
-                n,
-            ),
+            (Some((timeline_ms, source_ms)), Some(n)) if self.fps.is_positive() => {
+                if self.fps.is_integer() {
+                    decode::offset_us(
+                        Origin {
+                            timeline_ms,
+                            source_ms,
+                        },
+                        self.pace,
+                        n,
+                    )
+                } else {
+                    let (s_num, s_den) = self.pace.speed;
+                    let divisor = 2 * i128::from(self.fps.num()) * s_den;
+                    let elapsed_num = 1000
+                        * (1000 * i128::from(n) * i128::from(self.fps.den())
+                            - i128::from(timeline_ms) * i128::from(self.fps.num()))
+                        * s_num;
+                    let elapsed_us = if divisor <= 0 {
+                        0
+                    } else if elapsed_num >= 0 {
+                        (2 * elapsed_num + divisor - 1).div_euclid(divisor) as i64
+                    } else {
+                        ((2 * elapsed_num - divisor + 1) / divisor) as i64
+                    };
+                    source_ms
+                        .saturating_mul(1000)
+                        .saturating_add(elapsed_us)
+                        .max(0)
+                }
+            }
             _ => self.offset.saturating_mul(1000),
         }
     }

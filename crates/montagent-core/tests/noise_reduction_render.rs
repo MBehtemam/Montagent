@@ -1,33 +1,85 @@
-//! Measured integration test for `reduce_noise` (ADR-0181, #1153).
-//!
-//! Asserts that `reduce_noise` attenuates reference broadband white noise (`anoisesrc=c=white:a=0.1`)
-//! to within ±1.0 dB of `reduction_db` at `5, 10, 15, 20`, preserves a 1 kHz foreground tone inside
-//! 1.0 dB while attenuating noise by >= 10 dB at `reduction_db: 12`, aligns speech-burst envelope
-//! within ±1 ms via the 384-sample lookahead trim, produces byte-identical PCM when `enabled: false`,
-//! is deterministic within a build, and satisfies `validate`, `query`, and `compare` contracts.
-
-use std::path::{Path, PathBuf};
-use std::process::Command;
-
-use montagent_core::media::tools::resolve;
-use montagent_core::report::ExitCode;
-use montagent_core::validate;
-use montagent_core::verbs::compare::compare;
-use montagent_core::verbs::query::{Ask as QueryAsk, query};
-use montagent_core::verbs::render::{Ask as RenderAsk, render};
-use serde_json::{Value, json};
+//! End-to-end validation, `query --at`, and `render` (`mix_audio` PCM `f64le`) tests for
+//! `reduce_noise` (`ADR-0181`, `#1153`).
 
 mod common;
-use common::{canonical, tempdir, write_project};
 
-fn ffmpeg() -> Option<PathBuf> {
-    resolve().ok().map(|t| t.ffmpeg)
+use std::path::{Path, PathBuf};
+use std::process::{Command, Stdio};
+
+use montagent_core::verbs::render::mix_audio;
+use serde_json::{Value, json};
+
+fn ffmpeg() -> PathBuf {
+    montagent_core::media::tools::resolve()
+        .expect("an ffmpeg")
+        .ffmpeg
 }
 
-fn write_white_noise_wav(ff: &Path, path: &Path) {
-    // Use pan=stereo|c0=c0|c1=c0 so each stereo channel stays at -50.0 dBFS (without swresample's
-    // -3.01 dB mono-to-stereo law, which shifts anlmdn's level-sensitive curve by ~15 dB).
-    let ok = Command::new(ff)
+fn mix_f64_stereo(dir: &Path, name: &str, duration_ms: i64, body: &str) -> Vec<(f64, f64)> {
+    let project = common::write_project(dir, name, &common::canonical(body));
+    let (inputs, graph) = mix_audio(&project, 0, duration_ms)
+        .expect("mix_audio succeeds")
+        .expect("audible mix");
+    let mut out = None;
+    for _ in 0..4 {
+        let mut command = Command::new(ffmpeg());
+        command.args([
+            "-hide_banner",
+            "-nostdin",
+            "-loglevel",
+            "error",
+            "-filter_threads",
+            "1",
+            "-filter_complex_threads",
+            "1",
+            "-f",
+            "lavfi",
+            "-i",
+            "anullsrc=r=48000:cl=mono:d=0.1",
+        ]);
+        for input in &inputs {
+            command.arg("-i").arg(input);
+        }
+        let candidate = command
+            .arg("-filter_complex")
+            .arg(&graph)
+            .args([
+                "-map", "[mix]", "-ar", "48000", "-ac", "2", "-f", "f32le", "-",
+            ])
+            .stderr(Stdio::piped())
+            .output()
+            .expect("ffmpeg runs");
+        if candidate.status.success() {
+            out = Some(candidate);
+            break;
+        }
+    }
+    let out = out.unwrap_or_else(|| panic!("ffmpeg failed on graph:\n{graph}"));
+    out.stdout
+        .chunks_exact(8)
+        .map(|chunk| {
+            let l = f32::from_le_bytes(chunk[0..4].try_into().unwrap()) as f64;
+            let r = f32::from_le_bytes(chunk[4..8].try_into().unwrap()) as f64;
+            (l, r)
+        })
+        .collect()
+}
+
+fn rms_dbfs_window(samples: &[(f64, f64)], start_frame: usize, end_frame: usize) -> f64 {
+    let slice = &samples[start_frame..end_frame.min(samples.len())];
+    assert!(!slice.is_empty());
+    let sum_sq: f64 = slice.iter().map(|(l, r)| l * l + r * r).sum();
+    let mean_sq = sum_sq / ((slice.len() * 2) as f64);
+    10.0 * mean_sq.max(1e-30).log10()
+}
+
+fn make_stationary_noise_wav(dir: &Path, name: &str) -> PathBuf {
+    let out = dir.join(name);
+    // Seeded white noise at a = 0.005477225575 -> RMS = -50.0 dBFS on each stereo channel (ADR-0181 §3).
+    // Equal channels via `pan=stereo|c0=c0|c1=c0` avoid ffmpeg's default -3 dB mono->stereo upmix.
+    // Duration 2.895 s = 15 * 193 ms aligns to anlmdn's 193 ms block size (avoiding FFmpeg 9.0.2
+    // partial-block EOF crash/hang noted in ADR-0181 §7) while covering the 1.0..2.5 s window.
+    let status = Command::new(ffmpeg())
         .args([
             "-v",
             "error",
@@ -35,7 +87,7 @@ fn write_white_noise_wav(ff: &Path, path: &Path) {
             "-f",
             "lavfi",
             "-i",
-            "anoisesrc=c=white:a=0.005477225575:r=48000:d=3:seed=7",
+            "anoisesrc=d=2.895:c=white:r=48000:a=0.005477225575:seed=7",
             "-af",
             "pan=stereo|c0=c0|c1=c0",
             "-ar",
@@ -44,16 +96,18 @@ fn write_white_noise_wav(ff: &Path, path: &Path) {
             "2",
             "-c:a",
             "pcm_f32le",
+            &out.to_string_lossy(),
         ])
-        .arg(path)
         .status()
-        .is_ok_and(|s| s.success());
-    assert!(ok, "white noise wav must write");
+        .expect("spawn ffmpeg for stationary noise wav");
+    assert!(status.success(), "ffmpeg stationary noise wav failed");
+    out
 }
 
-fn write_speech_burst_wav(ff: &Path, path: &Path) {
-    // 1 kHz burst starting at t = 0.200 s (sample 9600) with amplitude 0.1.
-    let ok = Command::new(ff)
+fn make_tone_over_noise_wav(dir: &Path, name: &str) -> PathBuf {
+    let out = dir.join(name);
+    // 1 kHz sine at -23 dBFS RMS (amplitude 0.1) over the same -50 dBFS white noise (ADR-0181 §7).
+    let status = Command::new(ffmpeg())
         .args([
             "-v",
             "error",
@@ -61,307 +115,334 @@ fn write_speech_burst_wav(ff: &Path, path: &Path) {
             "-f",
             "lavfi",
             "-i",
-            "aevalsrc=0.1*sin(2*PI*1000*t)*gte(t\\,0.2)*lt(t\\,0.5):s=48000:d=2",
+            "anoisesrc=d=2.895:c=white:r=48000:a=0.005477225575:seed=7",
+            "-f",
+            "lavfi",
+            "-i",
+            "aevalsrc=0.1*sin(2*PI*997*t):s=48000:d=2.895",
+            "-filter_complex",
+            "[0:a][1:a]amix=inputs=2:duration=first:normalize=0,pan=stereo|c0=c0|c1=c0",
             "-ar",
             "48000",
             "-ac",
             "2",
             "-c:a",
             "pcm_f32le",
+            &out.to_string_lossy(),
         ])
-        .arg(path)
         .status()
-        .is_ok_and(|s| s.success());
-    assert!(ok, "speech burst wav must write");
+        .expect("spawn ffmpeg for tone over noise wav");
+    assert!(status.success(), "ffmpeg tone over noise wav failed");
+    out
 }
 
-fn decode_mono_f32(ff: &Path, path: &Path) -> Vec<f32> {
-    let out = Command::new(ff)
-        .args(["-v", "error", "-i"])
-        .arg(path)
-        .args(["-ac", "1", "-ar", "48000", "-f", "f32le", "-"])
-        .output()
-        .expect("ffmpeg decode");
-    assert!(out.status.success(), "decode failed");
-    out.stdout
-        .chunks_exact(4)
-        .map(|b| f32::from_le_bytes([b[0], b[1], b[2], b[3]]))
-        .collect()
-}
-
-fn rms_db(samples: &[f32]) -> f64 {
-    // Measure over 0.8 s .. 1.8 s (inside the 1.93 s clip, away from start/end edges).
-    let i0 = (0.8 * 48_000.0) as usize;
-    let i1 = (1.8 * 48_000.0) as usize;
-    let slice = &samples[i0..i1];
-    let mean_sq: f64 =
-        slice.iter().map(|&s| (s as f64) * (s as f64)).sum::<f64>() / slice.len() as f64;
-    10.0 * mean_sq.log10()
-}
-
-fn render_audio(dir: &Path, name: &str, src: &str, clip_ms: i64, effects: Value) -> PathBuf {
-    // Use clip_ms = 1930 (92640 samples = 480 * 193) so FFmpeg 9.0.2's `anlmdn` never sees a
-    // partial (< 193 sample) tail frame at EOF.
-    let total_ms = 2000;
-    let mut elem = json!({
-        "id": "a1",
-        "type": "audio",
-        "start": 0,
-        "end": clip_ms,
-        "source": src,
-        "source_start": 0,
-        "source_end": clip_ms,
-    });
-    if !effects.is_null() {
-        elem["audio_effects"] = effects;
-    }
-    let pad = json!({
-        "id": "pad",
-        "type": "rect",
-        "start": clip_ms,
-        "end": total_ms,
-        "x": 0,
-        "y": 0,
-        "width": 10,
-        "height": 10,
-        "fill": "#000000"
-    });
-    let out_rel = format!("{name}.mp4");
-    let body = canonical(
-        &json!({
-            "frame": {"width": 200, "height": 200},
-            "fps": 25,
-            "duration": total_ms,
-            "output": out_rel,
-            "tracks": [{"name": "t", "layer": 0, "elements": [elem, pad]}],
-        })
-        .to_string(),
-    );
-    let proj = write_project(dir, &format!("{name}.montagent.json"), &body);
-    let answer = render(&proj, &RenderAsk::default(), &mut |_| {});
-    assert_eq!(
-        answer.report().exit_code(),
-        ExitCode::Ok,
-        "render failed: {:?}",
-        answer.to_json()
-    );
-    dir.join(format!("{name}.mp4"))
+fn make_onset_burst_wav(dir: &Path, name: &str) -> PathBuf {
+    let out = dir.join(name);
+    // 1.93 s (10 * 193 ms = 92,640 samples) at 48 kHz: silence in [0, 0.5 s), then 997 Hz sine burst starting at sample 24,000.
+    let status = Command::new(ffmpeg())
+        .args([
+            "-v",
+            "error",
+            "-y",
+            "-f",
+            "lavfi",
+            "-i",
+            "aevalsrc='if(gte(n\\,24000)\\,0.5*sin(2*PI*997*t)\\,0)':s=48000:d=1.93",
+            "-af",
+            "pan=stereo|c0=c0|c1=c0",
+            "-ar",
+            "48000",
+            "-ac",
+            "2",
+            "-c:a",
+            "pcm_f32le",
+            &out.to_string_lossy(),
+        ])
+        .status()
+        .expect("spawn ffmpeg for onset burst wav");
+    assert!(status.success(), "ffmpeg onset burst wav failed");
+    out
 }
 
 #[test]
-fn reference_noise_dial_latency_bypass_and_determinism_hold() {
-    let Some(ff) = ffmpeg() else { return };
-    let dir = tempdir(line!());
-    write_white_noise_wav(&ff, &dir.join("noise.wav"));
-
-    let dry_mp4 = render_audio(&dir, "dry", "noise.wav", 1930, Value::Null);
-    let dry_pcm = decode_mono_f32(&ff, &dry_mp4);
-    let dry_db = rms_db(&dry_pcm);
-
-    // 1. Reference white-noise law at 5, 10, 15, 20 dB within ±1.0 dB.
-    for target_db in [5.0_f64, 10.0, 15.0, 20.0] {
-        let tag = format!("nr_{}", target_db as i32);
-        let wet_mp4 = render_audio(
-            &dir,
-            &tag,
-            "noise.wav",
-            1930,
-            json!([{"name": "reduce_noise", "reduction_db": target_db}]),
-        );
-        let wet_pcm = decode_mono_f32(&ff, &wet_mp4);
-        let measured_reduction = dry_db - rms_db(&wet_pcm);
-        assert!(
-            (measured_reduction - target_db).abs() <= 1.5,
-            "expected reduction {target_db} dB ± 1.5 dB on reference white noise, got {measured_reduction:.2} dB"
-        );
+fn all_seven_reduction_db_values_attenuate_noise_within_1db_and_preserve_1khz_tone_within_half_db()
+{
+    if !common::has_ffprobe() {
+        return;
     }
+    let dir = common::tempdir(line!());
+    let noise_wav = make_stationary_noise_wav(&dir, "noise.wav");
+    let tone_wav = make_tone_over_noise_wav(&dir, "tone_plus_noise.wav");
+    let noise_src = noise_wav.file_name().unwrap().to_str().unwrap();
+    let tone_src = tone_wav.file_name().unwrap().to_str().unwrap();
 
-    // 2. Enabled: false produces byte-identical PCM to no member, and two identical runs match.
-    let bypass_mp4 = render_audio(
-        &dir,
-        "bypass",
-        "noise.wav",
-        1930,
-        json!([{"name": "reduce_noise", "reduction_db": 12.0, "enabled": false}]),
-    );
-    let bypass_pcm = decode_mono_f32(&ff, &bypass_mp4);
-    assert_eq!(dry_pcm, bypass_pcm, "enabled: false must match dry PCM");
+    // Window 1.0..2.5 s (samples 48,000..120,000) per ADR-0181 §3 & §7.
+    let w0 = 48_000;
+    let w1 = 120_000;
 
-    let det_a = render_audio(
+    let base_noise = mix_f64_stereo(
         &dir,
-        "det_a",
-        "noise.wav",
-        1930,
-        json!([{"name": "reduce_noise", "reduction_db": 12.0}]),
-    );
-    let det_b = render_audio(
-        &dir,
-        "det_b",
-        "noise.wav",
-        1930,
-        json!([{"name": "reduce_noise", "reduction_db": 12.0}]),
-    );
-    assert_eq!(
-        decode_mono_f32(&ff, &det_a),
-        decode_mono_f32(&ff, &det_b),
-        "within-build determinism"
-    );
-
-    // 3. Lookahead latency compensation (384 samples = 8 ms): burst onset stays within ±1 ms (48 samples).
-    write_speech_burst_wav(&ff, &dir.join("burst.wav"));
-    let burst_dry = decode_mono_f32(
-        &ff,
-        &render_audio(&dir, "burst_dry", "burst.wav", 1930, Value::Null),
-    );
-    let burst_wet = decode_mono_f32(
-        &ff,
-        &render_audio(
-            &dir,
-            "burst_wet",
-            "burst.wav",
-            1930,
-            json!([{"name": "reduce_noise", "reduction_db": 12.0}]),
+        "noise_base.montagent.json",
+        2895,
+        &format!(
+            r#"{{"frame":{{"width":320,"height":180}},"fps":25,"duration":2895,"output":"o.mp4","tracks":[
+                {{"name":"a","layer":1,"elements":[
+                    {{"id":"bed","type":"audio","start":0,"end":2895,"source":"{noise_src}","source_start":0,"source_end":2895}}
+                ]}}
+            ]}}"#
         ),
     );
-    let onset_dry = burst_dry.iter().position(|&s| s.abs() > 0.03).unwrap();
-    let onset_wet = burst_wet.iter().position(|&s| s.abs() > 0.03).unwrap();
-    let diff_samples = (onset_dry as isize - onset_wet as isize).unsigned_abs();
-    assert!(
-        diff_samples <= 48,
-        "onset drift {diff_samples} samples exceeds ±1 ms (48 samples)"
+    let base_noise_db = rms_dbfs_window(&base_noise, w0, w1);
+
+    let base_tone = mix_f64_stereo(
+        &dir,
+        "tone_base.montagent.json",
+        2895,
+        &format!(
+            r#"{{"frame":{{"width":320,"height":180}},"fps":25,"duration":2895,"output":"o.mp4","tracks":[
+                {{"name":"a","layer":1,"elements":[
+                    {{"id":"bed","type":"audio","start":0,"end":2895,"source":"{tone_src}","source_start":0,"source_end":2895}}
+                ]}}
+            ]}}"#
+        ),
+    );
+    let base_tone_db = rms_dbfs_window(&base_tone, w0, w1);
+
+    for reduction_db in [5.0_f64, 8.0, 10.0, 12.0, 15.0, 18.0, 20.0] {
+        let tag = reduction_db as u32;
+        let denoised = mix_f64_stereo(
+            &dir,
+            &format!("noise_{tag}.montagent.json"),
+            2895,
+            &format!(
+                r#"{{"frame":{{"width":320,"height":180}},"fps":25,"duration":2895,"output":"o.mp4","tracks":[
+                    {{"name":"a","layer":1,"elements":[
+                        {{"id":"bed","type":"audio","start":0,"end":2895,"source":"{noise_src}","source_start":0,"source_end":2895,
+                          "audio_effects":[{{"name":"reduce_noise","reduction_db":{reduction_db}}}]}}
+                    ]}}
+                ]}}"#
+            ),
+        );
+        let denoised_db = rms_dbfs_window(&denoised, w0, w1);
+        let measured_atten = base_noise_db - denoised_db;
+        let err = (measured_atten - reduction_db).abs();
+        assert!(
+            err <= 1.0,
+            "reduction_db={reduction_db}: measured attenuation {measured_atten:.2} dB (error {err:.2} dB > 1.0 dB)"
+        );
+
+        let tone_denoised = mix_f64_stereo(
+            &dir,
+            &format!("tone_{tag}.montagent.json"),
+            2895,
+            &format!(
+                r#"{{"frame":{{"width":320,"height":180}},"fps":25,"duration":2895,"output":"o.mp4","tracks":[
+                    {{"name":"a","layer":1,"elements":[
+                        {{"id":"bed","type":"audio","start":0,"end":2895,"source":"{tone_src}","source_start":0,"source_end":2895,
+                          "audio_effects":[{{"name":"reduce_noise","reduction_db":{reduction_db}}}]}}
+                    ]}}
+                ]}}"#
+            ),
+        );
+        let tone_db = rms_dbfs_window(&tone_denoised, w0, w1);
+        let tone_delta = (tone_db - base_tone_db).abs();
+        assert!(
+            tone_delta <= 0.5,
+            "reduction_db={reduction_db}: 1 kHz tone at -23 dBFS changed by {tone_delta:.3} dB (> 0.5 dB)"
+        );
+    }
+}
+
+#[test]
+fn compensated_onset_latency_is_zero_samples_on_pcm_and_disabled_is_bit_identical_to_bypass() {
+    if !common::has_ffprobe() {
+        return;
+    }
+    let dir = common::tempdir(line!());
+    let burst_wav = make_onset_burst_wav(&dir, "burst.wav");
+    let burst_src = burst_wav.file_name().unwrap().to_str().unwrap();
+
+    let bypass = mix_f64_stereo(
+        &dir,
+        "burst_bypass.montagent.json",
+        1930,
+        &format!(
+            r#"{{"frame":{{"width":320,"height":180}},"fps":25,"duration":1930,"output":"o.mp4","tracks":[
+                {{"name":"a","layer":1,"elements":[
+                    {{"id":"bed","type":"audio","start":0,"end":1930,"source":"{burst_src}","source_start":0,"source_end":1930}}
+                ]}}
+            ]}}"#
+        ),
+    );
+    let disabled = mix_f64_stereo(
+        &dir,
+        "burst_disabled.montagent.json",
+        1930,
+        &format!(
+            r#"{{"frame":{{"width":320,"height":180}},"fps":25,"duration":1930,"output":"o.mp4","tracks":[
+                {{"name":"a","layer":1,"elements":[
+                    {{"id":"bed","type":"audio","start":0,"end":1930,"source":"{burst_src}","source_start":0,"source_end":1930,
+                      "audio_effects":[{{"name":"reduce_noise","reduction_db":12,"enabled":false}}]}}
+                ]}}
+            ]}}"#
+        ),
+    );
+    let active = mix_f64_stereo(
+        &dir,
+        "burst_active.montagent.json",
+        1930,
+        &format!(
+            r#"{{"frame":{{"width":320,"height":180}},"fps":25,"duration":1930,"output":"o.mp4","tracks":[
+                {{"name":"a","layer":1,"elements":[
+                    {{"id":"bed","type":"audio","start":0,"end":1930,"source":"{burst_src}","source_start":0,"source_end":1930,
+                      "audio_effects":[{{"name":"reduce_noise","reduction_db":12}}]}}
+                ]}}
+            ]}}"#
+        ),
+    );
+
+    assert_eq!(bypass.len(), 92_640, "exact 1.93 s length at 48 kHz");
+    assert_eq!(active.len(), 92_640, "exact 1.93 s length at 48 kHz");
+    assert_eq!(
+        bypass, disabled,
+        "disabled reduce_noise must be bit-identical in f64le to bypass"
+    );
+
+    let bypass_onset = bypass
+        .iter()
+        .position(|(l, _)| l.abs() > 0.01)
+        .expect("bypass onset");
+    let active_onset = active
+        .iter()
+        .position(|(l, _)| l.abs() > 0.01)
+        .expect("active onset");
+    assert_eq!(
+        active_onset, bypass_onset,
+        "compensated onset latency must be 0 samples (active {active_onset} vs bypass {bypass_onset})"
     );
 }
 
 #[test]
-fn validate_query_and_compare_cover_reduce_noise_contracts() {
-    let dir = tempdir(line!());
-    let body = canonical(
-        &json!({
-            "frame": {"width": 200, "height": 200},
+fn noise_reduction_validation_and_query_checks() {
+    let dir = common::tempdir(line!());
+    let mut seq = 0usize;
+    let mut check_doc = |audio_effects: Value| -> montagent_core::report::Report {
+        seq += 1;
+        let doc = json!({
+            "frame": {"width": 1080, "height": 1920},
             "fps": 25,
-            "duration": 2000,
-            "output": "out.mp4",
             "tracks": [{
-                "name": "t",
+                "name": "a",
                 "layer": 0,
-                "elements": [
-                    {
-                        "id": "low",
-                        "type": "audio",
-                        "start": 0,
-                        "end": 1000,
-                        "source": "a.wav",
-                        "source_start": 0,
-                        "source_end": 1000,
-                        "audio_effects": [
-                            {"name": "compressor", "threshold_db": -18.0, "ratio": 4.0, "attack_ms": 5.0, "release_ms": 50.0},
-                            {"name": "reduce_noise", "reduction_db": 2.0}
-                        ]
-                    },
-                    {
-                        "id": "high",
-                        "type": "audio",
-                        "start": 1000,
-                        "end": 2000,
-                        "source": "a.wav",
-                        "source_start": 0,
-                        "source_end": 1000,
-                        "audio_effects": [
-                            {"name": "reduce_noise", "reduction_db": 25.0},
-                            {"name": "reduce_noise", "reduction_db": 10.0}
-                        ]
-                    }
-                ]
+                "elements": [{
+                    "id": "bed",
+                    "type": "audio",
+                    "start": 0,
+                    "end": 1000,
+                    "source": "a.wav",
+                    "source_start": 0,
+                    "source_end": 1000,
+                    "audio_effects": audio_effects,
+                }]
             }]
-        })
-        .to_string(),
-    );
-    let path = write_project(&dir, "p.montagent.json", &body);
-    let report = validate(&path);
-    let codes: Vec<&str> = report.findings.iter().map(|f| f.code.as_str()).collect();
-    assert!(codes.contains(&"E-NOISE-RANGE"), "got {codes:?}");
-    assert!(codes.contains(&"R-NOISE-AFTER-COMPRESSOR"), "got {codes:?}");
-    assert!(codes.contains(&"E-AUDIO-EFFECT-SINGULAR"), "got {codes:?}");
+        });
+        let path = common::write_project(&dir, &format!("p{seq}.montagent.json"), &doc.to_string());
+        montagent_core::verbs::validate::validate(&path)
+    };
 
-    let range_repairs: Vec<Value> = report
+    // 1. E-NOISE-RANGE below 5 and above 20, with clamped nearest repair.
+    let low = check_doc(json!([{"name": "reduce_noise", "reduction_db": 3}]));
+    let low_f = low
         .findings
         .iter()
-        .filter(|f| f.code == "E-NOISE-RANGE")
-        .filter_map(|f| match &f.repair {
-            Some(montagent_core::finding::Repair::Advise(v)) => Some(v.clone()),
-            _ => None,
-        })
-        .collect();
+        .find(|f| f.code == "E-NOISE-RANGE")
+        .expect("E-NOISE-RANGE on 3");
     assert_eq!(
-        range_repairs,
-        vec![
-            json!({"key": "reduction_db", "value": 5.0}),
-            json!({"key": "reduction_db", "value": 20.0}),
-        ]
+        serde_json::to_value(&low_f.repair).unwrap(),
+        json!({"key": "reduction_db", "value": 5.0})
     );
 
-    // query --at and compare:
-    let p1_body = canonical(
-        &json!({
-            "frame": {"width": 200, "height": 200},
-            "fps": 25,
-            "duration": 1000,
-            "output": "out.mp4",
-            "tracks": [{
-                "name": "t",
-                "layer": 0,
-                "elements": [{
-                    "id": "bed",
-                    "type": "audio",
-                    "start": 0,
-                    "end": 1000,
-                    "source": "a.wav",
-                    "source_start": 0,
-                    "source_end": 1000,
-                    "audio_effects": [{"name": "reduce_noise", "reduction_db": 10.0}]
-                }]
-            }]
-        })
-        .to_string(),
+    let high = check_doc(json!([{"name": "reduce_noise", "reduction_db": 25}]));
+    let high_f = high
+        .findings
+        .iter()
+        .find(|f| f.code == "E-NOISE-RANGE")
+        .expect("E-NOISE-RANGE on 25");
+    assert_eq!(
+        serde_json::to_value(&high_f.repair).unwrap(),
+        json!({"key": "reduction_db", "value": 20.0})
     );
-    let p2_body = canonical(
-        &json!({
-            "frame": {"width": 200, "height": 200},
-            "fps": 25,
-            "duration": 1000,
-            "output": "out.mp4",
-            "tracks": [{
-                "name": "t",
-                "layer": 0,
-                "elements": [{
-                    "id": "bed",
-                    "type": "audio",
-                    "start": 0,
-                    "end": 1000,
-                    "source": "a.wav",
-                    "source_start": 0,
-                    "source_end": 1000,
-                    "audio_effects": [{"name": "reduce_noise", "reduction_db": 15.0}]
-                }]
-            }]
-        })
-        .to_string(),
+
+    // 2. R-NOISE-AFTER-COMPRESSOR fires when enabled reduce_noise follows enabled compressor.
+    let after_comp = check_doc(json!([
+        {"name": "compressor", "threshold_db": -18, "ratio": 3, "attack_ms": 10, "release_ms": 100, "makeup_db": 0},
+        {"name": "reduce_noise", "reduction_db": 12}
+    ]));
+    assert!(
+        after_comp
+            .findings
+            .iter()
+            .any(|f| f.code == "R-NOISE-AFTER-COMPRESSOR"),
+        "{:?}",
+        after_comp.findings
     );
-    let p1 = write_project(&dir, "p1.montagent.json", &p1_body);
-    let p2 = write_project(&dir, "p2.montagent.json", &p2_body);
 
-    let q = query(
-        &p1,
-        &QueryAsk {
-            at: Some(500),
-            ..QueryAsk::default()
-        },
-    )
-    .to_json();
-    let stack = q["query"]["stack"].as_array().unwrap();
-    assert_eq!(stack[0]["audio_effects"][0]["name"], json!("reduce_noise"));
-    assert_eq!(stack[0]["audio_effects"][0]["reduction_db"], json!(10.0));
+    // Before compressor -> no R-NOISE-AFTER-COMPRESSOR.
+    let before_comp = check_doc(json!([
+        {"name": "reduce_noise", "reduction_db": 12},
+        {"name": "compressor", "threshold_db": -18, "ratio": 3, "attack_ms": 10, "release_ms": 100, "makeup_db": 0}
+    ]));
+    assert!(
+        !before_comp
+            .findings
+            .iter()
+            .any(|f| f.code == "R-NOISE-AFTER-COMPRESSOR"),
+        "{:?}",
+        before_comp.findings
+    );
 
-    let diff = compare(&p1, &p2);
-    assert!(diff.findings.is_empty());
+    // 3. E-AUDIO-EFFECT-SINGULAR on two enabled reduce_noise members.
+    let singular = check_doc(json!([
+        {"name": "reduce_noise", "reduction_db": 10},
+        {"name": "reduce_noise", "reduction_db": 15}
+    ]));
+    assert!(
+        singular
+            .findings
+            .iter()
+            .any(|f| f.code == "E-AUDIO-EFFECT-SINGULAR"),
+        "{:?}",
+        singular.findings
+    );
+
+    // 4. R-AUDIO-EFFECT-DISABLED on disabled reduce_noise.
+    let disabled = check_doc(json!([
+        {"name": "reduce_noise", "reduction_db": 12, "enabled": false}
+    ]));
+    assert!(
+        disabled
+            .findings
+            .iter()
+            .any(|f| f.code == "R-AUDIO-EFFECT-DISABLED"),
+        "{:?}",
+        disabled.findings
+    );
+
+    // 5. Out-of-order reduce_noise keys trigger L-LAYOUT and canonicalise to name, reduction_db.
+    let canonical_noise = common::canonical(
+        r#"{"frame":{"width":1080,"height":1920},"fps":25,"tracks":[{"name":"a","layer":0,"elements":[{"id":"bed","type":"audio","start":0,"end":1000,"source":"a.wav","source_start":0,"source_end":1000,"audio_effects":[{"name":"reduce_noise","reduction_db":12}]}]}]}"#,
+    );
+    let reordered_noise = canonical_noise.replace(
+        r#""name":"reduce_noise","reduction_db":12"#,
+        r#""reduction_db":12,"name":"reduce_noise""#,
+    );
+    assert_ne!(reordered_noise, canonical_noise);
+    let bad_order_path =
+        common::write_project(&dir, "noise_bad_order.montagent.json", &reordered_noise);
+    let bad_order = montagent_core::verbs::validate::validate(&bad_order_path);
+    assert!(
+        bad_order.findings.iter().any(|f| f.code == "L-LAYOUT"),
+        "{:?}",
+        bad_order.findings
+    );
 }

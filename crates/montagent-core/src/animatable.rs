@@ -940,14 +940,18 @@ pub fn hidden_at(element: &Value, numerator: i128, denominator: i128) -> Option<
 /// paints — [`crate::exact::instant_of`] of every frame inside `[start, end)` — through the
 /// same reading the painter takes, so `validate` and `render` agree. An element whose range
 /// holds no frame at all is not answered here: that is `N-QUANTIZATION`'s fact.
-pub fn never_painted(element: &Value, fps: i64) -> Option<Vec<Hidden>> {
+pub fn never_painted(
+    element: &Value,
+    fps: impl Into<crate::model::FrameRate>,
+) -> Option<Vec<Hidden>> {
+    let fps = fps.into();
     let (Some(start), Some(end)) = (
         element.get("start").and_then(Value::as_i64),
         element.get("end").and_then(Value::as_i64),
     ) else {
         return None;
     };
-    if fps <= 0 || end <= start {
+    if !fps.is_positive() || end <= start {
         return None;
     }
     let (first, last) = (

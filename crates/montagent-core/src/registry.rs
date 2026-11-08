@@ -4135,6 +4135,9 @@ shifting `anlmdn`'s threshold. Put `reduce_noise` before `compressor`, unless th
     CheckSpec {
         code: "R-PAN-INERT",
         classes: &[Review],
+        // A review, never an error (`only_error_class_checks_declare_a_refuse_class`, ADR-0043);
+        // the advise repair ("Delete `pan` unless pinning to centre is meant.") is carried in the
+        // template prose, matching `R-EASE-INERT` and `R-MOTION-BLUR-STILL`.
         repair: None,
         threshold: Internal,
         adr: "ADR-0184",
@@ -4147,6 +4150,9 @@ shifting `anlmdn`'s threshold. Put `reduce_noise` before `compressor`, unless th
     CheckSpec {
         code: "R-CHANNELS-INERT",
         classes: &[Review],
+        // A review, never an error (`only_error_class_checks_declare_a_refuse_class`, ADR-0043);
+        // the advise repair ("Delete `channels` unless pinning to stereo is meant.") is carried in
+        // the template prose, matching `R-EASE-INERT` and `R-MOTION-BLUR-STILL`.
         repair: None,
         threshold: Internal,
         adr: "ADR-0184",
