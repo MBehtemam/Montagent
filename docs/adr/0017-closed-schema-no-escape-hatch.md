@@ -10,7 +10,7 @@ amends: 0016 (settles the unknown-key policy ADR-0016 requires and does not take
 >
 > **Amended by [ADR-0217](0217-motion-bakes-and-keyframe-assistants-enter-in-one-keyframes-script-auto-colour-is-refused-and-a-skill-script-with-its-spec-is-a-template.md)**: confirms the closed project schema holds against templates, presets, Essential Properties and Expression Controls; a skill script paired with its standalone `<spec>` JSON sidecar is the complete answer, with no in-document keys and no project-level sidecar manifest.
 >
-> Also amended by [ADR-0234](0234-layered-psd-ai-import-and-scene-edit-detection-are-skill-scripts-and-source-interpretation-stays-upstream.md), [ADR-0237](0237-arbitrary-opencolorio-configs-are-refused-and-aces-and-wide-gamut-transforms-enter-via-3d-luts.md).
+> Also amended by [ADR-0234](0234-layered-psd-ai-import-and-scene-edit-detection-are-skill-scripts-and-source-interpretation-stays-upstream.md), [ADR-0237](0237-arbitrary-opencolorio-configs-are-refused-and-aces-and-wide-gamut-transforms-enter-via-3d-luts.md), [ADR-0250](./0250-ratify-schema-check-two-code-split-retirement-suppression-and-no-census.md).
 
 [#75](https://github.com/MBehtemam/Montagent/issues/75). ADR-0016 spends the format's entire
 forward-compatibility budget on the unknown-key error, and states plainly that its mechanism

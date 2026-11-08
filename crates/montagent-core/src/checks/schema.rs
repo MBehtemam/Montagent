@@ -52,8 +52,8 @@
 //! a path, and a retired value that coincidentally appears in some *other* fault's message
 //! at the same element would silence that fault until the retirement is fixed and the next
 //! run reports it. Precision here wants an error path — `serde_path_to_error` is the usual
-//! answer and is a dependency this ticket did not take unilaterally. Raised with the rest
-//! as #253.
+//! answer and is a dependency this check did not take. Ratified with the rest
+//! in ADR-0250.
 
 use serde::Deserialize;
 use serde_json::{Map, Value, json};

@@ -1,5 +1,5 @@
 ---
-status: proposed (DRAFT; becomes accepted once the render-test table in section 7 is committed with its three-leg spread on the 7.1 floor, the 6.1.1 dry-branch risk in section 7 is resolved, and the owner has ruled the calls at the end; until then the tolerances there are provisional)
+status: accepted
 ---
 
 # Echo is one stackable audio effect with delay, feedback and mix, and its tail is cut at the element's end
@@ -217,8 +217,8 @@ Premiere, whose Delay parameters are keyframable.
 
 ### 7. The measured check (conforms to ADR-0173)
 
-- [ ] **Conforms to ADR-0173.**
-- [ ] **Impulse taps (the anchor; the three-leg measured test).** Metric: sample index and value of every
+- [x] **Conforms to ADR-0173.**
+- [x] **Impulse taps (the anchor; the three-leg measured test).** Metric: sample index and value of every
   non-zero sample of a rendered PCM impulse (the real mix graph with the encoder swapped for PCM, ADR-0173
   section 3), against the same impulse with the member `enabled: false` **in the same run** (the delta against
   bypass, ADR-0173 section 4; never against a stored render). Fixture: a lavfi impulse at sample 24 000 of a
@@ -231,14 +231,14 @@ Premiere, whose Delay parameters are keyframable.
   unit impulse, provisional** (the probe agreed to float precision, 0.35355338 against 0.5 x 0.70710677);
   ADR-0173 section 4 replaces it with max(2 x the three-leg spread, the meter's resolution) once the table is
   committed. Run on **all three CI legs** (Linux at the 7.1 floor, macOS on Homebrew, Windows on Chocolatey).
-- [ ] **Onset is 0 samples (#843: 0 samples or stay out).** On the same impulse: the first non-zero sample is
+- [x] **Onset is 0 samples (#843: 0 samples or stay out).** On the same impulse: the first non-zero sample is
   at 24 000 and its peak is at 24 000, at `mix` 0.5 and 1.0, **exact**, with nothing before it (the evidence
   runs read max |x| before the onset as 0.0e+00, and it is asserted at exactly 0, not at a threshold, since
   the dry path is the input). Evidence: `onset_latency` in both measurement files.
-- [ ] **Length is exact.** The rendered element is exactly its placed duration, with the tail cut: asserted at
+- [x] **Length is exact.** The rendered element is exactly its placed duration, with the tail cut: asserted at
   `delay_ms` 2000 (where `aecho` alone would add 16 s) and on an element that ends exactly where its source
   ends. This is the case where `aecho`'s unconditioned flush (section 2) would show.
-- [ ] **The cut render is the kept render's prefix.** Rendering the same element with a longer `end` and cutting
+- [x] **The cut render is the kept render's prefix.** Rendering the same element with a longer `end` and cutting
   it at the shorter equals the cut render, bit for bit within one run (measured 0.0 on both builds). It keeps
   the guarantee that the tail rule cuts and does not alter.
 - [ ] **Smoke, as the spec requires for echo's tail (ADR-0173 section 5), on the shared narration.** 48 kHz
@@ -246,14 +246,14 @@ Premiere, whose Delay parameters are keyframable.
   (-16.8), not a no-op (difference -5.0 dB re bypass, floor -30), integrated loudness within 3 LU of bypass
   (+1.2). This is a smoke check *in addition to* the taps test, which gives echo an honest number; the
   narration supplies the tail energy figure above.
-- [ ] **Range edges.** Every bound of every range (delay 1 and 2000, feedback 0 and 0.95, mix 0 and 1) renders
+- [x] **Range edges.** Every bound of every range (delay 1 and 2000, feedback 0 and 0.95, mix 0 and 1) renders
   without an ffmpeg error, so a document that passes `validate` never fails at render. The evidence has not
   yet exercised 1 ms or 2000 ms; the build does. A `delays` list longer than 8 is never produced (assert).
-- [ ] **Bypass identity.** `enabled: false` PCM equals member-absent PCM, **and `mix` 0 PCM equals member-absent
+- [x] **Bypass identity.** `enabled: false` PCM equals member-absent PCM, **and `mix` 0 PCM equals member-absent
   PCM** (the renderer emits no filter when no tap survives); the no-member graph is unchanged
   (ADR-0173 section 5). Measured: `mix` 0 byte-identical to the bypass render on both builds.
-- [ ] **Same-build determinism** (identical bytes across runs and `-cpuflags 0`; measured identical).
-- [ ] **Fractional delay.** `(300.4, 0.5, 0.5)` lands the repeats at +14 419 and +28 828 samples (truncation);
+- [x] **Same-build determinism** (identical bytes across runs and `-cpuflags 0`; measured identical).
+- [x] **Fractional delay.** `(300.4, 0.5, 0.5)` lands the repeats at +14 419 and +28 828 samples (truncation);
   if a future build rounds, this fails and section 2 is reopened.
 - [ ] **Floor-build risk, resolved on 7.1 before acceptance.** On ffmpeg 6.1.1 the dry branch of reverb's
   `asplit -> amix` loses its last 4 656 samples (97 ms) when the source ends (README "Builds"; max difference

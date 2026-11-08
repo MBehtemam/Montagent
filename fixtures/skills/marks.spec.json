@@ -1,0 +1,23 @@
+{
+  "defaults": {
+    "type": "rect",
+    "origin": "center",
+    "width": 160,
+    "height": 80,
+    "fill": "#FF5A36",
+    "fade_in_ms": 100,
+    "fade_out_ms": 150,
+    "ease": "ease-in-out",
+    "track_prefix": "marks",
+    "max_tracks": 40,
+    "layer": 20
+  },
+  "marks": [
+    {"id": "cue_one", "start": 200, "end": 1200, "x": 360, "y": 640},
+    {"start": 600, "end": 1600, "label": "Overlap Callout", "x": 720, "y": 640},
+    {"start": 1400, "end": 2600, "label": "Next Beat", "x": 540, "y": 1280}
+  ],
+  "overrides": {
+    "cue_one": {"fill": "#F5F0E6", "width": 200}
+  }
+}

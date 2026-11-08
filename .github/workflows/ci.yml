@@ -196,6 +196,11 @@ jobs:
           MONTAGENT: target/${{ matrix.target }}/release/montagent
         run: python3 -m unittest ci/test_duck.py
 
+      - name: The compact marks script expands, packs tracks, guards regeneration and inspects provenance (#1152)
+        env:
+          MONTAGENT: target/${{ matrix.target }}/release/montagent
+        run: python3 -m unittest ci/test_marks.py
+
       - name: The ducking levels' arithmetic still holds
         run: python3 -I docs/research/audio-effects/ducking/check_duck_levels.py
 

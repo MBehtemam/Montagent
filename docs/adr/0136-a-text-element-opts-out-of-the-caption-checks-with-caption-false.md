@@ -5,6 +5,8 @@ amends: 0054 (its scope section: the four caption checks run on every `text` ele
 
 # A text element opts out of the caption checks with `caption: false`
 
+> **Amended by [ADR-0247](./0247-optional-fields-refuse-explicit-null-across-the-project-format.md)**: `caption` on a `text` element is omitted, `true`, or `false`; `"caption": null` is refused with `E-SCHEMA`.
+
 [#458](https://github.com/MBehtemam/Montagent/issues/458).
 [ADR-0054](0054-caption-audio-backing-and-minimum-duration-checks.md)'s scope section runs all
 four caption checks (`R-CAPTION-PACE`, `R-CAPTION-REPEAT-DURATION`, `R-CAPTION-NO-AUDIO` and

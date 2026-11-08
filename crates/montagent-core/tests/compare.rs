@@ -480,3 +480,53 @@ fn a_current_file_that_is_not_a_project_is_reported_as_not_a_project() {
 
     assert_eq!(codes(&report), vec!["E-NOT-A-PROJECT"]);
 }
+
+#[test]
+fn audio_elements_with_pan_channels_reduce_noise_and_echo_compare_cleanly_and_detect_drift() {
+    let dir = tempdir(line!());
+    let ref_body = r##"{"frame":{"width":1080,"height":1920},"fps":25,"tracks":[{"name":"a","layer":1,"elements":[
+        {"id":"bed","type":"audio","start":0,"end":2000,"source":"a.wav","source_start":0,"source_end":2000,
+         "volume":[{"t":0,"v":0.2},{"t":1960,"v":1.0,"ease":"linear"}],
+         "pan":-0.25,"channels":"left",
+         "audio_effects":[
+            {"name":"reduce_noise","reduction_db":12},
+            {"name":"echo","delay_ms":300,"feedback":0.5,"mix":0.5}
+         ]},
+        {"id":"tail","type":"audio","start":2200,"end":3000,"source":"a.wav","source_start":0,"source_end":800}
+    ]}]}"##;
+    let tuned_body = r##"{"frame":{"width":1080,"height":1920},"fps":25,"tracks":[{"name":"a","layer":1,"elements":[
+        {"id":"bed","type":"audio","start":0,"end":2000,"source":"a.wav","source_start":0,"source_end":2000,
+         "volume":[{"t":0,"v":0.2},{"t":1960,"v":1.0,"ease":"linear"}],
+         "pan":0.5,"channels":"swap",
+         "audio_effects":[
+            {"name":"reduce_noise","reduction_db":15},
+            {"name":"echo","delay_ms":400,"feedback":0.4,"mix":0.3}
+         ]},
+        {"id":"tail","type":"audio","start":2200,"end":3000,"source":"a.wav","source_start":0,"source_end":800}
+    ]}]}"##;
+    let (r, c) = write_pair(&dir, ref_body, tuned_body);
+    let report = compare(&r, &c);
+    assert!(
+        report.findings.is_empty(),
+        "tuning literal pan/channels/reduce_noise/echo without timing drift must not raise drift findings: {:?}",
+        codes(&report)
+    );
+
+    let drifted_body = r##"{"frame":{"width":1080,"height":1920},"fps":25,"tracks":[{"name":"a","layer":1,"elements":[
+        {"id":"bed","type":"audio","start":0,"end":2100,"source":"a.wav","source_start":0,"source_end":2100,
+         "volume":[{"t":0,"v":0.2},{"t":1960,"v":1.0,"ease":"linear"}],
+         "pan":0.5,"channels":"swap",
+         "audio_effects":[
+            {"name":"reduce_noise","reduction_db":15},
+            {"name":"echo","delay_ms":400,"feedback":0.4,"mix":0.3}
+         ]},
+        {"id":"tail","type":"audio","start":2200,"end":3000,"source":"a.wav","source_start":0,"source_end":800}
+    ]}]}"##;
+    let (r2, c2) = write_pair(&dir, ref_body, drifted_body);
+    let drifted_report = compare(&r2, &c2);
+    assert!(
+        codes(&drifted_report).contains(&"D-SLACK-DRIFT"),
+        "{:?}",
+        codes(&drifted_report)
+    );
+}

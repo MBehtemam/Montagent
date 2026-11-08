@@ -106,9 +106,16 @@ impl<'de> Visitor<'de> for ElementVisitor {
         let start = take_i64(&mut rest, "start", &id)?;
         let end = take_i64(&mut rest, "end", &id)?;
         let layer = match rest.remove("layer") {
+            // Written as `null`, like `group` above (ADR-0247): an optional field is
+            // omitted when absent, never written as `null`.
+            Some(Value::Null) => {
+                return Err(A::Error::custom(format!(
+                    "`{id}`: `layer` is written as null; omit the key instead"
+                )));
+            }
             // The two forms the format writes, and no third: an integer, or an anchor.
-            // Anything else — a bare string, `{"below": 3}`, `null` — is a schema error
-            // here rather than a value some later stage has to second-guess.
+            // Anything else — a bare string, `{"below": 3}` — is a schema error here
+            // rather than a value some later stage has to second-guess.
             Some(value) => Some(serde_json::from_value::<Layer>(value.clone()).map_err(|_| {
                 A::Error::custom(format!(
                     "`{id}`: `layer` is {value}, not an integer or an anchor such as \
@@ -134,7 +141,10 @@ impl<'de> Visitor<'de> for ElementVisitor {
                  and `path`, not to `{kind}` (ADR-0218)"
             )));
         }
-        let body: Body = serde_json::from_value(Value::Object(rest))
+        let rest_value = Value::Object(rest);
+        let body: Body = serde_json::from_value(rest_value.clone())
+            .map_err(|e| A::Error::custom(format!("`{id}`: {e}")))?;
+        super::refuse_null_fields(&rest_value)
             .map_err(|e| A::Error::custom(format!("`{id}`: {e}")))?;
 
         Ok(Element {

@@ -20,13 +20,20 @@ use serde_json::Value;
 
 /// The first frame an element starting at `start` ms is painted on: the first frame whose
 /// instant is at or after `start`.
-pub(crate) fn first_frame(start: i64, fps: i64) -> i64 {
-    crate::exact::frame_at_or_after(start, fps.max(1)).map_or(0, |frame| frame.frame)
+pub(crate) fn first_frame(start: i64, fps: impl Into<crate::model::FrameRate>) -> i64 {
+    let fps = fps.into();
+    let fps = if fps.is_positive() {
+        fps
+    } else {
+        crate::model::FrameRate::integer(1)
+    };
+    crate::exact::frame_at_or_after(start, fps).map_or(0, |frame| frame.frame)
 }
 
 /// The local frame `element`'s grain draws from when the frame holding `instant` ms is
 /// painted at `fps`: that frame less the element's first. `0` on the first frame it paints.
-pub fn local_frame(element: &Value, instant: i64, fps: i64) -> i64 {
+pub fn local_frame(element: &Value, instant: i64, fps: impl Into<crate::model::FrameRate>) -> i64 {
+    let fps = fps.into();
     let start = element.get("start").and_then(Value::as_i64).unwrap_or(0);
     crate::motion_blur::frame_containing(instant, fps) - first_frame(start, fps)
 }

@@ -138,7 +138,7 @@ impl Loose {
     /// the types cannot hold reads [`Loose::value`] instead. The two are the same bytes —
     /// this is a view, not a second parse of the file.
     pub fn strict(&self) -> Result<crate::model::Project, serde_json::Error> {
-        crate::model::Project::deserialize(&self.value)
+        <crate::model::Project as Deserialize>::deserialize(&self.value)
     }
 
     /// Every element in the document, in document order, however malformed.

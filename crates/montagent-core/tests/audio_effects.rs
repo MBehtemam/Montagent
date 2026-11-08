@@ -121,7 +121,7 @@ fn the_list_is_the_last_key_of_an_audio_and_of_a_video() {
     // `volume`) is the renderer's, not the file's.
     let schema = montagent_core::schema::generate();
     for (kind, last_two) in [
-        ("audio", ["volume", "audio_effects"]),
+        ("audio", ["markers", "audio_effects"]),
         ("video", ["effects", "audio_effects"]),
     ] {
         let branch = schema["$defs"]["Element"]["oneOf"]

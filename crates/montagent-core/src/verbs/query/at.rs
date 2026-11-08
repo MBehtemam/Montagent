@@ -203,6 +203,14 @@ pub struct Present {
     /// none, and on anything but an `audio` or a `video`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub audio_effects: Option<Vec<Value>>,
+    /// Stereo balance `pan` as written on an `audio` or `video` element (ADR-0184 §6).
+    /// Absent when omitted.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pan: Option<f64>,
+    /// Channel routing `channels` as written on an `audio` or `video` element (ADR-0184 §6).
+    /// Absent when omitted.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub channels: Option<String>,
     /// A staggered `text` element's summary (ADR-0151 §5): `by`, the unit count, and the
     /// stagger window. Absent on every element with no `units` block.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -859,6 +867,20 @@ fn build(document: &Loose, instant: i64, mut session: Option<&mut Session>, deta
             (Detail::Full, Some("audio" | "video")) => describe_audio_effects(element),
             _ => None,
         };
+        let pan = match (detail, kind) {
+            (Detail::Full, Some("audio" | "video")) => element
+                .get("pan")
+                .and_then(Value::as_f64)
+                .filter(|v| v.is_finite()),
+            _ => None,
+        };
+        let channels = match (detail, kind) {
+            (Detail::Full, Some("audio" | "video")) => element
+                .get("channels")
+                .and_then(Value::as_str)
+                .map(str::to_string),
+            _ => None,
+        };
         present.push(Present {
             stagger,
             units,
@@ -884,6 +906,8 @@ fn build(document: &Loose, instant: i64, mut session: Option<&mut Session>, deta
             ink_box_unresolved,
             sound,
             audio_effects,
+            pan,
+            channels,
             transition: match (bridge.moves_or_cuts(), frame) {
                 (true, Some(frame)) => Some(Moved {
                     offset: [bridge.offset.0, bridge.offset.1],

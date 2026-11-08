@@ -47,12 +47,18 @@
 use serde_json::{Value, json};
 
 use crate::finding::Finding;
-use crate::model::Derivation;
+use crate::model::{Derivation, FrameRate};
 use crate::permissive::Loose;
 use crate::report::Report;
 
 /// `R-DERIVED-T`, over every `t_from` in the document.
 pub fn check(document: &Loose, report: &mut Report) {
+    let fps = document
+        .value()
+        .get("fps")
+        .and_then(|v| serde_json::from_value::<FrameRate>(v.clone()).ok())
+        .filter(FrameRate::is_positive);
+
     for (track, element) in document.elements_in_tracks() {
         let subject = crate::checks::subject_of(element.get("id").and_then(Value::as_str));
         // Every animated property, not `crate::checks::MOVES_THE_BOX`: a `t` is a `t`
@@ -62,7 +68,7 @@ pub fn check(document: &Loose, report: &mut Report) {
         // A stagger's unit lists too, the block's and each run override's (ADR-0151 §5):
         // their `element-start` is still the element's own `start`.
         for (name, container, property) in crate::checks::keyframe_lists(element) {
-            for finding in stale(element, container, property) {
+            for finding in stale(element, container, property, fps) {
                 let finding = finding
                     .field("element", json!(subject))
                     .field("property", json!(name))
@@ -79,7 +85,12 @@ pub fn check(document: &Loose, report: &mut Report) {
 
 /// Every declaration on this property's keyframe list whose rule re-derives some other
 /// instant than the one written.
-fn stale(element: &Value, container: &Value, property: &str) -> Vec<Finding> {
+fn stale(
+    element: &Value,
+    container: &Value,
+    property: &str,
+    fps: Option<FrameRate>,
+) -> Vec<Finding> {
     let Some(records) = crate::checks::keyframe_records(container, property) else {
         return Vec::new();
     };
@@ -101,6 +112,27 @@ fn stale(element: &Value, container: &Value, property: &str) -> Vec<Finding> {
                         previous + ms,
                         format!("the previous record's `t` is {previous} and `ms` is {ms}"),
                     )
+                }
+                Derivation::LastDrawnFrame { offset } => {
+                    let fps = fps?;
+                    let end = element.get("end")?.as_i64()?;
+                    let last = crate::exact::frame_before(end, fps)?;
+                    let last_t = crate::exact::instant_of(last.frame, fps);
+                    let offset_ms = offset.unwrap_or(0);
+                    let expected = last_t.checked_add(offset_ms)?;
+                    let explanation = match offset {
+                        None | Some(0) => format!(
+                            "the element's `end` is {end} and at {fps} fps its last drawn frame \
+                             (frame {}) is at {last_t}",
+                            last.frame
+                        ),
+                        Some(offset_ms) => format!(
+                            "the element's `end` is {end}, at {fps} fps its last drawn frame \
+                             (frame {}) is at {last_t}, and `offset` is {offset_ms}",
+                            last.frame
+                        ),
+                    };
+                    (expected, explanation)
                 }
             };
             (derived != declared_t).then(|| {

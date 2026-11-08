@@ -4,6 +4,8 @@ status: accepted
 
 # Refuse-class findings: a `repair` field, decided once per check, uniform across instances, and non-bypassable
 
+> **Amended by [ADR-0250](./0250-ratify-schema-check-two-code-split-retirement-suppression-and-no-census.md)**: ratifies that `E-SCHEMA` and `E-SCHEMA-UNKNOWN-KEY` are `RepairForm::Refuse` findings with `census: None`, because a schema error is completely localized by its `location` and `fields`.
+
 > **Amended by [ADR-0068](0068-the-bare-mask-key-retires-masks-are-effects-members.md)**,
 > which classifies the second retired spelling under this ADR's test: the bare `mask` key is
 > **advise-class**, because it never had accepted semantics in any document, so no prior

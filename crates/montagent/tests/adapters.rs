@@ -1707,6 +1707,135 @@ fn cli_render_reports_while_it_works_and_the_file_moves_with_it() {
     );
 }
 
+#[cfg(unix)]
+#[test]
+fn cli_render_that_stalls_closing_ffmpeg_after_stdin_close_times_out_kills_child_removes_partial_and_fails()
+ {
+    // #534: if `ffmpeg` does not exit within the seal timeout after receiving every frame and
+    // having its stdin closed, `render` kills and reaps the child, removes `.montagent-partial-*`,
+    // marks the progress file `failed`, and exits with `E-INTERNAL`.
+    let Ok(tools) = montagent_core::media::tools::resolve() else {
+        eprintln!("skipping: no ffmpeg/ffprobe on PATH");
+        return;
+    };
+    let dir = scratch_dir("cli-render-seal-timeout");
+    let shims = dir.join("shims");
+    std::fs::create_dir_all(&shims).unwrap();
+    let pid_file = dir.join("stalled-ffmpeg.pid");
+
+    // Pass tool qualification (`-version`, `-encoders`, `-filters`, `-decoders`) through to the
+    // real `ffmpeg`; when invoked as the frame-pipe encoder (`-f rawvideo`), drain stdin until EOF
+    // and then hang.
+    let ffmpeg_shim = shims.join("ffmpeg");
+    std::fs::write(
+        &ffmpeg_shim,
+        format!(
+            "#!/bin/sh\n\
+             case \"$*\" in\n\
+               *rawvideo*)\n\
+                 for last; do :; done\n\
+                 echo 'partial' > \"$last\"\n\
+                 echo $$ > '{}'\n\
+                 cat > /dev/null\n\
+                 exec sleep 5\n\
+                 ;;\n\
+               *)\n\
+                 exec '{}' \"$@\"\n\
+                 ;;\n\
+             esac\n",
+            pid_file.display(),
+            tools.ffmpeg.display(),
+        ),
+    )
+    .unwrap();
+    let ffprobe_shim = shims.join("ffprobe");
+    std::fs::write(
+        &ffprobe_shim,
+        format!("#!/bin/sh\nexec '{}' \"$@\"\n", tools.ffprobe.display()),
+    )
+    .unwrap();
+    use std::os::unix::fs::PermissionsExt;
+    for shim in [&ffmpeg_shim, &ffprobe_shim] {
+        std::fs::set_permissions(shim, std::fs::Permissions::from_mode(0o755)).unwrap();
+    }
+
+    let mut path_env = shims.into_os_string();
+    path_env.push(":");
+    path_env.push(std::env::var_os("PATH").unwrap_or_default());
+
+    let project = small_project(&dir);
+    let progress_file = dir.join("run.progress.json");
+    let out = Command::new(binary())
+        .args([
+            "render",
+            project.to_str().unwrap(),
+            "--progress-file",
+            progress_file.to_str().unwrap(),
+            "--json",
+        ])
+        .env("PATH", path_env)
+        .env("MONTAGENT_SEAL_TIMEOUT_MS", "200")
+        .output()
+        .expect("run montagent render");
+
+    assert_eq!(
+        out.status.code(),
+        Some(70),
+        "expected exit 70 (E-INTERNAL):\n{}{}",
+        String::from_utf8_lossy(&out.stdout),
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).expect("valid JSON output");
+    assert_eq!(json["exit_code"], 70, "{json}");
+    assert_eq!(json["render"], serde_json::Value::Null, "{json}");
+    let findings = json["findings"].as_array().expect("findings array");
+    assert!(
+        findings.iter().any(|f| {
+            f["code"] == "E-INTERNAL"
+                && f["fields"]["reason"]
+                    .as_str()
+                    .is_some_and(|d| d.contains("seal timeout") && d.contains("closing stdin"))
+        }),
+        "expected E-INTERNAL naming seal timeout after closing stdin: {findings:?}"
+    );
+
+    // Progress file is marked failed.
+    let progress = read_json(&progress_file);
+    assert_eq!(progress["state"], "failed", "{progress}");
+
+    // Deliverable was not published and `.montagent-partial-*` was removed.
+    let out_dir = dir.join("out");
+    assert!(!out_dir.join("small.mp4").exists());
+    let leftovers: Vec<String> = std::fs::read_dir(&out_dir)
+        .into_iter()
+        .flatten()
+        .filter_map(|e| e.ok())
+        .map(|e| e.file_name().to_string_lossy().into_owned())
+        .filter(|name| name.contains(".montagent-partial-"))
+        .collect();
+    assert!(
+        leftovers.is_empty(),
+        "partial files must be cleaned up: {leftovers:?}"
+    );
+
+    // The stalled child process was killed and reaped.
+    let pid: i32 = std::fs::read_to_string(&pid_file)
+        .expect("shim wrote pid")
+        .trim()
+        .parse()
+        .expect("numeric pid");
+    let kill_zero = Command::new("kill")
+        .args(["-0", &pid.to_string()])
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status()
+        .expect("run kill -0");
+    assert!(
+        !kill_zero.success(),
+        "stalled ffmpeg child (pid {pid}) should have been killed"
+    );
+}
+
 #[test]
 fn cli_render_on_a_project_with_an_error_is_exit_1_and_writes_nothing() {
     let dir = scratch_dir("cli-render-refused");

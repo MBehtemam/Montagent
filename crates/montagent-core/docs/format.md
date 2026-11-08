@@ -39,9 +39,10 @@ served beside this one and each fitting one read. Read a page before you write w
 - **`montagent://format/transitions.md`**: a `transition` element. Its `kind`, `direction` and
   `ease`, the window it must equal, and the sound it carries across that window (`audio`,
   `audio_crossfade`).
-- **`montagent://format/audio-effects.md`**: `audio_effects` on an `audio` or `video`. The
-  ordered list, bypass, the EQ members (`highpass`, `lowpass`, `shelf`, `bell`)
-  and `normalize_loudness`.
+- **`montagent://format/audio-effects.md`**: `audio_effects`, `channels` and `pan` on an
+  `audio` or `video`. The ordered list, bypass, the EQ members (`highpass`, `lowpass`, `shelf`,
+  `bell`), `normalize_loudness`, `reduce_noise`, `echo`, and flat routing/balance (`channels`,
+  `pan`).
 - **`montagent://format/paths.md`**: a `path` element and stroke shapes. Vertices and
   handles, `closed` and `fill`, `stroke_join` and `stroke_cap`, the inset that keeps the
   stroke in the box, a morph between unlike shapes and its seam, and the `stroke_dash` pattern and offset on a `path`, `rect` or
@@ -59,6 +60,8 @@ served beside this one and each fitting one read. Read a page before you write w
 tools, deliberately: a tool that took an element id and a field name would cost you the
 `diff` that proves your edit changed that element **and nothing else**. Montagent's tools
 exist for the things a text editor cannot do — checking, measuring, querying, rendering.
+`montagent fmt` and `montagent probe` are CLI subcommands, while `fonts_list`, `fonts_vendor` and `fonts_acquire`
+are available on both MCP and the CLI.
 
 That model has one prerequisite, and it is the reason for the writing convention below:
 **your next exact-string replace must match exactly one element.**
@@ -92,13 +95,16 @@ formatting: it never adds or removes a field that has a default (ADR-0030), and 
 rewrites a value — including choosing between `cover` and `contain` (ADR-0026) where an aspect ratio makes both
 exactly true.
 
-### Presence is content (ADR-0030)
+### Presence is content (ADR-0030, ADR-0247)
 
 Omitting a defaultable field and writing it explicitly at its default value are **two
 different declarations**. Omission says *"give me whatever the default is"*; an explicit
 `"opacity": 1` says *"I have pinned this to 1"*. They diverge the moment the default is
 revisited. Nothing in Montagent will convert one into the other, `create_project` included:
 the scaffold writes `background`, `duration` and `output` exactly when you asked for them.
+Writing an optional field as an explicit JSON `null` (`"group": null`, `"caption": null`,
+`"duration": null`) is refused everywhere in the document with `E-SCHEMA` instructing you to
+omit the key instead (ADR-0247).
 
 ## Time
 
@@ -253,15 +259,19 @@ the scaffold writes `background`, `duration` and `output` exactly when you asked
 - **`ease` is required on every keyframe record except the first, and forbidden on the
   first** (ADR-0038). Easing describes the interpolation *arriving at* a keyframe, and nothing arrives
   at the first one. Presence is a pure function of position.
-- **`t_from` records where a keyframe's `t` came from, and no renderer reads it** (ADR-0086).
+- **`t_from` records where a keyframe's `t` came from, and no renderer reads it** (ADR-0086, ADR-0248).
   It is optional, it sits immediately after the `t` it annotates, and it is the one field
   whose only consumer is `validate`: the literal `t` beside it stays the sole author of what
-  renders. Two rules, and the set is closed —
-  `{"rule": "element-start"}`, which takes no argument, and
+  renders. Three rules, and the set is closed —
+  `{"rule": "element-start"}`, which takes no argument,
   `{"rule": "after-previous", "ms": <non-negative integer>}`, which means *the previous
-  record's `t` plus `ms`*. `after-previous` on the **first** record of a list is a schema
-  error, because nothing comes before it. Writing a rule the schema does not publish, an `ms`
-  on `element-start`, no `ms` on `after-previous`, or a negative one, are schema errors too.
+  record's `t` plus `ms`*, and
+  `{"rule": "last-drawn-frame"}` (with optional `"offset": <integer>` in milliseconds,
+  default `0`), which means *the last sampled timeline frame instant strictly before the
+  element's `end` at the project's `fps`, plus `offset`* (ADR-0248). `after-previous` on the
+  **first** record of a list is a schema error, because nothing comes before it. Writing a rule
+  the schema does not publish, an `ms` on `element-start` or `last-drawn-frame`, no `ms` on
+  `after-previous`, or a negative one, are schema errors too.
   If the arithmetic stops holding, `validate` says so as `R-DERIVED-T` — an `error` stating
   the integer the rule now derives. **Omitting `t_from` is not a claim that a value is
   independent**; it is no claim at all, and nothing infers one for you.
@@ -313,7 +323,9 @@ Two consequences worth holding onto:
   path and an atomic rename, always at the declared frame size, and after it succeeds the
   `review` findings it did not refuse on print beneath the result together with the `NOT
   CHECKED` footer — exit 0 never means the video is right. `render --from --to` writes one
-  half-open range to `out/<name>.<from>-<to>.mp4` and can never land on the deliverable.
+  half-open range to `out/<name>.<from>-<to>.mp4` and can never land on the deliverable; pass
+  `--profile` (`profile: true` on MCP) on a representative slice (`montagent render --from <t> --to <t> --profile`)
+  as the pre-flight check to measure s/frame and attribute CPU time per element and stage before a long render.
 - **Every write tool returns the new state's findings, never `ok`** (ADR-0011). You do not run
   `validate` after a write — the write hands you `validate`'s answer.
 

@@ -11,6 +11,9 @@ amends: 0096 (its at-or-before rule now governs a *run* of frames as well as a s
 > the element's own origin (`decode::frames_at`), so its offsets stay the render's at every
 > `speed`. `tests/feeds.rs`, a byte comparison of feed and `frame_at` rasters with spawn
 > counts, joins `seek_clamp.rs` as this ADR's evidence.
+>
+> **Amended by [ADR-0251](0251-source-video-frame-selection-uses-exact-rational-frame-time.md).**
+> `frames_at` and `offset_us` invert the microsecond source offset of timeline frame `n`'s exact rational time `n × 1000 / fps` ms on tick base `1_000_000 × fps` rather than its floored integer millisecond.
 
 [#414](https://github.com/MBehtemam/Montagent/issues/414). ADR-0096 measured that `ffmpeg`'s
 input seek returns the first frame at or *after* an instant, and it fixed `frame_at`, the

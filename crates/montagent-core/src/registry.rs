@@ -642,7 +642,7 @@ unanswered: the tie check measures rectangles, and a rotated footprint is not on
     // ADR-0016 settles the unknown key's message and its repair and settles neither for a
     // value that does not fit its type, and the two are acted on differently — one asks
     // whether the *binary* is stale, the other asks the author for a value. The split, and
-    // the classes below, are surface the ADR series has not ratified — raised as #253.
+    // the classes below, are ratified in ADR-0250.
     //
     // **Neither carries a sibling census, and ADR-0043 says a refuse-class finding does.**
     // `E-ANCHOR-CHAIN` is already refuse-class without one, so the practice
@@ -652,7 +652,7 @@ unanswered: the tie check measures rectangles, and a rotated footprint is not on
     // print it as "elements carrying this key" — and ADR-0006's whole posture is that a
     // stated number is a measured one. A second, independent scan for the key would be
     // exact at the top level of an element and blind inside a `run`, which is the
-    // multiplicity ADR-0017 names as the one that matters. Recorded here and in #253 rather
+    // multiplicity ADR-0017 names as the one that matters. Ratified in ADR-0250 rather
     // than discharged with a number that is right about some documents.
     CheckSpec {
         code: "E-SCHEMA-UNKNOWN-KEY",
@@ -1740,11 +1740,10 @@ minimum caption duration",
         // the document declares, which is what `review` is: legal, renders, and you must
         // look at a frame.
         //
-        // `note` is declared beside it because ADR-0006's third derived fact — the twelve
-        // instants where a picture cut and a speech boundary land up to 18 ms apart — is
-        // one, and is the alignment detail the same ADR puts "behind `--verbose`". Nothing
-        // emits it yet; ADR-0035 gave the grid arithmetic to `measure` (#205), and where
-        // that fact belongs is #257.
+        // ADR-0249 retires ADR-0006's third derived fact — the twelve instants where a
+        // picture cut and a speech boundary land up to 18 ms apart, which ADR-0006 put
+        // "behind `--verbose`" as a `note` — in favour of `measure --at` (ADR-0035), and
+        // removes the unused `Note` class from `N-QUANTIZATION`.
         //
         // ADR-0105 (#412) adds a third `review` condition on the same reason: a *visual
         // state* the grid never paints — two boundaries on different elements landing on one
@@ -1758,7 +1757,7 @@ minimum caption duration",
         // elements `entering` and `leaving`, by element and track) beside the template's
         // three fields; `changed` is always 2, the state's own boundaries. ADR-0118 ratifies
         // the fields, and that the state finding fires even where (1) or (2) already did.
-        classes: &[Review, Note],
+        classes: &[Review],
         repair: None,
         threshold: Internal,
         adr: "ADR-0006",
@@ -4090,6 +4089,136 @@ remove the marker, or extend `duration`.",
         template: "{element}: `frame_blend` is `{value}`, which is not a published frame blend \
 mode (ADR-0232). `video` admits `\"none\"` (nearest-prior-frame hold) or `\"mix\"` (linear \
 cross-dissolve between adjacent source frames).",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    // ---- Noise reduction (`reduce_noise`, ADR-0181, #1153). --------------------------------
+    CheckSpec {
+        code: "E-NOISE-RANGE",
+        classes: &[Error],
+        repair: Some(Advise),
+        threshold: Internal,
+        adr: "ADR-0181",
+        template: "`{element}`.audio_effects[{index}] (`reduce_noise`).reduction_db: \
+{reduction_db} is outside {min}..{max}. The nearest value in range is {nearest}.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        code: "R-NOISE-AFTER-COMPRESSOR",
+        classes: &[Review],
+        repair: None,
+        threshold: Internal,
+        adr: "ADR-0181",
+        template: "`{element}`.audio_effects[{index}]: `reduce_noise` after the `compressor` at \
+index {compressor} runs on a noise floor the compressor has already lifted and made time-varying, \
+shifting `anlmdn`'s threshold. Put `reduce_noise` before `compressor`, unless this is meant.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    // ---- Pan and channel routing (`pan`, `channels`, ADR-0184, #1154). ---------------------
+    CheckSpec {
+        code: "E-PAN-RANGE",
+        classes: &[Error],
+        repair: Some(Advise),
+        threshold: Internal,
+        adr: "ADR-0184",
+        template: "`{element}`.pan: {pan} is outside {min}..{max}. The nearest value in range is \
+{nearest}.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        code: "R-PAN-INERT",
+        classes: &[Review],
+        // A review, never an error (`only_error_class_checks_declare_a_refuse_class`, ADR-0043);
+        // the advise repair ("Delete `pan` unless pinning to centre is meant.") is carried in the
+        // template prose, matching `R-EASE-INERT` and `R-MOTION-BLUR-STILL`.
+        repair: None,
+        threshold: Internal,
+        adr: "ADR-0184",
+        template: "`{element}`.pan: 0 is the default centre balance and emits no filter. Delete \
+`pan` unless pinning to centre is meant.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        code: "R-CHANNELS-INERT",
+        classes: &[Review],
+        // A review, never an error (`only_error_class_checks_declare_a_refuse_class`, ADR-0043);
+        // the advise repair ("Delete `channels` unless pinning to stereo is meant.") is carried in
+        // the template prose, matching `R-EASE-INERT` and `R-MOTION-BLUR-STILL`.
+        repair: None,
+        threshold: Internal,
+        adr: "ADR-0184",
+        template: "`{element}`.channels: \"stereo\" is the default routing and emits no filter. \
+Delete `channels` unless pinning to stereo is meant.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        code: "R-CHANNELS-ON-MONO-SOURCE",
+        classes: &[Review],
+        repair: None,
+        threshold: Internal,
+        adr: "ADR-0184",
+        template: "`{element}`.channels: \"{channels}\" on 1-channel source {source} is a no-op \
+because the source upmixes to identical L and R on the stereo bus before `[channels]` runs.",
+        status: Live,
+        census: None,
+        sets: &[Disk],
+    },
+    // ---- Echo (`echo`, ADR-0185, #1155). ---------------------------------------------------
+    CheckSpec {
+        code: "E-ECHO-RANGE",
+        classes: &[Error],
+        repair: Some(Advise),
+        threshold: Internal,
+        adr: "ADR-0185",
+        template: "`{element}`.audio_effects[{index}] (`echo`).{key}: {value} is outside \
+{min}..{max}. The nearest value in range is {nearest}.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        code: "R-ECHO-HOT",
+        classes: &[Review],
+        repair: None,
+        threshold: Internal,
+        adr: "ADR-0185",
+        template: "`{element}`: enabled `echo` members have a combined worst-case peak gain of \
+{gain}x (above 3.0x, +9.54 dB). Lower `mix` or `feedback`, or follow with a `limiter`.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        code: "N-ECHO-NO-OP",
+        classes: &[Note],
+        repair: None,
+        threshold: Internal,
+        adr: "ADR-0185",
+        template: "`{element}`.audio_effects[{index}] (`echo`).mix: {mix} is below 0.001 (-60 dB), \
+so no tap survives the cutoff and the renderer emits no filter.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        code: "N-ECHO-TAPS-CAPPED",
+        classes: &[Note],
+        repair: None,
+        threshold: Internal,
+        adr: "ADR-0185",
+        template: "`{element}`.audio_effects[{index}] (`echo`): the 8th tap has gain \
+{eighth_tap_gain} (above 0.01, -40 dB), so audible later taps are dropped at the 8-tap cap.",
         status: Live,
         census: None,
         sets: &[Document],

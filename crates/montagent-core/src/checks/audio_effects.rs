@@ -19,12 +19,16 @@ use std::sync::OnceLock;
 use serde_json::{Value, json};
 
 use crate::finding::Finding;
+use crate::media::Source;
+use crate::media::probe::Outcome;
+use crate::media::session::Session;
 use crate::permissive::Loose;
 use crate::report::Report;
 
 /// The audio members that ADR-0169 lets appear once among the enabled ones: loudness
-/// normalisation (ADR-0178 §1), whose one gain a second copy could only contradict.
-pub const SINGULAR: &[&str] = &["normalize_loudness"];
+/// normalisation (ADR-0178 §1), whose one gain a second copy could only contradict, and
+/// `reduce_noise` (ADR-0181 §1), whose calibrated strength does not compose across two passes.
+pub const SINGULAR: &[&str] = &["normalize_loudness", "reduce_noise"];
 
 /// What counts as an audio member, a visual one, and a singular one.
 pub(crate) struct Vocabulary {
@@ -131,6 +135,233 @@ pub fn check(document: &Loose, report: &mut Report) {
     for finding in findings(document, Vocabulary::published()) {
         report.push(finding);
     }
+    for finding in member_and_routing_findings(document) {
+        report.push(finding);
+    }
+}
+
+/// Disk-backed check for `channels` on a probed 1-channel source (`R-CHANNELS-ON-MONO-SOURCE`,
+/// ADR-0184 §5).
+pub fn check_disk(
+    document: &Loose,
+    session: &mut Session,
+    report: &mut Report,
+) -> Result<(), Box<crate::media::tools::Missing>> {
+    let base = crate::checks::project_dir(document);
+    for (track, element) in document.elements_in_tracks() {
+        if !has_sound(element) {
+            continue;
+        }
+        let Some(channels) = element
+            .get("channels")
+            .and_then(Value::as_str)
+            .filter(|c| matches!(*c, "swap" | "mono" | "left" | "right"))
+        else {
+            continue;
+        };
+        let Some(source) = element.get("source").and_then(Value::as_str) else {
+            continue;
+        };
+        let Outcome::Probed(probe) = session.probe(&Source::resolve(source, &base))? else {
+            continue;
+        };
+        if probe.audio.as_ref().and_then(|a| a.channels) == Some(1) {
+            let subject = crate::checks::subject_of(element.get("id").and_then(Value::as_str));
+            let finding = Finding::new("R-CHANNELS-ON-MONO-SOURCE")
+                .at_file(document.path())
+                .at_element(&subject)
+                .field("element", json!(subject))
+                .field("channels", json!(channels))
+                .field("source", json!(source));
+            report.push(match track {
+                Some(track) => finding.at_track(track),
+                None => finding,
+            });
+        }
+    }
+    Ok(())
+}
+
+fn trim_num(value: f64) -> String {
+    let text = format!("{value:.6}");
+    text.trim_end_matches('0').trim_end_matches('.').to_string()
+}
+
+/// Document checks for `pan` and `channels` (ADR-0184), `reduce_noise` (ADR-0181), and `echo`
+/// (ADR-0185).
+fn member_and_routing_findings(document: &Loose) -> Vec<Finding> {
+    let mut out = Vec::new();
+    for (track, element) in document.elements_in_tracks() {
+        if !has_sound(element) {
+            continue;
+        }
+        let subject = crate::checks::subject_of(element.get("id").and_then(Value::as_str));
+        let locate = |finding: Finding| {
+            let finding = finding.at_file(document.path()).at_element(&subject);
+            match track {
+                Some(track) => finding.at_track(track),
+                None => finding,
+            }
+        };
+
+        // ADR-0184 §5: `pan` range (-1..=1) and inert default (`pan: 0`).
+        if let Some(pan) = element
+            .get("pan")
+            .and_then(Value::as_f64)
+            .filter(|v| v.is_finite())
+        {
+            if !(-1.0..=1.0).contains(&pan) {
+                let clamped = pan.clamp(-1.0, 1.0);
+                out.push(locate(
+                    Finding::new("E-PAN-RANGE")
+                        .field("element", json!(subject))
+                        .field("pan", json!(trim_num(pan)))
+                        .field("min", json!(-1))
+                        .field("max", json!(1))
+                        .field("nearest", json!(clamped))
+                        .repair_value(json!({"key": "pan", "value": clamped})),
+                ));
+            } else if pan == 0.0 {
+                out.push(locate(
+                    Finding::new("R-PAN-INERT").field("element", json!(subject)),
+                ));
+            }
+        }
+
+        // ADR-0184 §5: `channels: "stereo"` inert default.
+        if element.get("channels").and_then(Value::as_str) == Some("stereo") {
+            out.push(locate(
+                Finding::new("R-CHANNELS-INERT").field("element", json!(subject)),
+            ));
+        }
+
+        let mut first_enabled_compressor: Option<usize> = None;
+        let mut echo_peak_product = 1.0_f64;
+        let mut has_enabled_echo = false;
+
+        for (index, member) in members(element, "audio_effects").iter().enumerate() {
+            let Some(name) = name_of(member) else {
+                continue;
+            };
+            let is_enabled = enabled(member);
+            match name {
+                "compressor" if is_enabled => {
+                    first_enabled_compressor.get_or_insert(index);
+                }
+                "reduce_noise" => {
+                    if let Some(reduction_db) = member
+                        .get("reduction_db")
+                        .and_then(Value::as_f64)
+                        .filter(|v| v.is_finite())
+                        && !(5.0..=20.0).contains(&reduction_db)
+                    {
+                        let clamped = reduction_db.clamp(5.0, 20.0);
+                        out.push(locate(
+                            Finding::new("E-NOISE-RANGE")
+                                .field("element", json!(subject))
+                                .field("index", json!(index))
+                                .field(
+                                    "reduction_db",
+                                    json!(format!("{} dB", trim_num(reduction_db))),
+                                )
+                                .field("min", json!("5 dB"))
+                                .field("max", json!("20 dB"))
+                                .field("nearest", json!(format!("{} dB", trim_num(clamped))))
+                                .repair_value(json!({"key": "reduction_db", "value": clamped})),
+                        ));
+                    }
+                    if is_enabled && let Some(comp_idx) = first_enabled_compressor {
+                        out.push(locate(
+                            Finding::new("R-NOISE-AFTER-COMPRESSOR")
+                                .field("element", json!(subject))
+                                .field("index", json!(index))
+                                .field("compressor", json!(comp_idx)),
+                        ));
+                    }
+                }
+                "echo" => {
+                    let mut in_range = true;
+                    for (key, min, max, unit) in [
+                        ("delay_ms", 1.0, 2000.0, " ms"),
+                        ("feedback", 0.0, 0.95, ""),
+                        ("mix", 0.0, 1.0, ""),
+                    ] {
+                        let Some(val) = member
+                            .get(key)
+                            .and_then(Value::as_f64)
+                            .filter(|v| v.is_finite())
+                        else {
+                            in_range = false;
+                            continue;
+                        };
+                        if !(min..=max).contains(&val) {
+                            in_range = false;
+                            let clamped = val.clamp(min, max);
+                            out.push(locate(
+                                Finding::new("E-ECHO-RANGE")
+                                    .field("element", json!(subject))
+                                    .field("index", json!(index))
+                                    .field("key", json!(key))
+                                    .field("value", json!(format!("{}{unit}", trim_num(val))))
+                                    .field("min", json!(format!("{}{unit}", trim_num(min))))
+                                    .field("max", json!(format!("{}{unit}", trim_num(max))))
+                                    .field("nearest", json!(format!("{}{unit}", trim_num(clamped))))
+                                    .repair_value(json!({"key": key, "value": clamped})),
+                            ));
+                        }
+                    }
+                    if is_enabled
+                        && in_range
+                        && let (Some(feedback), Some(mix)) = (
+                            member.get("feedback").and_then(Value::as_f64),
+                            member.get("mix").and_then(Value::as_f64),
+                        )
+                    {
+                        if mix < 0.001 {
+                            out.push(locate(
+                                Finding::new("N-ECHO-NO-OP")
+                                    .field("element", json!(subject))
+                                    .field("index", json!(index))
+                                    .field("mix", json!(trim_num(mix))),
+                            ));
+                        } else {
+                            let mut tap_sum = 0.0_f64;
+                            for k in 1..=8_i32 {
+                                let g = mix * feedback.powi(k - 1);
+                                if g < 0.001 {
+                                    break;
+                                }
+                                tap_sum += g;
+                            }
+                            echo_peak_product *= 1.0 + tap_sum;
+                            has_enabled_echo = true;
+
+                            let eighth = mix * feedback.powi(7);
+                            if eighth > 0.01 {
+                                out.push(locate(
+                                    Finding::new("N-ECHO-TAPS-CAPPED")
+                                        .field("element", json!(subject))
+                                        .field("index", json!(index))
+                                        .field("eighth_tap_gain", json!(trim_num(eighth))),
+                                ));
+                            }
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        if has_enabled_echo && echo_peak_product > 3.0 {
+            let rounded = (echo_peak_product * 100.0).round() / 100.0;
+            out.push(locate(
+                Finding::new("R-ECHO-HOT")
+                    .field("element", json!(subject))
+                    .field("gain", json!(trim_num(rounded))),
+            ));
+        }
+    }
+    out
 }
 
 pub(crate) fn findings(document: &Loose, vocab: &Vocabulary) -> Vec<Finding> {
@@ -245,11 +476,13 @@ mod tests {
             "compressor",
             "limiter",
             "normalize_loudness",
+            "reduce_noise",
+            "echo",
         ] {
             assert!(published.audio.iter().any(|a| a == name), "{name}");
         }
         assert!(published.visual.iter().any(|name| name == "blur"));
-        assert_eq!(published.singular, ["normalize_loudness"]);
+        assert_eq!(published.singular, ["normalize_loudness", "reduce_noise"]);
     }
 
     #[test]
